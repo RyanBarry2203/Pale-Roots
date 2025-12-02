@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 namespace Pale_Roots_1
 {
     // This is the main type for your game.
+    // all nice and clean and ready to go
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
