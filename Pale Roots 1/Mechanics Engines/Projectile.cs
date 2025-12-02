@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Audio;
 
 
-namespace AnimatedSprite
+namespace Pale_Roots_1
 {
     class Projectile : RotatingSprite
     {

@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework.Input.Touch;
 using Microsoft.Devices.Sensors;
 #endif
 
-namespace GP01Week11_Lab2_2025
+namespace Pale_Roots_1
 {
     public class InputEngine : GameComponent
     {

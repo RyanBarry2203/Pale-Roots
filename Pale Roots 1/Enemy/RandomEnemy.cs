@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace Sprites
+namespace Pale_Roots_1
 {
     public class RandomEnemy : Enemy
     {

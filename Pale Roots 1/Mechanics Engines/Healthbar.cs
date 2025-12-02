@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Sprites
+namespace Pale_Roots_1
 {
     public class Healthbar
     {

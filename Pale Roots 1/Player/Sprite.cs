@@ -7,9 +7,9 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 
-namespace AnimatedSprite
+namespace Pale_Roots_1
 {
-    class Sprite
+    public class Sprite
     {
         //sprite texture and position
         protected Texture2D spriteImage;

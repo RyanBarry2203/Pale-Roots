@@ -1,4 +1,4 @@
-﻿using GP01Week11_Lab2_2025;
+﻿//using GP01Week11_Lab2_2025;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 //using Game1;
 
-namespace GP01Week11_Lab2_2025
+namespace Pale_Roots_1
 {
 
     public class TiledPlayer : TiledSprite

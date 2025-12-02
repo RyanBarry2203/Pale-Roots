@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace GP01Week11_Lab2_2025
+namespace Pale_Roots_1
 {
     class Camera
     {

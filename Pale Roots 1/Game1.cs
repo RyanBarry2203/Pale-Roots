@@ -1,27 +1,31 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+//using Engines; // Using your engine namespace
+//using GP01Week11_Lab2_2025; // Using your InputEngine namespace
 
 namespace Pale_Roots_1
 {
-    // This is the main type for your game.
-    // all nice and clean and ready to go
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
+
+        // The Engine that manages the game logic
+        private ChaseAndFireEngine _gameEngine;
 
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
+
+            // Initialize InputEngine immediately so it's ready
+            new InputEngine(this);
         }
 
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
-
             base.Initialize();
         }
 
@@ -29,7 +33,8 @@ namespace Pale_Roots_1
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // TODO: use this.Content to load your game content here
+            // Initialize the Logic Engine
+            _gameEngine = new ChaseAndFireEngine(this);
         }
 
         protected override void Update(GameTime gameTime)
@@ -37,7 +42,8 @@ namespace Pale_Roots_1
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // TODO: Add your update logic here
+            // Pass the update call to your engine
+            _gameEngine.Update(gameTime);
 
             base.Update(gameTime);
         }
@@ -46,7 +52,13 @@ namespace Pale_Roots_1
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            // TODO: Add your drawing code here
+            // Start drawing
+            _spriteBatch.Begin();
+
+            // Let the engine draw everything
+            _gameEngine.Draw(gameTime);
+
+            _spriteBatch.End();
 
             base.Draw(gameTime);
         }

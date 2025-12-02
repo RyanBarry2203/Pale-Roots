@@ -6,10 +6,10 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
-
-namespace AnimatedSprite
+namespace Pale_Roots_1 // You should eventually rename this namespace to 'PaleRoots'
 {
-    class Enemy : Sprite
+    // CHANGE: Inherits from RotatingSprite instead of Sprite
+    public class Enemy : RotatingSprite
     {
         public enum ENEMYSTATE { ALIVE, DYING, DEAD };
         private ENEMYSTATE enemyState;
@@ -20,6 +20,7 @@ namespace AnimatedSprite
             set { enemyState = value; }
         }
         protected Game myGame;
+        // Velocity is now inherited from RotatingSprite/Sprite base if present, or defined here
         protected float Velocity = 4.0f;
         protected Vector2 startPosition;
         protected Vector2 TargetPosition;
@@ -27,15 +28,13 @@ namespace AnimatedSprite
         public bool alive;
         public int countDown = 100;
 
-        public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount) : base(g,texture,userPosition,framecount)
+        public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
+            : base(g, texture, userPosition, framecount)
         {
-            // Need to see the Game to access Viewport
             enemyState = ENEMYSTATE.ALIVE;
-            myGame = g; 
+            myGame = g;
             startPosition = userPosition;
         }
-
-       
 
         public override void Update(GameTime gametime)
         {
@@ -44,16 +43,15 @@ namespace AnimatedSprite
                 case ENEMYSTATE.ALIVE:
                     break;
                 case ENEMYSTATE.DYING:
-                    countDown --;
-                    if(countDown < 0)
+                    countDown--;
+                    if (countDown < 0)
                         enemyState = ENEMYSTATE.DEAD;
                     break;
                 case ENEMYSTATE.DEAD:
                     countDown = 100;
-                    Visible=false;
+                    Visible = false;
                     break;
             }
-                
             base.Update(gametime);
         }
 
@@ -61,6 +59,5 @@ namespace AnimatedSprite
         {
             enemyState = ENEMYSTATE.DYING;
         }
-        
     }
 }

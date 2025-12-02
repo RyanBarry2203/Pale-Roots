@@ -1,4 +1,4 @@
-﻿using GP01Week11Lab12025;
+﻿//using GP01Week11Lab12025;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Tiler
+namespace Pale_Roots_1
 {
      
     public class Collider
@@ -17,7 +17,7 @@ namespace Tiler
         public Texture2D texture;
         public bool Visible = false;
         // Add TileType property for easier exit identification
-        public TileType CollisionType;
+        //public TileType CollisionType;
 
         public Vector2 WorldPosition
         {
@@ -37,14 +37,14 @@ namespace Tiler
 
         }
 
-        public Collider(Texture2D tx, int tlx, int tly, TileType type 
+        public Collider(Texture2D tx, int tlx, int tly //TileType type 
             )
             // Add TileType parameter for easier exit identification
         {
             texture = tx;
             tileX = tlx;
             tileY = tly;
-            CollisionType = type;
+            //CollisionType = type;
         }
 
         public void Draw(SpriteBatch sp)

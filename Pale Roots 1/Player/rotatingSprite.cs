@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using AnimatedSprite;
+//using AnimatedSprite;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
-namespace AnimatedSprite
+namespace Pale_Roots_1
 {
-    class RotatingSprite : Sprite
+    public class RotatingSprite : Sprite
     {
         public float rotationSpeed;
 

@@ -5,9 +5,10 @@ using System.Text;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+//using Pale_Roots_1;
 
 
-namespace Sprites
+namespace Pale_Roots_1
 {
     class PlatformEnemy : Enemy
     {

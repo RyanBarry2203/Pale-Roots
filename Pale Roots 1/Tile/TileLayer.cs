@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GP01Week11_Lab2_2025
+namespace Pale_Roots_1
 {
     public class TileLayer
     {

@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
 
-namespace AnimatedSprite
+namespace Pale_Roots_1
 {
     class CircularChasingEnemy: Enemy
     {
