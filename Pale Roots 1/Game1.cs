@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    //
+    // This is the main type for your game.
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
