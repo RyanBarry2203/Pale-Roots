@@ -1,9 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-//using Engines; // Using your engine namespace
-//using GP01Week11_Lab2_2025; // Using your InputEngine namespace
-//using Tile;
 
 namespace Pale_Roots_1
 {
@@ -11,11 +8,10 @@ namespace Pale_Roots_1
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private Texture2D TileMap;
-        public TileLayer layer;
-        Rectangle sourceRect;
 
-        // The Engine that manages the game logic
+        // Remove 'TileMap' and 'layer' variables from here. 
+        // The Engine and LevelManager own them now.
+
         private ChaseAndFireEngine _gameEngine;
 
         public Game1()
@@ -23,9 +19,7 @@ namespace Pale_Roots_1
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-
-            // Initialize InputEngine immediately so it's ready
-            new InputEngine(this);  
+            new InputEngine(this);
         }
 
         protected override void Initialize()
@@ -36,10 +30,7 @@ namespace Pale_Roots_1
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            TileMap = Content.Load<Texture2D>("tank tiles 64 x 64");
-
-            // Initialize the Logic Engine
+            // Initialize the Engine. It will load the LevelManager and the Map.
             _gameEngine = new ChaseAndFireEngine(this);
         }
 
@@ -48,8 +39,8 @@ namespace Pale_Roots_1
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // Pass the update call to your engine
-            _gameEngine.Update(gameTime, layer);
+            // Just call Update. The Engine knows about the map internally.
+            _gameEngine.Update(gameTime);
 
             base.Update(gameTime);
         }
@@ -58,19 +49,12 @@ namespace Pale_Roots_1
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            // Start drawing
             _spriteBatch.Begin();
 
-            // Let the engine draw everything
+            // The Engine draws the LevelManager (Map) and the Player
             _gameEngine.Draw(gameTime);
 
-            foreach (var tile in layer.Tiles)
-            {
-                if (tile != null)
-                {
-                    _spriteBatch.Draw(TileMap, tile.tileRef, tile.sourceRect, Color.White);
-                }
-            }
+            // REMOVED: The foreach loop that was crashing because 'layer' was null.
 
             _spriteBatch.End();
 
