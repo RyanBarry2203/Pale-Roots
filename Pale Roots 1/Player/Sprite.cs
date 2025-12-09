@@ -116,15 +116,15 @@ namespace Pale_Roots_1
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {
-            if (visible)
-            {
-                //spriteBatch.Begin();
-                spriteBatch.Draw(spriteImage,
-                    position, sourceRectangle,
-                    Color.White, angleOfRotation, origin,
-                    1.0f, SpriteEffects.None, spriteDepth);
-                //spriteBatch.End();
-            }
+            //if (visible)
+            //{
+            //    //spriteBatch.Begin();
+            //    spriteBatch.Draw(spriteImage,
+            //        position, sourceRectangle,
+            //        Color.White, angleOfRotation, origin,
+            //        1.0f, SpriteEffects.None, spriteDepth);
+            //    //spriteBatch.End();
+            //}
         }       
 
     }

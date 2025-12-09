@@ -1,20 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Microsoft.Xna.Framework.Media;
-//using AnimatedSprite;
-//using Utilities;
+// using Pale_Roots_1.Managers; // Uncomment if you put LevelManager in a subfolder
 
 namespace Pale_Roots_1
 {
     class ChaseAndFireEngine
     {
+        // 1. REPLACE TileLayer WITH LevelManager
+        public LevelManager _levelManager;
+
         PlayerWithWeapon p;
         SpriteBatch spriteBatch;
         private CircularChasingEnemy[] chasers;
@@ -23,91 +18,81 @@ namespace Pale_Roots_1
         Projectile Arrow;
 
         public ChaseAndFireEngine(Game game)
-            {
-                // Chase engine remembers reference to the game
-                _gameOwnedBy = game;
-                game.IsMouseVisible = true;
-                SoundEffect[] _PlayerSounds = new SoundEffect[5];
-                spriteBatch = new SpriteBatch(game.GraphicsDevice);
-
-            CrossBow = new RotatingSprite(game,
-                game.Content.Load<Texture2D>("CrossBow"), 
-                new Vector2(100, 100), 1);
-            CrossBow.rotationSpeed = 0.01f;
-            Arrow = new Projectile(game, 
-                game.Content.Load<Texture2D>("Arrow"),
-                new Sprite(game, 
-                game.Content.Load<Texture2D>("explosion_strip8"),CrossBow.position, 8),
-                CrossBow.position, 4);
-
-            p = new PlayerWithWeapon(game, game.Content.Load<Texture2D>("wizard_strip3"), new Vector2(400, 400), 3);
-            //fireball = new Projectile(game, game.Content.Load<Texture2D>(@"Textures/fireball_strip4"),
-            //                            new Sprite(game, game.Content.Load<Texture2D>(@"Textures/explosion_strip8"),p.position,8)
-            //                            ,p.position, 4);
-
-            p.loadProjectile(new Projectile(game, game.Content.Load<Texture2D>("fireball_strip4"),
-                                        new Sprite(game, game.Content.Load<Texture2D>("explosion_strip8"), p.position, 8)
-                                        , p.position, 4));
-
-            chasers = new CircularChasingEnemy[Utility.NextRandom(2,5)];
-
-            for (int i = 0; i < chasers.Count(); i++)
-                {
-                    chasers[i] = new CircularChasingEnemy(game,
-                            game.Content.Load<Texture2D>("Dragon_strip3"), 
-                                Vector2.Zero,
-                             3);
-                    chasers[i].myVelocity = (float)Utility.NextRandom(2, 5);
-                    chasers[i].position = new Vector2(Utility.NextRandom(game.GraphicsDevice.Viewport.Width - chasers[i].spriteWidth),
-                            Utility.NextRandom(game.GraphicsDevice.Viewport.Height - chasers[i].spriteHeight));
-                }
-                
-            }
-
-
-        public void Update(GameTime gameTime)
         {
-            
-            p.Update(gameTime);
-            CrossBow.follow(p);
-            CrossBow.Update(gameTime);
-            if(Keyboard.GetState().IsKeyDown(Keys.Enter) 
-                    && Arrow.ProjectileState == Projectile.PROJECTILE_STATE.STILL)
-            {
-                Arrow.fire(p.position);
-            }
-            if(Arrow.ProjectileState == Projectile.PROJECTILE_STATE.EXPOLODING)
-            {
-                Arrow.position = CrossBow.position;
-            }
-                Arrow.Update(gameTime);
+            _gameOwnedBy = game;
+            game.IsMouseVisible = true;
+            spriteBatch = new SpriteBatch(game.GraphicsDevice);
 
-            foreach (CircularChasingEnemy chaser in chasers)
-            {
-                if (p.MyProjectile.ProjectileState == Projectile.PROJECTILE_STATE.EXPOLODING && p.MyProjectile.collisionDetect(chaser))
-                    chaser.die();
-                chaser.follow(p);
-                chaser.Update(gameTime);
-            }
-            
-            
+            // 2. INITIALIZE THE MANAGER
+            _levelManager = new LevelManager(game);
+
+            // 3. TELL IT TO LOAD LEVEL 1
+            // This single line replaces all that messy map code we just deleted
+            _levelManager.LoadLevel(1);
+
+            // ... (Keep your existing Player/Enemy setup code here) ...
+
+            //CrossBow = new RotatingSprite(game, game.Content.Load<Texture2D>("CrossBow"), new Vector2(100, 100), 1);
+            //CrossBow.rotationSpeed = 0.01f;
+
+            // Ensure Player starts in a valid spot (e.g. 100, 100)
+            p = new PlayerWithWeapon(game, game.Content.Load<Texture2D>("wizard_strip3"), new Vector2(100, 100), 3);
+
+            // ... (Rest of your entity setup) ...
         }
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        // Change the signature to accept TileLayer
+        public void Update(GameTime gameTime, TileLayer layer)
+        {
+            Viewport gameScreen = myGame.GraphicsDevice.Viewport;
+            Vector2 proposedPosition = position;
+
+            // 1. Handle Input (Calculate where we want to go)
+            if (Keyboard.GetState().IsKeyDown(Keys.D)) proposedPosition += new Vector2(1, 0) * playerVelocity;
+            if (Keyboard.GetState().IsKeyDown(Keys.A)) proposedPosition += new Vector2(-1, 0) * playerVelocity;
+            if (Keyboard.GetState().IsKeyDown(Keys.W)) proposedPosition += new Vector2(0, -1) * playerVelocity;
+            if (Keyboard.GetState().IsKeyDown(Keys.S)) proposedPosition += new Vector2(0, 1) * playerVelocity;
+
+            // 2. Collision Detection
+            if (layer != null)
+            {
+                // Get the center of the player
+                int tileX = (int)(proposedPosition.X + spriteWidth / 2) / 64;
+                int tileY = (int)(proposedPosition.Y + spriteHeight / 2) / 64;
+
+                // Check bounds
+                if (tileX >= 0 && tileX < layer.Tiles.GetLength(1) &&
+                    tileY >= 0 && tileY < layer.Tiles.GetLength(0))
+                {
+                    // Only move if the tile is Passable
+                    if (layer.Tiles[tileY, tileX].Passable)
+                    {
+                        this.position = proposedPosition;
+                    }
+                }
+            }
+            else
+            {
+                // Fallback if map isn't loaded yet
+                this.position = proposedPosition;
+            }
+
+            // ... (Keep your projectile/shooting logic below here) ...
+            // Note: Do NOT call base.Update(gameTime) if it overrides position logic, 
+            // but usually, base.Update just handles animation, so it's fine.
+            base.Update(gameTime);
+        }
+
         public void Draw(GameTime gameTime)
         {
+            // 5. DELEGATE DRAWING TO THE MANAGER
+            // The Engine doesn't need to know *how* to draw tiles anymore
+            _levelManager.Draw(spriteBatch);
+
             p.Draw(spriteBatch);
-            CrossBow.Draw(spriteBatch);
-            if(Arrow.ProjectileState != Projectile.PROJECTILE_STATE.STILL)
-                Arrow.Draw(spriteBatch);
-            foreach (CircularChasingEnemy chaser in chasers)
-                chaser.Draw(spriteBatch);
+            //CrossBow.Draw(spriteBatch);
+
+            // ... (Rest of drawing code) ...
         }
-
-
-        
     }
 }

@@ -51,7 +51,7 @@ namespace Pale_Roots_1
             //                     g.Content.Load<Texture2D>("scope2"),
             //                     new Vector2(vp.Width / 2, vp.Height / 2),
             //                     1);
-            shoot = g.Content.Load<SoundEffect>("shoot");
+            //shoot = g.Content.Load<SoundEffect>("shoot");
             //didnt know where to load the asset as there is no load content method here so loaded it in the constructor
 
         }
@@ -62,7 +62,7 @@ namespace Pale_Roots_1
             }
 
 
-        public override void Update(GameTime gameTime)
+        public void Update(GameTime gameTime, TileLayer layer)
         {
            
             Viewport gameScreen = myGame.GraphicsDevice.Viewport;
