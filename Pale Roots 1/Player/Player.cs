@@ -6,10 +6,9 @@ namespace Pale_Roots_1
 {
     public class Player : Sprite
     {
-        private float _speed = 4.0f; // Constant walk speed
-        private Vector2 _velocity;   // Direction * Speed
+        private float _speed = 4.0f;
+        private Vector2 _velocity;
 
-        // Helper to get the center for the Camera to follow
         public Vector2 CentrePos
         {
             get { return position + new Vector2(spriteWidth / 2, spriteHeight / 2); }
@@ -18,13 +17,12 @@ namespace Pale_Roots_1
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount)
         {
-            // You can add player-specific setup here later (e.g. Health = 100)
         }
 
-        public override void Update(GameTime gameTime)
+        // NEW: We accept 'TileLayer' so the player can check for walls
+        public void Update(GameTime gameTime, TileLayer currentLayer)
         {
             // 1. Get Input
-            // We use a separate Vector2 for input so we can normalize it.
             Vector2 inputDirection = Vector2.Zero;
             KeyboardState state = Keyboard.GetState();
 
@@ -33,30 +31,41 @@ namespace Pale_Roots_1
             if (state.IsKeyDown(Keys.A)) inputDirection.X -= 1;
             if (state.IsKeyDown(Keys.D)) inputDirection.X += 1;
 
-            // 2. Normalize (The Stardew Fix)
-            // If the length is > 0, we scale it to exactly 1.
-            // This ensures Diagonal movement (length ~1.4) is slowed down to 1.0.
+            // 2. Normalize (Stardew Movement Fix)
             if (inputDirection != Vector2.Zero)
-            {
                 inputDirection.Normalize();
-            }
 
-            // 3. Apply Velocity
-            // Velocity = Direction * Speed
-            _velocity = inputDirection * _speed;
-            position += _velocity;
+            // 3. Calculate Proposed Position
+            Vector2 proposedPosition = position + (inputDirection * _speed);
 
-            // 4. Handle Animation
-            // Only play the walking animation if we are actually moving.
-            if (inputDirection != Vector2.Zero)
+            // 4. Collision Detection (Moved from Engine)
+            if (currentLayer != null)
             {
-                base.Update(gameTime); // Advances the animation frames
+                // Calculate which tile we are stepping on
+                int tileX = (int)(proposedPosition.X + spriteWidth / 2) / 64;
+                int tileY = (int)(proposedPosition.Y + spriteHeight / 2) / 64;
+
+                // Check Map Bounds
+                if (tileX >= 0 && tileX < currentLayer.Tiles.GetLength(1) &&
+                    tileY >= 0 && tileY < currentLayer.Tiles.GetLength(0))
+                {
+                    // Check if it's a Wall (Passable = false)
+                    if (currentLayer.Tiles[tileY, tileX].Passable)
+                    {
+                        // It's safe to walk!
+                        position = proposedPosition;
+                    }
+                }
             }
             else
             {
-                // Optional: Reset to specific frame when standing still
-                // currentFrame = 0; 
+                // If there is no map, just move freely
+                position = proposedPosition;
             }
+
+            // 5. Animate
+            if (inputDirection != Vector2.Zero)
+                base.Update(gameTime);
         }
     }
 }
