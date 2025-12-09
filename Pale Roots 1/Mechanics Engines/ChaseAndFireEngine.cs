@@ -13,7 +13,7 @@ namespace Pale_Roots_1
         PlayerWithWeapon p;
         SpriteBatch spriteBatch;
         private CircularChasingEnemy[] chasers;
-        private Game _gameOwnedBy;
+        public Game _gameOwnedBy;
         RotatingSprite CrossBow;
         Projectile Arrow;
 
@@ -44,43 +44,43 @@ namespace Pale_Roots_1
         // Change the signature to accept TileLayer
         public void Update(GameTime gameTime, TileLayer layer)
         {
-            Viewport gameScreen = myGame.GraphicsDevice.Viewport;
-            Vector2 proposedPosition = position;
+            //Viewport gameScreen = _gameOwnedBy.GraphicsDevice.Viewport;
+            //Vector2 proposedPosition = position;
 
-            // 1. Handle Input (Calculate where we want to go)
-            if (Keyboard.GetState().IsKeyDown(Keys.D)) proposedPosition += new Vector2(1, 0) * playerVelocity;
-            if (Keyboard.GetState().IsKeyDown(Keys.A)) proposedPosition += new Vector2(-1, 0) * playerVelocity;
-            if (Keyboard.GetState().IsKeyDown(Keys.W)) proposedPosition += new Vector2(0, -1) * playerVelocity;
-            if (Keyboard.GetState().IsKeyDown(Keys.S)) proposedPosition += new Vector2(0, 1) * playerVelocity;
+            //// 1. Handle Input (Calculate where we want to go)
+            //if (Keyboard.GetState().IsKeyDown(Keys.D)) proposedPosition += new Vector2(1, 0) * playerVelocity;
+            //if (Keyboard.GetState().IsKeyDown(Keys.A)) proposedPosition += new Vector2(-1, 0) * playerVelocity;
+            //if (Keyboard.GetState().IsKeyDown(Keys.W)) proposedPosition += new Vector2(0, -1) * playerVelocity;
+            //if (Keyboard.GetState().IsKeyDown(Keys.S)) proposedPosition += new Vector2(0, 1) * playerVelocity;
 
-            // 2. Collision Detection
-            if (layer != null)
-            {
-                // Get the center of the player
-                int tileX = (int)(proposedPosition.X + spriteWidth / 2) / 64;
-                int tileY = (int)(proposedPosition.Y + spriteHeight / 2) / 64;
+            //// 2. Collision Detection
+            //if (layer != null)
+            //{
+            //    // Get the center of the player
+            //    int tileX = (int)(proposedPosition.X + spriteWidth / 2) / 64;
+            //    int tileY = (int)(proposedPosition.Y + spriteHeight / 2) / 64;
 
-                // Check bounds
-                if (tileX >= 0 && tileX < layer.Tiles.GetLength(1) &&
-                    tileY >= 0 && tileY < layer.Tiles.GetLength(0))
-                {
-                    // Only move if the tile is Passable
-                    if (layer.Tiles[tileY, tileX].Passable)
-                    {
-                        this.position = proposedPosition;
-                    }
-                }
-            }
-            else
-            {
-                // Fallback if map isn't loaded yet
-                this.position = proposedPosition;
-            }
+            //    // Check bounds
+            //    if (tileX >= 0 && tileX < layer.Tiles.GetLength(1) &&
+            //        tileY >= 0 && tileY < layer.Tiles.GetLength(0))
+            //    {
+            //        // Only move if the tile is Passable
+            //        if (layer.Tiles[tileY, tileX].Passable)
+            //        {
+            //            this.position = proposedPosition;
+            //        }
+            //    }
+            //}
+            //else
+            //{
+            //    // Fallback if map isn't loaded yet
+            //    this.position = proposedPosition;
+            //}
 
             // ... (Keep your projectile/shooting logic below here) ...
             // Note: Do NOT call base.Update(gameTime) if it overrides position logic, 
             // but usually, base.Update just handles animation, so it's fine.
-            base.Update(gameTime);
+            //base.Update(gameTime);
         }
 
         public void Draw(GameTime gameTime)

@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 //using Engines; // Using your engine namespace
 //using GP01Week11_Lab2_2025; // Using your InputEngine namespace
+//using Tile;
 
 namespace Pale_Roots_1
 {
@@ -11,7 +12,9 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private Texture2D TileMap;
-        
+        public TileLayer layer;
+        Rectangle sourceRect;
+
         // The Engine that manages the game logic
         private ChaseAndFireEngine _gameEngine;
 
@@ -46,7 +49,7 @@ namespace Pale_Roots_1
                 Exit();
 
             // Pass the update call to your engine
-            _gameEngine.Update(gameTime);
+            _gameEngine.Update(gameTime, layer);
 
             base.Update(gameTime);
         }
@@ -60,6 +63,14 @@ namespace Pale_Roots_1
 
             // Let the engine draw everything
             _gameEngine.Draw(gameTime);
+
+            foreach (var tile in layer.Tiles)
+            {
+                if (tile != null)
+                {
+                    _spriteBatch.Draw(TileMap, tile.tileRef, tile.sourceRect, Color.White);
+                }
+            }
 
             _spriteBatch.End();
 

@@ -8,11 +8,12 @@ namespace Pale_Roots_1
         public int[,] MapLayout { get; set; }
         public List<TileRef> TilePalette { get; set; }
         public Vector2 PlayerStartPos { get; set; }
+
         public enum TileType
         {
-            Floor = 0,
-            Wall = 1,
-            Water = 2
+            Wall = 0,
+            Floor = 1,
+           
         }
 
         public Level(int[,] map, List<TileRef> tiles, Vector2 startPos)
