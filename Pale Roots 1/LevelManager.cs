@@ -21,35 +21,38 @@ namespace Pale_Roots_1
 
         private void InitializeLevels()
         {
-            // 1. DEFINE PALETTE (Map Enum -> Texture Coordinates)
-            // Check your "tank tiles 64 x 64.png" to verify these grid coordinates!
+            // 1. DEFINE PALETTE
+            // This tells the game what the numbers mean.
+            // 0 = Wall, 1 = Floor
             List<TileRef> palette = new List<TileRef>();
 
-            // TileType.Floor (0) -> Row 2, Col 3 on sheet
-            palette.Add(new TileRef(3, 2, (int)TileType.Floor));
-
-            // TileType.Wall (1) -> Row 4, Col 0 on sheet
+            // Wall (ID 0) -> Row 4, Col 0 on sheet
             palette.Add(new TileRef(0, 4, (int)TileType.Wall));
 
-            // 2. DEFINE MAP (Using Enums!)
-            // We cast (int) so the array stays simple
-            int floor = (int)TileType.Floor;
-            int wall = (int)TileType.Wall;
+            // Floor (ID 1) -> Row 2, Col 3 on sheet
+            palette.Add(new TileRef(3, 2, (int)TileType.Floor));
 
-            int[,] map1 = new int[,]
+            // 2. DEFINE MAP
+            // Let's make a Big Open Plane (30x30 tiles)
+            // 0 = Wall, 1 = Floor
+            int width = 30;
+            int height = 30;
+            int[,] bigMap = new int[height, width];
+
+            for (int y = 0; y < height; y++)
             {
-                {wall, wall, wall, wall, wall, wall, wall, wall, wall, wall},
-                {wall, floor, floor, floor, floor, floor, floor, floor, floor, wall},
-                {wall, floor, floor, floor, floor, floor, floor, floor, floor, wall},
-                {wall, floor, floor, wall, wall, wall, wall, floor, floor, wall},
-                {wall, floor, floor, wall, wall, wall, wall, floor, floor, wall},
-                {wall, floor, floor, floor, floor, floor, floor, floor, floor, wall},
-                {wall, floor, floor, floor, floor, floor, floor, floor, floor, wall},
-                {wall, wall, wall, wall, wall, wall, wall, wall, wall, wall},
-            };
+                for (int x = 0; x < width; x++)
+                {
+                    // Make the borders Walls, everything else Floor
+                    if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
+                        bigMap[y, x] = 0; // Wall
+                    else
+                        bigMap[y, x] = 1; // Floor
+                }
+            }
 
-            // Add Level 1 to our library
-            _allLevels.Add(new Level(map1, palette, new Vector2(100, 100)));
+            // Add Level 1 with the big map
+            _allLevels.Add(new Level(bigMap, palette, new Vector2(100, 100)));
         }
 
         public void LoadLevel(int index)

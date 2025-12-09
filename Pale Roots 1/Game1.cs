@@ -49,10 +49,11 @@ namespace Pale_Roots_1
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            _spriteBatch.Begin();
+            _spriteBatch.Begin(transformMatrix: _gameEngine._camera.CurrentCameraTranslation);
 
             // The Engine draws the LevelManager (Map) and the Player
-            _gameEngine.Draw(gameTime);
+           
+            _gameEngine.Draw(gameTime, _spriteBatch);
 
             // REMOVED: The foreach loop that was crashing because 'layer' was null.
 
