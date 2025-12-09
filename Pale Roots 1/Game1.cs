@@ -10,7 +10,8 @@ namespace Pale_Roots_1
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-
+        private Texture2D TileMap;
+        
         // The Engine that manages the game logic
         private ChaseAndFireEngine _gameEngine;
 
@@ -21,7 +22,7 @@ namespace Pale_Roots_1
             IsMouseVisible = true;
 
             // Initialize InputEngine immediately so it's ready
-            new InputEngine(this);
+            new InputEngine(this);  
         }
 
         protected override void Initialize()
@@ -32,6 +33,8 @@ namespace Pale_Roots_1
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            TileMap = Content.Load<Texture2D>("tank tiles 64 x 64");
 
             // Initialize the Logic Engine
             _gameEngine = new ChaseAndFireEngine(this);
