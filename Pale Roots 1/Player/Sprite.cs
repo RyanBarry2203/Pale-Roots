@@ -23,7 +23,7 @@ namespace Pale_Roots_1
             get { return position + origin; }
             
         }
-
+        public float Scale { get; set; } = 1.0f;
         static protected Rectangle CameraRect;
         public bool Visible
         {
@@ -80,6 +80,7 @@ namespace Pale_Roots_1
             angleOfRotation = 0;
             // Create a camera for clipping
             CameraRect = new Rectangle(0, 0, game.GraphicsDevice.Viewport.Width, game.GraphicsDevice.Viewport.Height);
+            sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
         }
 
 
@@ -116,15 +117,14 @@ namespace Pale_Roots_1
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {
-            //if (visible)
-            //{
-            //    //spriteBatch.Begin();
-            //    spriteBatch.Draw(spriteImage,
-            //        position, sourceRectangle,
-            //        Color.White, angleOfRotation, origin,
-            //        1.0f, SpriteEffects.None, spriteDepth);
-            //    //spriteBatch.End();
-            //}
+            if (visible)
+            {
+                // Update the Draw call to use 'Scale' instead of 1.0f
+                spriteBatch.Draw(spriteImage,
+                    position, sourceRectangle,
+                    Color.White, angleOfRotation, origin,
+                    Scale, SpriteEffects.None, spriteDepth);
+            }
         }       
 
     }

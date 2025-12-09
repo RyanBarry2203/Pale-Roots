@@ -17,6 +17,7 @@ namespace Pale_Roots_1
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount)
         {
+            Scale = 90.0f / spriteHeight;
         }
 
         // NEW: We accept 'TileLayer' so the player can check for walls
