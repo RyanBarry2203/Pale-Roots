@@ -1,53 +1,66 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace Pale_Roots_1
 {
-    class Camera
+    public class Camera
     {
-        Vector2 _camPos = Vector2.Zero;
-        Vector2 _worldBound;
-        public Matrix CurrentCameraTranslation { get
-            {
-                return Matrix.CreateTranslation(new Vector3(
-                    -CamPos,
-                    0));
-            } }
+        public Vector2 Position { get; private set; }
+        public float Zoom { get; set; } = 1.0f;
+        public Matrix CurrentCameraTranslation { get; private set; }
 
-        public Vector2 CamPos
+        private Vector2 _mapSize;
+
+        public Camera(Vector2 startPos, Vector2 mapSize)
         {
-            get
-            {
-                return _camPos;
-            }
-
-            set
-            {
-                _camPos = value;
-            }
+            Position = startPos;
+            _mapSize = mapSize;
+            Zoom = 1.0f;
         }
 
-        public Camera(Vector2 startPos, Vector2 bound)
+        // FIX 1: We must pass Viewport here so we can calculate the Matrix immediately!
+        public void LookAt(Vector2 targetPos, Viewport viewport)
         {
-            CamPos = startPos;
-            _worldBound = bound;
+            Position = targetPos;
+
+            // FIX 2: Check bounds immediately
+            ClampPosition(viewport);
+
+            // FIX 3: Calculate the Matrix NOW.
+            UpdateMatrix(viewport);
         }
 
-        public void move(Vector2 delta, Viewport v)
+        public void follow(Vector2 targetPos, Viewport viewport)
         {
-            CamPos += delta;
-            CamPos = Vector2.Clamp(CamPos, Vector2.Zero, _worldBound - new Vector2(v.Width, v.Height));
+            Position = targetPos;
+            ClampPosition(viewport);
+            UpdateMatrix(viewport);
         }
 
-        public void follow(Vector2 followPos, Viewport v)
+        private void ClampPosition(Viewport viewport)
         {
-            _camPos = followPos - new Vector2(v.Width / 2, v.Height / 2);
-            _camPos = Vector2.Clamp(_camPos, Vector2.Zero, _worldBound - new Vector2(v.Width, v.Height));
+            float visibleWidth = viewport.Width / Zoom;
+            float visibleHeight = viewport.Height / Zoom;
+
+            float halfWidth = visibleWidth / 2f;
+            float halfHeight = visibleHeight / 2f;
+
+            // Keep the camera center inside the map
+            Position = new Vector2(
+                MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth),
+                MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight)
+            );
         }
 
+        private void UpdateMatrix(Viewport viewport)
+        {
+            Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);
+
+            // Center-Pivot Math: Move World Center to (0,0) -> Zoom -> Move to Screen Center
+            CurrentCameraTranslation =
+                Matrix.CreateTranslation(new Vector3(-Position.X, -Position.Y, 0)) *
+                Matrix.CreateScale(new Vector3(Zoom, Zoom, 1)) *
+                Matrix.CreateTranslation(new Vector3(screenCenter.X, screenCenter.Y, 0));
+        }
     }
 }

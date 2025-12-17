@@ -10,7 +10,7 @@ using Microsoft.Xna.Framework.Audio;
 
 namespace Pale_Roots_1
 {
-    class Projectile : RotatingSprite
+    public class Projectile : RotatingSprite
     {
 
             public enum PROJECTILE_STATE { STILL, FIRING, EXPOLODING };

@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    class CircularChasingEnemy: Enemy
+    public class CircularChasingEnemy:Enemy
     {
         float chaseRdaius = 200;
         bool FullOnChase = false;

@@ -12,7 +12,7 @@ using Microsoft.Xna.Framework.Audio;
 namespace Pale_Roots_1
 {
     
-        class PlayerWithWeapon : Sprite
+        public class PlayerWithWeapon : Sprite
         {
             protected Game myGame;
             protected float playerVelocity = 6.0f;
