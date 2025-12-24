@@ -23,7 +23,7 @@ namespace Pale_Roots_1
             get { return position + origin; }
             
         }
-        public float Scale { get; set; } = 1.0f;
+        public double Scale { get; set; }
         static protected Rectangle CameraRect;
         public bool Visible
         {
@@ -66,8 +66,9 @@ namespace Pale_Roots_1
 
         
 
-        public Sprite(Game g, Texture2D texture,Vector2 userPosition, int framecount)
+        public Sprite(Game g, Texture2D texture,Vector2 userPosition, int framecount, double scale)
         {
+            Scale = scale;
             this.game = g;
             spriteImage = texture;
             position = userPosition;
@@ -117,13 +118,14 @@ namespace Pale_Roots_1
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {
+
             if (visible)
             {
                 // Update the Draw call to use 'Scale' instead of 1.0f
                 spriteBatch.Draw(spriteImage,
                     position, sourceRectangle,
                     Color.White, angleOfRotation, origin,
-                    Scale, SpriteEffects.None, spriteDepth);
+                    (float)Scale, SpriteEffects.None, spriteDepth);
             }
         }       
 

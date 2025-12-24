@@ -15,7 +15,7 @@ namespace Pale_Roots_1
         }
 
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
-            : base(game, texture, startPosition, frameCount)
+            : base(game, texture, startPosition, frameCount, 1)
         {
             Scale = 90.0f / spriteHeight;
         }
@@ -43,8 +43,8 @@ namespace Pale_Roots_1
             if (currentLayer != null)
             {
                 // Calculate the ACTUAL visual size of the wizard
-                float visualW = spriteWidth * Scale;
-                float visualH = spriteHeight * Scale;
+                float visualW = spriteWidth * (float)Scale;
+                float visualH = spriteHeight * (float)Scale;
 
                 // PHYSICAL SIZE (HITBOX): Shrink it to fit the body!
                 // We multiply by 0.4f (40%) to shave off the empty sides

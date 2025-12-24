@@ -13,7 +13,7 @@ namespace Pale_Roots_1
         public float rotationSpeed;
 
         public RotatingSprite(Game g, Texture2D tx, Vector2 StartPosition, int NoOfFrames)
-            : base(g, tx, StartPosition, NoOfFrames)
+            : base(g, tx, StartPosition, NoOfFrames, 1)
         {
 
         }

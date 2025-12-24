@@ -58,7 +58,7 @@ namespace Pale_Roots_1
                 // CHANGE 3: Spawn Allies around Y=900
                 // Starting at 780 + increments centers them nicely around the player
                 Vector2 pos = new Vector2(150, 780 + (i * 60));
-                _allies.Add(new Sprite(_gameOwnedBy, allyTx, pos, 3));
+                _allies.Add(new Sprite(_gameOwnedBy, allyTx, pos, 3, 0.70));
             }
 
             // --- ENEMIES (Triangle Formation) ---

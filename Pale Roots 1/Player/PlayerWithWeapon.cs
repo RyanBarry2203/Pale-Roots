@@ -43,7 +43,7 @@ namespace Pale_Roots_1
             }
         }
 
-        public PlayerWithWeapon(Game g, Texture2D texture, Vector2 userPosition, int framecount) : base(g,texture,userPosition,framecount)
+        public PlayerWithWeapon(Game g, Texture2D texture, Vector2 userPosition, int framecount) : base(g,texture,userPosition,framecount, 1)
             {
                 myGame = g;
             var vp = g.GraphicsDevice.Viewport;

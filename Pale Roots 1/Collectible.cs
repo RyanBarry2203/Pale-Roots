@@ -13,7 +13,7 @@ namespace Pale_Roots_1
         private static Texture2D healthBarTexture;
 
         public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
-            : base(game, texture, position, frameCount)
+            : base(game, texture, position, frameCount, 1)
         {
             Random r = new Random();
             HealthValue = r.Next(50, 101);
