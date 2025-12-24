@@ -111,13 +111,50 @@ namespace Pale_Roots_1
             }
             else
             {
-                // STATE 2: CHARGE
+                // STATE 2: CHARGE & BATTLE
                 _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
                 p.Update(gameTime, _levelManager.CurrentLevel);
 
-                foreach (var ally in _allies) { ally.position.X += 3.0f; ally.Update(gameTime); }
-                foreach (var enemy in _enemies) { enemy.position.X -= 3.0f; enemy.Update(gameTime); }
+                // Move Allies
+                foreach (var ally in _allies)
+                {
+                    ally.position.X += 3.0f;
+                    ally.Update(gameTime);
+                }
+
+                // Move Enemies with Logic
+                foreach (var enemy in _enemies)
+                {
+                    // 1. Find the Closest Target (Player or any Ally)
+                    Sprite closestTarget = p; // Assume player is target first
+                    float closestDist = Vector2.Distance(enemy.Center, p.Center);
+
+                    // Check all allies to see if one is closer
+                    foreach (var ally in _allies)
+                    {
+                        float d = Vector2.Distance(enemy.Center, ally.Center);
+                        if (d < closestDist)
+                        {
+                            closestDist = d;
+                            closestTarget = ally;
+                        }
+                    }
+
+                    // 2. Decide Behavior: Chase if close, otherwise Charge Left
+                    if (enemy.inChaseZone(closestTarget))
+                    {
+                        // "Meet in the middle" condition met: Switch to circular chasing
+                        enemy.follow(closestTarget);
+                    }
+                    else
+                    {
+                        // Still too far away, keep charging left
+                        enemy.position.X -= 3.0f;
+                    }
+
+                    enemy.Update(gameTime);
+                }
 
                 _camera.follow(p.CentrePos, vp);
             }

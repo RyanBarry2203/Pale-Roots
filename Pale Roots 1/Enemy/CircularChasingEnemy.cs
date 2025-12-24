@@ -6,42 +6,46 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
-
 namespace Pale_Roots_1
 {
-    public class CircularChasingEnemy:Enemy
+    public class CircularChasingEnemy : Enemy
     {
-        float chaseRdaius = 200;
+        // Fixed typo: chaseRdaius -> chaseRadius
+        public float chaseRadius = 200;
         bool FullOnChase = false;
 
         public float myVelocity { get { return base.Velocity; } set { base.Velocity = value; } }
-        
-        public CircularChasingEnemy(Game g, Texture2D texture, Vector2 Position1, int framecount) 
-             : base(g,texture,Position1,framecount)
+
+        public CircularChasingEnemy(Game g, Texture2D texture, Vector2 Position1, int framecount)
+             : base(g, texture, Position1, framecount)
         {
             startPosition = Position1;
             this.Velocity = 2.0f;
         }
 
-        // folow a player if the player comes in the kill zone
-        public void follow(PlayerWithWeapon p)
+        // UPDATED: Now accepts generic 'Sprite' so it can follow Player OR Allies
+        public void follow(Sprite target)
         {
-            if (inChaseZone(p) )
+            if (inChaseZone(target))
             {
-                Vector2 direction = p.position - this.position;
-                direction.Normalize();                
+                // Use Center properties for accurate tracking
+                Vector2 direction = target.Center - this.Center;
+
+                // Prevent crash if they are in the exact same spot
+                if (direction != Vector2.Zero)
+                    direction.Normalize();
+
                 this.position += direction * Velocity;
-            }            
+            }
         }
 
-        // inChaseZone sees if the player is in the kill zone
-        // if so it takes approproate action
-            public bool inChaseZone(PlayerWithWeapon p)
-            {
-                float distance = Math.Abs(Vector2.Distance(this.WorldOrigin, p.CentrePos));
-                if (distance <= chaseRdaius)
-                    return true;
-                return false;
-            }
+        // UPDATED: Checks distance to any Sprite
+        public bool inChaseZone(Sprite target)
+        {
+            float distance = Vector2.Distance(this.Center, target.Center);
+            if (distance <= chaseRadius)
+                return true;
+            return false;
+        }
     }
 }
