@@ -1,57 +1,80 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    /// <summary>
+    /// Enemy that only chases targets within a detection radius.
+    /// Returns to start position if target leaves the zone.
+    /// 
+    /// Good for: Territorial enemies, guards, ambush predators
+    /// </summary>
     public class CircularChasingEnemy : Enemy
     {
-        // Fixed typo: chaseRdaius -> chaseRadius
-        public float chaseRadius = 200;
-        bool FullOnChase = false;
+        /// <summary>Radius within which this enemy will detect and chase targets</summary>
+        public float ChaseRadius { get; set; }
+        
+        /// <summary>If true, enemy has detected a target and is in full pursuit</summary>
+        private bool _isAggro = false;
 
-        public float myVelocity { get { return base.Velocity; } set { base.Velocity = value; } }
-
-        public CircularChasingEnemy(Game g, Texture2D texture, Vector2 Position1, int framecount)
-             : base(g, texture, Position1, framecount)
+        public CircularChasingEnemy(Game g, Texture2D texture, Vector2 position1, int framecount)
+            : base(g, texture, position1, framecount)
         {
-            startPosition = Position1;
-            this.Velocity = 2.0f;
+            ChaseRadius = GameConstants.DefaultChaseRadius;
+            Velocity = 2.0f; // Slightly slower than default
         }
 
-        // UPDATED: Now accepts generic 'Sprite' so it can follow Player OR Allies
-        public void follow(Sprite target)
+        protected override void UpdateAI(GameTime gameTime)
         {
-            float stopDistance = 60f; // The "border" distance for swinging weapons
-            float distance = Vector2.Distance(this.Center, target.Center);
-
-            // Only move if we aren't at the "Battle Line" yet
-            if (distance > stopDistance)
+            // Check if current target is still in range
+            if (CurrentTarget != null)
             {
-                Vector2 direction = target.Center - this.Center;
-                if (direction != Vector2.Zero)
-                    direction.Normalize();
-
-                this.position += direction * Velocity;
+                float distanceToTarget = CombatSystem.GetDistance(this, CurrentTarget);
+                
+                // If target leaves chase radius, disengage
+                if (distanceToTarget > ChaseRadius * 1.5f) // Give some buffer before disengaging
+                {
+                    _isAggro = false;
+                    CombatSystem.ClearTarget(this);
+                    CurrentAIState = AISTATE.Wandering;
+                }
             }
-            else
-            {
-                // Transition to InCombat once the distance is closed
-                this.CurrentAIState = Enemy.AISTATE.InCombat;
-            }
+            
+            base.UpdateAI(gameTime);
         }
 
-        // UPDATED: Checks distance to any Sprite
-        public bool inChaseZone(Sprite target)
+        /// <summary>
+        /// Override wander to return to start position when not aggro
+        /// </summary>
+        protected override void PerformWander()
         {
-            float distance = Vector2.Distance(this.Center, target.Center);
-            if (distance <= chaseRadius)
-                return true;
-            return false;
+            // Return to start position
+            if (Vector2.Distance(position, startPosition) > 5f)
+            {
+                MoveToward(startPosition, Velocity * 0.5f);
+            }
+            // else just idle at start position
+        }
+
+        /// <summary>
+        /// Check if a target is within chase zone
+        /// </summary>
+        public bool IsInChaseZone(ICombatant target)
+        {
+            if (target == null) return false;
+            return CombatSystem.GetDistance(this, target) <= ChaseRadius;
+        }
+
+        /// <summary>
+        /// Trigger aggro on this enemy
+        /// </summary>
+        public void Aggro(ICombatant target)
+        {
+            if (target == null || !CombatSystem.IsValidTarget(this, target)) return;
+            
+            _isAggro = true;
+            CombatSystem.AssignTarget(this, target);
+            CurrentAIState = AISTATE.Chasing;
         }
     }
 }

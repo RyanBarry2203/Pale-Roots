@@ -1,45 +1,71 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
-//using Pale_Roots_1;
-
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    class PlatformEnemy : Enemy
+    /// <summary>
+    /// Enemy that patrols between two points.
+    /// Good for guarding areas or creating predictable patterns.
+    /// </summary>
+    public class PlatformEnemy : Enemy
     {
-        Vector2 EndPosition;
+        private Vector2 _pointA;
+        private Vector2 _pointB;
+        private Vector2 _currentPatrolTarget;
+        
+        /// <summary>Speed of interpolation (0-1, higher = faster)</summary>
+        public float PatrolLerpSpeed { get; set; } = 0.05f;
 
-         public PlatformEnemy(Game g, Texture2D texture, Vector2 Position1, Vector2 Position2, int framecount) 
-             : base(g,texture,Position1,framecount)
+        public PlatformEnemy(Game g, Texture2D texture, Vector2 position1, Vector2 position2, int framecount)
+            : base(g, texture, position1, framecount)
         {
-            startPosition = Position1;
-            TargetPosition = EndPosition = Position2;
-
+            _pointA = position1;
+            _pointB = position2;
+            _currentPatrolTarget = _pointB;
+            
+            // Start in wandering state (patrol mode)
+            CurrentAIState = AISTATE.Wandering;
         }
 
-         public override void Update(GameTime gt)
-         {
-             position = Vector2.Lerp(position, TargetPosition, 0.05f);
-             if (Vector2.Distance(position, EndPosition) < 1)
-             {
-                 position = TargetPosition;
-                 TargetPosition = startPosition;
-             }
-             if (Vector2.Distance(position, startPosition) < 1)
-             {
-                 position = TargetPosition;
-                 TargetPosition = EndPosition;
-             }
-             base.Update(gt);
+        /// <summary>
+        /// Override wander to patrol between points
+        /// </summary>
+        protected override void PerformWander()
+        {
+            // Lerp toward current target
+            position = Vector2.Lerp(position, _currentPatrolTarget, PatrolLerpSpeed);
+            
+            // Swap targets when we reach one
+            if (Vector2.Distance(position, _pointB) < 1)
+            {
+                _currentPatrolTarget = _pointA;
+            }
+            else if (Vector2.Distance(position, _pointA) < 1)
+            {
+                _currentPatrolTarget = _pointB;
+            }
+        }
 
-         }
-
-         
-
+        /// <summary>
+        /// Override charge to patrol instead
+        /// </summary>
+        protected override void PerformCharge()
+        {
+            PerformWander();
+        }
+        
+        /// <summary>
+        /// After combat, return to patrol
+        /// </summary>
+        protected override void PerformCombat(GameTime gameTime)
+        {
+            base.PerformCombat(gameTime);
+            
+            // If target is lost, go back to patrolling
+            if (CurrentTarget == null || !CurrentTarget.IsAlive)
+            {
+                CurrentAIState = AISTATE.Wandering;
+            }
+        }
     }
 }

@@ -67,5 +67,36 @@ namespace Pale_Roots_1
             }
             return radians;
         }
+        public void MoveToward(Vector2 target, float speed)
+        {
+            Vector2 direction = target - position;
+
+            if (direction != Vector2.Zero)
+            {
+                direction.Normalize();
+                position += direction * speed;
+                angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
+            }
+        }
+
+        public void SnapToFace(Vector2 target)
+        {
+            float x = target.X - position.X;
+            float y = target.Y - position.Y;
+            angleOfRotation = (float)Math.Atan2(y, x);
+        }
+
+        /// <summary>
+        /// Smoothly rotate to face a position
+        /// </summary>
+        public void Follow(Vector2 targetPosition)
+        {
+            this.angleOfRotation = TurnToFace(
+                position,
+                targetPosition,
+                angleOfRotation,
+                rotationSpeed
+            );
+        }
     }
 }

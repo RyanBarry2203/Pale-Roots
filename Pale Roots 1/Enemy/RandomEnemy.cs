@@ -1,45 +1,57 @@
-﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    /// <summary>
+    /// Enemy that wanders randomly across the screen.
+    /// Uses CombatSystem.RandomInt instead of creating new Random() each call.
+    /// </summary>
     public class RandomEnemy : Enemy
     {
-        // Note: TargetPosition already exists in Enemy base class, 
-        // so we use 'new' to hide it (or just remove this if you want to use the base one)
-        public new Vector2 TargetPosition;
+        private Vector2 _randomTarget;
 
         public RandomEnemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
-            TargetPosition = CreateTarget();
+            _randomTarget = CreateRandomTarget();
+            
+            // Start wandering instead of charging
+            CurrentAIState = AISTATE.Wandering;
         }
 
-        public Vector2 CreateTarget()
+        /// <summary>
+        /// Create a random target position within screen bounds
+        /// </summary>
+        private Vector2 CreateRandomTarget()
         {
-            Random r = new Random();
-
-            // FIX: Changed 'myGame' to 'game' - which is the protected field in Sprite base class
-            int rx = r.Next(game.GraphicsDevice.Viewport.Width - spriteImage.Width);
-            int ry = r.Next(game.GraphicsDevice.Viewport.Height - spriteImage.Height);
-
+            // Use the shared random from CombatSystem
+            int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
+            int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
             return new Vector2(rx, ry);
         }
 
-        public override void Update(GameTime gameTime)
+        /// <summary>
+        /// Override wander to use screen-wide random targets
+        /// </summary>
+        protected override void PerformWander()
         {
-            // Move (LERP) towards the target
-            position = Vector2.Lerp(position, TargetPosition, 0.05f);
+            // Move toward target
+            MoveToward(_randomTarget, Velocity);
 
-            // If close to target, pick a new one
-            if (Vector2.Distance(position, TargetPosition) < 1)
+            // Pick new target when we arrive
+            if (Vector2.Distance(position, _randomTarget) < 5f)
             {
-                position = TargetPosition;
-                TargetPosition = CreateTarget();
+                _randomTarget = CreateRandomTarget();
             }
+        }
 
-            base.Update(gameTime);
+        /// <summary>
+        /// Override charge to also wander (this enemy doesn't charge)
+        /// </summary>
+        protected override void PerformCharge()
+        {
+            PerformWander();
         }
     }
 }

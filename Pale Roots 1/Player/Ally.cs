@@ -5,50 +5,39 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Pale_Roots_1
 {
     /// <summary>
-    /// Base enemy class with full state machine for AI behavior.
-    /// Implements ICombatant for standardized combat interactions.
+    /// Ally unit that fights alongside the player.
+    /// Uses the same state machine as Enemy but on the Player team.
     /// 
-    /// STATE MACHINE:
-    /// - Charging: Initial rush toward enemy lines
-    /// - Chasing: Pursuing a specific target
-    /// - InCombat: Actively fighting a target
-    /// - Wandering: No target, moving randomly
+    /// This class replaces the hacky "List of Sprite with AI logic in Engine" approach.
+    /// Now allies manage their own behavior just like enemies do.
     /// </summary>
-    public class Enemy : RotatingSprite, ICombatant
+    public class Ally : RotatingSprite, ICombatant
     {
         // ===================
         // ENUMS
         // ===================
         
-        public enum ENEMYSTATE { ALIVE, DYING, DEAD }
-        public enum AISTATE { Charging, Chasing, InCombat, Wandering }
+        public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
         // ===================
         // STATE
         // ===================
         
-        private ENEMYSTATE _lifecycleState = ENEMYSTATE.ALIVE;
-        public ENEMYSTATE LifecycleState 
-        { 
-            get => _lifecycleState; 
-            set => _lifecycleState = value; 
-        }
-        
-        // Keep old name for compatibility
-        public ENEMYSTATE EnemyStateza 
+        private ALLYSTATE _lifecycleState = ALLYSTATE.ALIVE;
+        public ALLYSTATE LifecycleState 
         { 
             get => _lifecycleState; 
             set => _lifecycleState = value; 
         }
 
-        public AISTATE CurrentAIState { get; set; } = AISTATE.Charging;
+        public Enemy.AISTATE CurrentAIState { get; set; } = Enemy.AISTATE.Charging;
 
         // ===================
         // ICOMBATANT IMPLEMENTATION
         // ===================
         
-        public string Name { get; set; } = "Enemy";
-        public CombatTeam Team => CombatTeam.Enemy;
+        public string Name { get; set; } = "Ally";
+        public CombatTeam Team => CombatTeam.Player;
         
         private int _health;
         public int Health 
@@ -59,21 +48,14 @@ namespace Pale_Roots_1
         
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
-        public bool IsAlive => _health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
-        public bool IsActive => Visible && _lifecycleState != ENEMYSTATE.DEAD;
+        public bool IsAlive => _health > 0 && _lifecycleState == ALLYSTATE.ALIVE;
+        public bool IsActive => Visible && _lifecycleState != ALLYSTATE.DEAD;
         
         private ICombatant _currentTarget;
         public ICombatant CurrentTarget 
         { 
             get => _currentTarget;
             set => _currentTarget = value;
-        }
-        
-        // Legacy property for compatibility
-        public Sprite CurrentCombatPartner
-        {
-            get => _currentTarget as Sprite;
-            set => _currentTarget = value as ICombatant;
         }
         
         public int AttackerCount { get; set; }
@@ -97,22 +79,21 @@ namespace Pale_Roots_1
         // ===================
         
         private static Texture2D _healthBarTexture;
-        private bool _drawHealthBar = true;
 
         // ===================
         // CONSTRUCTOR
         // ===================
         
-        public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
+        public Ally(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
             startPosition = userPosition;
-            Velocity = GameConstants.DefaultEnemySpeed;
+            Velocity = GameConstants.DefaultAllySpeed;
             MaxHealth = GameConstants.DefaultHealth;
             _health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
             _deathCountdown = GameConstants.DeathCountdown;
-            CurrentAIState = AISTATE.Charging;
+            CurrentAIState = Enemy.AISTATE.Charging;
             
             // Create shared health bar texture
             if (_healthBarTexture == null)
@@ -132,22 +113,22 @@ namespace Pale_Roots_1
 
             switch (_lifecycleState)
             {
-                case ENEMYSTATE.ALIVE:
+                case ALLYSTATE.ALIVE:
                     UpdateAI(gametime);
                     break;
                     
-                case ENEMYSTATE.DYING:
+                case ALLYSTATE.DYING:
                     UpdateDying(gametime);
                     break;
                     
-                case ENEMYSTATE.DEAD:
-                    // Do nothing, waiting for cleanup
+                case ALLYSTATE.DEAD:
+                    // Waiting for cleanup
                     break;
             }
         }
 
         /// <summary>
-        /// AI State Machine - determines behavior based on current state
+        /// AI State Machine - mirrors Enemy but charges opposite direction
         /// </summary>
         protected virtual void UpdateAI(GameTime gameTime)
         {
@@ -155,28 +136,28 @@ namespace Pale_Roots_1
             if (_attackCooldown > 0)
                 _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Validate target is still valid
+            // Validate target
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
                 CombatSystem.ClearTarget(this);
-                CurrentAIState = AISTATE.Wandering;
+                CurrentAIState = Enemy.AISTATE.Wandering;
             }
 
             switch (CurrentAIState)
             {
-                case AISTATE.Charging:
+                case Enemy.AISTATE.Charging:
                     PerformCharge();
                     break;
                     
-                case AISTATE.Chasing:
+                case Enemy.AISTATE.Chasing:
                     PerformChase();
                     break;
                     
-                case AISTATE.InCombat:
+                case Enemy.AISTATE.InCombat:
                     PerformCombat(gameTime);
                     break;
                     
-                case AISTATE.Wandering:
+                case Enemy.AISTATE.Wandering:
                     PerformWander();
                     break;
             }
@@ -187,71 +168,55 @@ namespace Pale_Roots_1
         // ===================
         
         /// <summary>
-        /// Charging: Move in initial direction (usually toward enemy lines)
-        /// Override in subclasses for different charge behavior
+        /// Allies charge RIGHT (toward enemy lines)
         /// </summary>
         protected virtual void PerformCharge()
         {
-            // Default: charge left (toward player side)
-            position.X -= Velocity;
+            position.X += Velocity;
         }
 
-        /// <summary>
-        /// Chasing: Pursue the current target
-        /// </summary>
         protected virtual void PerformChase()
         {
             if (_currentTarget == null)
             {
-                CurrentAIState = AISTATE.Wandering;
+                CurrentAIState = Enemy.AISTATE.Wandering;
                 return;
             }
 
             MoveToward(_currentTarget.Center, Velocity);
 
-            // Check if close enough to engage
             float distance = CombatSystem.GetDistance(this, _currentTarget);
             if (distance < GameConstants.CombatEngageRange)
             {
-                CurrentAIState = AISTATE.InCombat;
+                CurrentAIState = Enemy.AISTATE.InCombat;
             }
         }
 
-        /// <summary>
-        /// In Combat: Attack the target, maintain position
-        /// </summary>
         protected virtual void PerformCombat(GameTime gameTime)
         {
             if (_currentTarget == null || !_currentTarget.IsAlive)
             {
-                CurrentAIState = AISTATE.Wandering;
+                CurrentAIState = Enemy.AISTATE.Wandering;
                 return;
             }
 
-            // Face the target
             SnapToFace(_currentTarget.Center);
 
             float distance = CombatSystem.GetDistance(this, _currentTarget);
 
-            // Attack if in range and cooldown ready
             if (distance < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
             {
                 PerformAttack();
             }
 
-            // Break combat if target moves too far
             if (distance > GameConstants.CombatBreakRange)
             {
-                CurrentAIState = AISTATE.Chasing;
+                CurrentAIState = Enemy.AISTATE.Chasing;
             }
         }
 
-        /// <summary>
-        /// Wandering: Move randomly near start position
-        /// </summary>
         protected virtual void PerformWander()
         {
-            // Pick new target if needed
             if (wanderTarget == Vector2.Zero || 
                 Vector2.Distance(position, wanderTarget) < 5f)
             {
@@ -261,22 +226,16 @@ namespace Pale_Roots_1
                 );
             }
 
-            MoveToward(wanderTarget, Velocity * 0.5f); // Wander slower
+            MoveToward(wanderTarget, Velocity * 0.5f);
         }
 
-        /// <summary>
-        /// Dying: Play death animation, then become dead
-        /// </summary>
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
             
-            // Could add death animation here
-            // Fade out, play particles, etc.
-            
             if (_deathCountdown <= 0)
             {
-                _lifecycleState = ENEMYSTATE.DEAD;
+                _lifecycleState = ALLYSTATE.DEAD;
                 Visible = false;
             }
         }
@@ -290,8 +249,6 @@ namespace Pale_Roots_1
             if (!IsAlive) return;
             
             Health -= amount;
-            
-            // Visual feedback - could flash red, play sound, etc.
             
             if (Health <= 0)
             {
@@ -309,10 +266,8 @@ namespace Pale_Roots_1
 
         public virtual void Die()
         {
-            _lifecycleState = ENEMYSTATE.DYING;
+            _lifecycleState = ALLYSTATE.DYING;
             _deathCountdown = GameConstants.DeathCountdown;
-            
-            // Clear our target
             CombatSystem.ClearTarget(this);
         }
 
@@ -324,7 +279,7 @@ namespace Pale_Roots_1
         {
             base.Draw(spriteBatch);
             
-            if (_drawHealthBar && IsAlive)
+            if (IsAlive)
             {
                 DrawHealthBar(spriteBatch);
             }
@@ -337,21 +292,18 @@ namespace Pale_Roots_1
             int barX = (int)position.X - (barWidth / 2);
             int barY = (int)position.Y - spriteHeight / 2 - 10;
 
-            // Background (red)
+            // Background
             spriteBatch.Draw(_healthBarTexture, 
                 new Rectangle(barX, barY, barWidth, barHeight), 
                 Color.Red);
 
-            // Foreground (green) - proportional to health
+            // Health (blue for allies to distinguish from enemies)
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
             
-            Color healthColor = healthPercent > 0.6f ? Color.Green :
-                               healthPercent > 0.3f ? Color.Orange : Color.Red;
-                               
             spriteBatch.Draw(_healthBarTexture, 
                 new Rectangle(barX, barY, currentBarWidth, barHeight), 
-                healthColor);
+                Color.CornflowerBlue);
         }
     }
 }

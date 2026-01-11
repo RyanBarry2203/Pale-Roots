@@ -1,154 +1,342 @@
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    class ChaseAndFireEngine
+    /// <summary>
+    /// Main game engine handling the battle between player/allies and enemies.
+    /// 
+    /// CLEANED UP:
+    /// - Uses new Ally class instead of plain Sprites
+    /// - Uses CombatSystem for target assignment
+    /// - Uses GameConstants instead of magic numbers
+    /// - Subscribes to combat events for effects
+    /// </summary>
+    public class ChaseAndFireEngine
     {
+        // ===================
+        // REFERENCES
+        // ===================
+        
         public LevelManager _levelManager;
         public Camera _camera;
         public Game _gameOwnedBy;
 
-        Player p;
-        List<Sprite> _allies = new List<Sprite>();
-        List<ChargingBattleEnemy> _enemies = new List<ChargingBattleEnemy>();
+        // ===================
+        // ENTITIES
+        // ===================
+        
+        private Player _player;
+        private List<Ally> _allies = new List<Ally>();
+        private List<Enemy> _enemies = new List<Enemy>();
 
-        bool _battleStarted = false;
-        Vector2 _mapSize = new Vector2(1920, 1920);
-        Vector2 _enemySpawnOrigin = new Vector2(1600, 900);
+        // ===================
+        // BATTLE STATE
+        // ===================
+        
+        private bool _battleStarted = false;
+        private Vector2 _mapSize;
+        private Vector2 _playerSpawnPos = new Vector2(300, 900);
+        private Vector2 _allySpawnOrigin = new Vector2(150, 780);
+        private Vector2 _enemySpawnOrigin = new Vector2(1600, 900);
 
-        float _targetingTimer = 0f;
-        float _targetingInterval = 500f; // Scan every 0.5s
+        // ===================
+        // TARGETING
+        // ===================
+        
+        private float _targetingTimer = 0f;
 
+        // ===================
+        // STATS (for UI)
+        // ===================
+        
+        public int EnemiesKilled { get; private set; }
+        public int AlliesLost { get; private set; }
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        
         public ChaseAndFireEngine(Game game)
         {
             _gameOwnedBy = game;
+            _mapSize = GameConstants.DefaultMapSize;
+            
+            // Initialize level
             _levelManager = new LevelManager(game);
             _levelManager.LoadLevel(0);
 
-            p = new Player(game, game.Content.Load<Texture2D>("wizard_strip3"), new Vector2(300, 900), 3);
+            // Create player
+            _player = new Player(
+                game, 
+                game.Content.Load<Texture2D>("wizard_strip3"), 
+                _playerSpawnPos, 
+                3
+            );
+            _player.Name = "Hero";
+
+            // Setup camera
             _camera = new Camera(Vector2.Zero, _mapSize);
-
-            InitializeArmies();
-
-            Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
+            Viewport vp = game.GraphicsDevice.Viewport;
             _camera.Zoom = (float)vp.Width / _mapSize.X;
             _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
+
+            // Create armies
+            InitializeArmies();
+            
+            // Subscribe to combat events
+            SetupCombatEvents();
         }
 
+        // ===================
+        // INITIALIZATION
+        // ===================
+        
         private void InitializeArmies()
         {
             Texture2D allyTx = _gameOwnedBy.Content.Load<Texture2D>("wizard_strip3");
             Texture2D enemyTx = _gameOwnedBy.Content.Load<Texture2D>("Dragon_strip3");
 
+            // Create 5 allies in a column
             for (int i = 0; i < 5; i++)
             {
-                Vector2 pos = new Vector2(150, 780 + (i * 60));
-                _allies.Add(new Sprite(_gameOwnedBy, allyTx, pos, 3, 0.70));
+                Vector2 pos = _allySpawnOrigin + new Vector2(0, i * 60);
+                var ally = new Ally(_gameOwnedBy, allyTx, pos, 3);
+                ally.Name = $"Soldier {i + 1}";
+                _allies.Add(ally);
             }
 
-            int countOfEnemies = 10;
-            int currentRow = 0, enemiesInCurrentRow = 1, currentSlotInRow = 0;
-            float spacingX = 80f, spacingY = 80f;
+            // Create 10 enemies in a triangle formation
+            CreateEnemyFormation(enemyTx, 10);
+        }
 
-            for (int i = 0; i < countOfEnemies; i++)
+        private void CreateEnemyFormation(Texture2D texture, int count)
+        {
+            int currentRow = 0;
+            int enemiesInCurrentRow = 1;
+            int currentSlotInRow = 0;
+            float spacingX = 80f;
+            float spacingY = 80f;
+
+            for (int i = 0; i < count; i++)
             {
                 float xPos = _enemySpawnOrigin.X + (currentRow * spacingX);
                 float rowHeight = (enemiesInCurrentRow - 1) * spacingY;
                 float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
 
-                _enemies.Add(new ChargingBattleEnemy(_gameOwnedBy, enemyTx, new Vector2(xPos, yPos), 3));
+                var enemy = new Enemy(_gameOwnedBy, texture, new Vector2(xPos, yPos), 3);
+                enemy.Name = $"Dragon {i + 1}";
+                _enemies.Add(enemy);
 
                 currentSlotInRow++;
-                if (currentSlotInRow >= enemiesInCurrentRow) { currentRow++; enemiesInCurrentRow++; currentSlotInRow = 0; }
+                if (currentSlotInRow >= enemiesInCurrentRow)
+                {
+                    currentRow++;
+                    enemiesInCurrentRow++;
+                    currentSlotInRow = 0;
+                }
             }
         }
 
+        private void SetupCombatEvents()
+        {
+            // Track kills
+            CombatSystem.OnCombatantKilled += (killer, victim) =>
+            {
+                if (victim.Team == CombatTeam.Enemy)
+                    EnemiesKilled++;
+                else if (victim.Team == CombatTeam.Player && victim != _player)
+                    AlliesLost++;
+            };
+
+            // Could add more events: damage numbers, sounds, particles, etc.
+            CombatSystem.OnDamageDealt += (attacker, target, damage) =>
+            {
+                // Play hit sound, spawn damage number, etc.
+            };
+        }
+
+        // ===================
+        // UPDATE
+        // ===================
+        
         public void Update(GameTime gameTime)
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
 
             if (!_battleStarted)
             {
-                p.Update(gameTime, _levelManager.CurrentLevel);
-                if (Keyboard.GetState().IsKeyDown(Keys.D)) _battleStarted = true;
+                // Pre-battle: just move player around
+                _player.Update(gameTime, _levelManager.CurrentLevel);
+                
+                // Press D to start battle
+                if (Keyboard.GetState().IsKeyDown(Keys.D))
+                {
+                    _battleStarted = true;
+                }
             }
             else
             {
-                _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
-                p.Update(gameTime, _levelManager.CurrentLevel);
-
-                _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                bool scanNow = _targetingTimer >= _targetingInterval;
-                if (scanNow) _targetingTimer = 0;
-
-                // Update Allies
-                foreach (var ally in _allies)
-                {
-                    if (scanNow && (ally.CurrentCombatPartner == null || !ally.CurrentCombatPartner.Visible))
-                    {
-                        Sprite bestE = null; float close = float.MaxValue;
-                        foreach (var e in _enemies)
-                        {
-                            float d = Vector2.Distance(ally.Center, e.Center);
-                            if (d < close && e.AttackerCount < 2) { close = d; bestE = e; }
-                        }
-                        if (bestE != null)
-                        {
-                            if (ally.CurrentCombatPartner != null) ally.CurrentCombatPartner.AttackerCount--;
-                            ally.CurrentCombatPartner = bestE;
-                            ally.CurrentCombatPartner.AttackerCount++;
-                            ally.CurrentAIState = Enemy.AISTATE.Chasing;
-                        }
-                    }
-
-                    if (ally.CurrentAIState == Enemy.AISTATE.Charging) ally.position.X += 3.0f;
-                    else if (ally.CurrentAIState == Enemy.AISTATE.Chasing && ally.CurrentCombatPartner != null)
-                    {
-                        Vector2 dir = ally.CurrentCombatPartner.Center - ally.position;
-                        if (dir != Vector2.Zero) { dir.Normalize(); ally.position += dir * 3f; }
-                        if (Vector2.Distance(ally.Center, ally.CurrentCombatPartner.Center) < 70f) ally.CurrentAIState = Enemy.AISTATE.InCombat;
-                    }
-                    ally.Update(gameTime);
-                }
-
-                // Update Enemies
-                foreach (var enemy in _enemies)
-                {
-                    if (scanNow && (enemy.CurrentCombatPartner == null || !enemy.CurrentCombatPartner.Visible))
-                    {
-                        Sprite bestA = (p.AttackerCount < 2) ? p : null;
-                        float close = (bestA != null) ? Vector2.Distance(enemy.Center, p.Center) : float.MaxValue;
-
-                        foreach (var a in _allies)
-                        {
-                            float d = Vector2.Distance(enemy.Center, a.Center);
-                            if (d < close && a.AttackerCount < 2) { close = d; bestA = a; }
-                        }
-                        if (bestA != null)
-                        {
-                            if (enemy.CurrentCombatPartner != null) enemy.CurrentCombatPartner.AttackerCount--;
-                            enemy.CurrentCombatPartner = bestA;
-                            enemy.CurrentCombatPartner.AttackerCount++;
-                            enemy.CurrentAIState = Enemy.AISTATE.Chasing;
-                        }
-                    }
-
-                    if (enemy.CurrentAIState == Enemy.AISTATE.Charging) enemy.position.X -= 3.0f;
-                    enemy.Update(gameTime);
-                }
-                _camera.follow(p.CentrePos, vp);
+                UpdateBattle(gameTime, vp);
             }
         }
 
+        private void UpdateBattle(GameTime gameTime, Viewport vp)
+        {
+            // Zoom in to battle view
+            _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
+
+            // Update player
+            _player.Update(gameTime, _levelManager.CurrentLevel);
+
+            // Targeting scan
+            _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;
+            if (scanNow) _targetingTimer = 0;
+
+            // Update allies
+            UpdateAllies(gameTime, scanNow);
+
+            // Update enemies  
+            UpdateEnemies(gameTime, scanNow);
+
+            // Clean up dead entities
+            CleanupDead();
+
+            // Camera follows player
+            _camera.follow(_player.CentrePos, vp);
+        }
+
+        private void UpdateAllies(GameTime gameTime, bool scanForTargets)
+        {
+            foreach (var ally in _allies)
+            {
+                if (!ally.IsActive) continue;
+
+                // Assign targets periodically
+                if (scanForTargets && NeedsNewTarget(ally))
+                {
+                    var target = FindBestTarget(ally, _enemies.Cast<ICombatant>());
+                    if (target != null)
+                    {
+                        CombatSystem.AssignTarget(ally, target);
+                        ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+                }
+
+                ally.Update(gameTime);
+            }
+        }
+
+        private void UpdateEnemies(GameTime gameTime, bool scanForTargets)
+        {
+            foreach (var enemy in _enemies)
+            {
+                if (!enemy.IsActive) continue;
+
+                // Assign targets periodically
+                if (scanForTargets && NeedsNewTarget(enemy))
+                {
+                    // Enemies can target player OR allies
+                    var potentialTargets = new List<ICombatant> { _player };
+                    potentialTargets.AddRange(_allies.Cast<ICombatant>());
+                    
+                    var target = FindBestTarget(enemy, potentialTargets);
+                    if (target != null)
+                    {
+                        CombatSystem.AssignTarget(enemy, target);
+                        enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+                }
+
+                enemy.Update(gameTime);
+            }
+        }
+
+        // ===================
+        // TARGETING HELPERS
+        // ===================
+        
+        private bool NeedsNewTarget(ICombatant combatant)
+        {
+            return combatant.CurrentTarget == null || 
+                   !CombatSystem.IsValidTarget(combatant, combatant.CurrentTarget);
+        }
+
+        private ICombatant FindBestTarget(ICombatant seeker, IEnumerable<ICombatant> candidates)
+        {
+            ICombatant best = null;
+            float closestDistance = float.MaxValue;
+
+            foreach (var candidate in candidates)
+            {
+                // Skip invalid targets
+                if (!CombatSystem.IsValidTarget(seeker, candidate))
+                    continue;
+                    
+                // Skip over-targeted entities
+                if (candidate.AttackerCount >= GameConstants.MaxAttackersPerTarget)
+                    continue;
+
+                float distance = CombatSystem.GetDistance(seeker, candidate);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            return best;
+        }
+
+        // ===================
+        // CLEANUP
+        // ===================
+        
+        private void CleanupDead()
+        {
+            // Remove dead allies
+            _allies.RemoveAll(a => a.LifecycleState == Ally.ALLYSTATE.DEAD);
+            
+            // Remove dead enemies
+            _enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+        
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
+            // Draw map
             _levelManager.Draw(spriteBatch);
-            p.Draw(spriteBatch);
-            foreach (var ally in _allies) ally.Draw(spriteBatch);
-            foreach (var enemy in _enemies) enemy.Draw(spriteBatch);
+            
+            // Draw allies (behind player)
+            foreach (var ally in _allies)
+            {
+                ally.Draw(spriteBatch);
+            }
+            
+            // Draw player
+            _player.Draw(spriteBatch);
+            
+            // Draw enemies
+            foreach (var enemy in _enemies)
+            {
+                enemy.Draw(spriteBatch);
+            }
         }
+
+        // ===================
+        // PUBLIC ACCESSORS
+        // ===================
+        
+        public Player GetPlayer() => _player;
+        public int AllyCount => _allies.Count(a => a.IsAlive);
+        public int EnemyCount => _enemies.Count(e => e.IsAlive);
+        public bool IsBattleOver => _enemies.Count == 0 || !_player.IsAlive;
     }
 }
