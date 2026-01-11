@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+//using RandomEnemy;
 
 namespace Pale_Roots_1
 {
@@ -13,7 +14,7 @@ namespace Pale_Roots_1
 
         Player p;
         List<Sprite> _allies = new List<Sprite>();
-        List<ChargingBattleEnemy> _enemies = new List<ChargingBattleEnemy>();
+        List<ChargingBattleEnemy> _enemies = new List<ChargingBattleEnemy>(); // Renamed from _allies
 
         bool _battleStarted = false;
         Vector2 _mapSize = new Vector2(1920, 1920);
@@ -119,38 +120,129 @@ namespace Pale_Roots_1
                 // Move Allies
                 foreach (var ally in _allies)
                 {
-                    ally.position.X += 3.0f;
+                    // 1. TARGETING: Look for an enemy partner if we don't have one
+                    // Note: You may need to cast your 'ally' to a specialized class (e.g. Ally) 
+                    // to access these properties, or add them to the base Sprite class.
+                    if (ally.CurrentCombatPartner == null || ally.CurrentCombatPartner.Visible == false)
+                    {
+                        Sprite bestTarget = null;
+                        float closestDist = float.MaxValue;
+
+                        // Search through enemies for the best "skirmish"
+                        foreach (var enemy in _enemies)
+                        {
+                            float d = Vector2.Distance(ally.Center, enemy.Center);
+
+                            // 2v1 RULE: Only target an enemy if they have fewer than 2 allies on them
+                            if (d < closestDist && enemy.AttackerCount < 2)
+                            {
+                                closestDist = d;
+                                bestTarget = enemy;
+                            }
+                        }
+
+                        if (bestTarget != null)
+                        {
+                            // If the ally was already attacking someone else, decrement that count first
+                            if (ally.CurrentCombatPartner != null) ally.CurrentCombatPartner.AttackerCount--;
+
+                            ally.CurrentCombatPartner = bestTarget;
+                            ally.CurrentCombatPartner.AttackerCount++; // "Lock" the slot on the enemy
+                            ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                        }
+                    }
+
+                    // 2. STATE EXECUTION FOR ALLIES
+                    switch (ally.CurrentAIState)
+                    {
+                        case Enemy.AISTATE.Charging:
+                            ally.position.X += 3.0f; // Allies charge RIGHT
+                                                     // If an enemy enters our personal "chase zone", switch to Chasing
+                            if (ally.CurrentCombatPartner != null && Vector2.Distance(ally.Center, ally.CurrentCombatPartner.Center) < 200)
+                                ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                            break;
+
+                        case Enemy.AISTATE.Chasing:
+                            // This uses the 'follow' method to maintain the 60px distance (The Battle Line)
+                            ally.follow(ally.CurrentCombatPartner);
+                            break;
+
+                        case Enemy.AISTATE.InCombat:
+                            // Placeholder for ally attack animations
+                            // If the enemy backs away or the fight moves, go back to chasing
+                            if (Vector2.Distance(ally.Center, ally.CurrentCombatPartner.Center) > 80f)
+                                ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                            break;
+                    }
+
                     ally.Update(gameTime);
                 }
 
                 // Move Enemies with Logic
                 foreach (var enemy in _enemies)
                 {
-                    // 1. Find the Closest Target (Player or any Ally)
-                    Sprite closestTarget = p; // Assume player is target first
-                    float closestDist = Vector2.Distance(enemy.Center, p.Center);
-
-                    // Check all allies to see if one is closer
-                    foreach (var ally in _allies)
+                    // 1. TARGETING LOGIC: Find a partner if the enemy doesn't have one or if their partner died
+                    if (enemy.CurrentCombatPartner == null || enemy.CurrentCombatPartner.Visible == false)
                     {
-                        float d = Vector2.Distance(enemy.Center, ally.Center);
-                        if (d < closestDist)
+                        Sprite bestTarget = null;
+                        float closestDist = float.MaxValue;
+
+                        // Check the Player first
+                        if (p.AttackerCount < 2)
                         {
-                            closestDist = d;
-                            closestTarget = ally;
+                            closestDist = Vector2.Distance(enemy.Center, p.Center);
+                            bestTarget = p;
+                        }
+
+                        // Check Allies - only those with fewer than 2 attackers
+                        foreach (var ally in _allies)
+                        {
+                            float d = Vector2.Distance(enemy.Center, ally.Center);
+                            if (d < closestDist && ally.AttackerCount < 2)
+                            {
+                                closestDist = d;
+                                bestTarget = ally;
+                            }
+                        }
+
+                        if (bestTarget != null)
+                        {
+                            enemy.CurrentCombatPartner = bestTarget;
+                            enemy.CurrentCombatPartner.AttackerCount++; // "Claim" one of the 2 slots
+                            enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                        }
+                        else if (enemy.CurrentAIState != Enemy.AISTATE.Charging)
+                        {
+                            // If no one is available to fight, wander around
+                            enemy.CurrentAIState = Enemy.AISTATE.Wandering;
                         }
                     }
 
-                    // 2. Decide Behavior: Chase if close, otherwise Charge Left
-                    if (enemy.inChaseZone(closestTarget))
+                    // 2. STATE EXECUTION
+                    switch (enemy.CurrentAIState)
                     {
-                        // "Meet in the middle" condition met: Switch to circular chasing
-                        enemy.follow(closestTarget);
-                    }
-                    else
-                    {
-                        // Still too far away, keep charging left
-                        enemy.position.X -= 3.0f;
+                        case Enemy.AISTATE.Charging:
+                            enemy.position.X -= 3.0f; // Continue the initial charge
+                                                      // If a partner was found and is close enough, start chasing specifically
+                            if (enemy.CurrentCombatPartner != null && enemy.inChaseZone(enemy.CurrentCombatPartner))
+                                enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                            break;
+
+                        case Enemy.AISTATE.Chasing:
+                            enemy.follow(enemy.CurrentCombatPartner);
+                            break;
+
+                        case Enemy.AISTATE.InCombat:
+                            // Currently does nothing - this is where weapon animations will go next!
+                            // If the target moves away, go back to chasing
+                            if (Vector2.Distance(enemy.Center, enemy.CurrentCombatPartner.Center) > 80f)
+                                enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                            break;
+
+                        case Enemy.AISTATE.Wandering:
+                            // Placeholder: Could use your RandomEnemy logic here
+                            enemy.position.X -= 1.0f;
+                            break;
                     }
 
                     enemy.Update(gameTime);

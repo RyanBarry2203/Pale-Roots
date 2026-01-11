@@ -9,6 +9,7 @@ namespace Pale_Roots_1
     {
         private Game _game;
         private List<Level> _allLevels = new List<Level>();
+        public List<Enemy> enemies = new List<Enemy>();
 
         // The Engine reads this to know about walls
         public TileLayer CurrentLevel { get; private set; }
@@ -83,6 +84,21 @@ namespace Pale_Roots_1
                     }
                 }
             }
+        }
+        // Example: In your LevelManager Update method
+        public void Update(GameTime gameTime, Player player)
+        {
+            foreach (Enemy enemy in enemies)
+            {
+                // Give the enemy the player reference so 'CheckForTarget' actually works
+                enemy.CurrentCombatPartner = player;
+
+                // Call the enemy's update logic we just wrote
+                enemy.Update(gameTime);
+            }
+
+            // Clean up dead enemies from the list to save memory
+            enemies.RemoveAll(e => e.EnemyStateza == Enemy.ENEMYSTATE.DEAD);
         }
 
         public void Draw(SpriteBatch spriteBatch)

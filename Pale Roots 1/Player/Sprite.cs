@@ -1,30 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-
+using System;
 
 namespace Pale_Roots_1
 {
     public class Sprite
     {
-        //sprite texture and position
+        // Internal fields
         protected Texture2D spriteImage;
-        private bool visible;
         protected Game game;
         protected Vector2 origin;
         protected float angleOfRotation;
         protected int spriteDepth = 1;
-        protected Vector2 WorldOrigin
-        {
-            get { return position + origin; }
-            
-        }
+        private bool visible = true; // Backing field for the property
+
+        public Vector2 position;
+        public int AttackerCount = 0;
+        public Sprite CurrentCombatPartner;
+        public Enemy.AISTATE CurrentAIState = Enemy.AISTATE.Charging;
+
+        // Animation fields
+        int numberOfFrames = 0;
+        int currentFrame = 0;
+        int mililsecondsBetweenFrames = 100;
+        float timer = 0f;
+        public int spriteWidth = 0;
+        public int spriteHeight = 0;
+        Rectangle sourceRectangle;
+
+        // Properties
         public double Scale { get; set; }
         static protected Rectangle CameraRect;
+        public float Speed { get; set; } = 2.0f; // Default speed
+
+        // Corrected Center Property (Uses frame width for sprite sheets)
+        public Vector2 Center
+        {
+            get { return position + new Vector2(spriteWidth / 2f, spriteHeight / 2f); }
+        }
+
         public bool Visible
         {
             get { return visible; }
@@ -36,37 +50,20 @@ namespace Pale_Roots_1
             get { return spriteImage; }
             set { spriteImage = value; }
         }
-        public Vector2 Center
-        {
-            get { return position + new Vector2(spriteWidth / 2f, spriteHeight / 2f); }
-        }
-        public Vector2 position;
-
-        //the number of frames in the sprite sheet
-        //the current fram in the animation
-        //the time between frames
-        int numberOfFrames = 0;
-        int currentFrame = 0;
-        int mililsecondsBetweenFrames = 100;
-        float timer = 0f;
-
-        //the width and height of our texture
-        public int spriteWidth = 0;
-        public int spriteHeight = 0;
-
-        //the source of our image within the sprite sheet to draw
-        Rectangle sourceRectangle;
 
         public Rectangle SourceRectangle
         {
             get { return sourceRectangle; }
             set { sourceRectangle = value; }
         }
-        
 
-        
+        protected Vector2 WorldOrigin
+        {
+            get { return position + origin; }
+        }
 
-        public Sprite(Game g, Texture2D texture,Vector2 userPosition, int framecount, double scale)
+        // Constructor
+        public Sprite(Game g, Texture2D texture, Vector2 userPosition, int framecount, double scale)
         {
             Scale = scale;
             this.game = g;
@@ -76,58 +73,61 @@ namespace Pale_Roots_1
             spriteHeight = spriteImage.Height;
             visible = true;
             spriteWidth = spriteImage.Width / framecount;
-            // added to allow sprites to rotate
+
             origin = new Vector2(spriteWidth / 2, spriteHeight / 2);
             angleOfRotation = 0;
-            // Create a camera for clipping
+
             CameraRect = new Rectangle(0, 0, game.GraphicsDevice.Viewport.Width, game.GraphicsDevice.Viewport.Height);
             sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
         }
 
+        public virtual void follow(Sprite target)
+        {
+            if (target == null) return;
+
+            // 1. Calculate the vector pointing from us to the target
+            Vector2 direction = target.Center - this.Center;
+
+            // 2. Only move if we aren't already on top of the target
+            if (direction.Length() > 5.0f)
+            {
+                direction.Normalize(); // Make the vector 1 unit long
+                position += direction * Speed; // Move toward target
+            }
+        }
 
         public virtual void Update(GameTime gametime)
         {
             timer += (float)gametime.ElapsedGameTime.Milliseconds;
 
-            //if the timer is greater then the time between frames, then animate
-                    if (timer > mililsecondsBetweenFrames)
-                    {
-                        //moce to the next frame
-                        currentFrame++;
-
-                        //if we have exceed the number of frames
-                        if (currentFrame > numberOfFrames - 1)
-                        {
-                            currentFrame = 0;
-                        }
-                        //reset our timer
-                        timer = 0f;
-                    }
-            //set the source to be the current frame in our animation
-                    sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
-            
+            if (timer > mililsecondsBetweenFrames)
+            {
+                currentFrame++;
+                if (currentFrame > numberOfFrames - 1)
+                {
+                    currentFrame = 0;
+                }
+                timer = 0f;
             }
+            sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
+        }
+
         public bool collisionDetect(Sprite other)
         {
             Rectangle myBound = new Rectangle((int)this.position.X, (int)this.position.Y, this.spriteWidth, this.spriteHeight);
             Rectangle otherBound = new Rectangle((int)other.position.X, (int)other.position.Y, other.spriteWidth, other.spriteHeight);
-            if (myBound.Intersects(otherBound))
-                return true;
-            return false;
+            return myBound.Intersects(otherBound);
         }
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {
-
             if (visible)
             {
-                // Update the Draw call to use 'Scale' instead of 1.0f
                 spriteBatch.Draw(spriteImage,
                     position, sourceRectangle,
                     Color.White, angleOfRotation, origin,
                     (float)Scale, SpriteEffects.None, spriteDepth);
             }
-        }       
-
+        }
     }
 }

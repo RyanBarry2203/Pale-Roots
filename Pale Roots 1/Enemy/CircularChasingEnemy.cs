@@ -26,16 +26,22 @@ namespace Pale_Roots_1
         // UPDATED: Now accepts generic 'Sprite' so it can follow Player OR Allies
         public void follow(Sprite target)
         {
-            if (inChaseZone(target))
-            {
-                // Use Center properties for accurate tracking
-                Vector2 direction = target.Center - this.Center;
+            float stopDistance = 60f; // The "border" distance for swinging weapons
+            float distance = Vector2.Distance(this.Center, target.Center);
 
-                // Prevent crash if they are in the exact same spot
+            // Only move if we aren't at the "Battle Line" yet
+            if (distance > stopDistance)
+            {
+                Vector2 direction = target.Center - this.Center;
                 if (direction != Vector2.Zero)
                     direction.Normalize();
 
                 this.position += direction * Velocity;
+            }
+            else
+            {
+                // Transition to InCombat once the distance is closed
+                this.CurrentAIState = Enemy.AISTATE.InCombat;
             }
         }
 

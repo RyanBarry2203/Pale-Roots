@@ -11,7 +11,7 @@ namespace Pale_Roots_1
 {
     public class RandomEnemy : Enemy
     {
-        private Vector2 TargetPosition;
+        public Vector2 TargetPosition;
 
         public RandomEnemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
@@ -19,7 +19,7 @@ namespace Pale_Roots_1
             TargetPosition = CreateTarget();
         }
 
-        private Vector2 CreateTarget()
+        public Vector2 CreateTarget()
         {
             Random r = new Random();
 
