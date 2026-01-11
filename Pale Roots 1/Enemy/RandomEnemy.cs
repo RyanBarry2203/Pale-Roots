@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 
 namespace Pale_Roots_1
 {
     public class RandomEnemy : Enemy
     {
-        public Vector2 TargetPosition;
+        // Note: TargetPosition already exists in Enemy base class, 
+        // so we use 'new' to hide it (or just remove this if you want to use the base one)
+        public new Vector2 TargetPosition;
 
         public RandomEnemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
@@ -23,8 +20,9 @@ namespace Pale_Roots_1
         {
             Random r = new Random();
 
-            int rx = r.Next(myGame.GraphicsDevice.Viewport.Width - spriteImage.Width);
-            int ry = r.Next(myGame.GraphicsDevice.Viewport.Height - spriteImage.Height);
+            // FIX: Changed 'myGame' to 'game' - which is the protected field in Sprite base class
+            int rx = r.Next(game.GraphicsDevice.Viewport.Width - spriteImage.Width);
+            int ry = r.Next(game.GraphicsDevice.Viewport.Height - spriteImage.Height);
 
             return new Vector2(rx, ry);
         }
@@ -45,4 +43,3 @@ namespace Pale_Roots_1
         }
     }
 }
-
