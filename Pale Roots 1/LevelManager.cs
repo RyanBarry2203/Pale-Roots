@@ -11,7 +11,7 @@ namespace Pale_Roots_1
         private List<Level> _allLevels = new List<Level>();
         public List<Enemy> enemies = new List<Enemy>();
 
-        // The Engine reads this to know about walls
+        // The Engine reads this to know about walls and floors
         public TileLayer CurrentLevel { get; private set; }
 
         public LevelManager(Game game)
