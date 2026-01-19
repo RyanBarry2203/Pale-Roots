@@ -36,7 +36,7 @@ namespace Pale_Roots_1
         // ===================
         // BATTLE STATE
         // ===================
-        
+
         private bool _battleStarted = false;
         private Vector2 _mapSize;
         private Vector2 _playerSpawnPos = new Vector2(300, 900);
