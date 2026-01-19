@@ -69,10 +69,13 @@ namespace Pale_Roots_1
             _levelManager = new LevelManager(game);
             _levelManager.LoadLevel(0);
 
+            Texture2D swordTx = game.Content.Load<Texture2D>("sword");
+
             // Create player
             _player = new Player(
                 game, 
                 game.Content.Load<Texture2D>("wizard_strip3"), 
+                swordTx,
                 _playerSpawnPos, 
                 3
             );
@@ -170,8 +173,8 @@ namespace Pale_Roots_1
             if (!_battleStarted)
             {
                 // Pre-battle: just move player around
-                _player.Update(gameTime, _levelManager.CurrentLevel);
-                
+                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+
                 // Press D to start battle
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
                 {
@@ -190,7 +193,7 @@ namespace Pale_Roots_1
             _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player
-            _player.Update(gameTime, _levelManager.CurrentLevel);
+            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
 
             // Targeting scan
             _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;

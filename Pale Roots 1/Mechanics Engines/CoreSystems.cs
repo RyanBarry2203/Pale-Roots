@@ -12,6 +12,15 @@ namespace Pale_Roots_1
     /// </summary>
     public static class GameConstants
     {
+        // Add these to your GameConstants class
+        public const float SwordSwingDuration = 300f; // 300ms swing
+        public const float SwordCooldown = 500f;      // Time before you can swing again
+        public const int SwordDamage = 25;
+        public const float SwordRange = 60f;          // How far the sword reaches
+        public const float SwordKnockback = 20f;      // How far enemies get pushed
+        public const float SwordArcWidth = 60f;       // Width of the swing
+
+
         // COMBAT DISTANCES
         public const float MeleeAttackRange = 85f;
         public const float CombatEngageRange = 70f;
