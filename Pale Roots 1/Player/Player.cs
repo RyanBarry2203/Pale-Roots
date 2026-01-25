@@ -15,6 +15,8 @@ namespace Pale_Roots_1
         public CombatTeam Team => CombatTeam.Player;
 
         private int _health;
+
+        private Vector2 _mouseWorldPosition;
         public int Health
         {
             get => _health;
@@ -80,6 +82,11 @@ namespace Pale_Roots_1
 
             // 1. Handle Cooldowns
             if (_cooldownTimer > 0) _cooldownTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            MouseState mouseState = Mouse.GetState();
+            Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
+            Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
+            _mouseWorldPosition = this.Center + mouseOffset;
 
             // 2. Handle Attack Input
             if (!_isAttacking && _cooldownTimer <= 0 &&
@@ -166,6 +173,13 @@ namespace Pale_Roots_1
             _isAttacking = true;
             _swingTimer = GameConstants.SwordSwingDuration;
 
+            Vector2 directionToMouse = _mouseWorldPosition - this.Center;
+            if (directionToMouse != Vector2.Zero)
+            {
+                directionToMouse.Normalize();
+                _facingDirection = directionToMouse;
+            }
+
             // Create Hitbox in front of player
             Vector2 hitBoxCenter = this.Center + (_facingDirection * GameConstants.SwordRange);
             Rectangle swordHitbox = new Rectangle(
@@ -185,10 +199,19 @@ namespace Pale_Roots_1
                 {
                     CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
 
-                    // Knockback
                     Vector2 knockbackDir = enemy.Position - this.position;
                     if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
-                    enemy.position += knockbackDir * GameConstants.SwordKnockback;
+
+                    if (enemy is Enemy enemyObj)
+                    {
+                        enemyObj.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
+                    }
+
+
+                    // Knockback
+                    //Vector2 knockbackDir = enemy.Position - this.position;
+                    //if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
+                    //enemy.position += knockbackDir * GameConstants.SwordKnockback;
                 }
             }
         }
@@ -225,6 +248,8 @@ namespace Pale_Roots_1
                 Vector2 origin = new Vector2(0, _swordTexture.Height / 2);
                 float baseAngle = (float)Math.Atan2(_facingDirection.Y, _facingDirection.X);
                 float finalAngle = baseAngle + _swordRotation;
+
+                Vector2 swordPos = this.Center + (_facingDirection * 20f);
 
                 spriteBatch.Draw(_swordTexture, this.Center, null, Color.White, finalAngle, origin, 1.0f, SpriteEffects.None, 0f);
             }

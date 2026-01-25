@@ -23,6 +23,8 @@ namespace Pale_Roots_1
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public enum AISTATE { Charging, Chasing, InCombat, Wandering }
 
+        private Vector2 _knockBackVelocity;
+
         // ===================
         // STATE
         // ===================
@@ -128,6 +130,15 @@ namespace Pale_Roots_1
         
         public override void Update(GameTime gametime)
         {
+            if (_knockBackVelocity != Vector2.Zero)
+            {
+                position += _knockBackVelocity;
+                _knockBackVelocity *= GameConstants.KnockbackFriction;
+                
+                // Stop if velocity is very low
+                if (_knockBackVelocity.Length() < 0.1f)
+                    _knockBackVelocity = Vector2.Zero;
+            }
             base.Update(gametime);
 
             switch (_lifecycleState)
@@ -199,6 +210,12 @@ namespace Pale_Roots_1
         /// <summary>
         /// Chasing: Pursue the current target
         /// </summary>
+        /// 
+
+        public void ApplyKnockback(Vector2 force) 
+        {
+            _knockBackVelocity += force;
+        }
         protected virtual void PerformChase()
         {
             if (_currentTarget == null)
