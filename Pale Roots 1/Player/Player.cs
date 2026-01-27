@@ -9,14 +9,14 @@ namespace Pale_Roots_1
     public class Player : Sprite, ICombatant
     {
         // ===================
-        // ICombatant Properties (REQUIRED TO FIX ERROR)
+        // ICombatant Properties
         // ===================
         public string Name { get; set; } = "Hero";
         public CombatTeam Team => CombatTeam.Player;
 
         private int _health;
-
         private Vector2 _mouseWorldPosition;
+
         public int Health
         {
             get => _health;
@@ -30,8 +30,6 @@ namespace Pale_Roots_1
         public ICombatant CurrentTarget { get; set; }
         public int AttackerCount { get; set; }
         public Vector2 Position => position;
-
-        // Helper property for center
         public Vector2 CentrePos => Center;
 
         // ===================
@@ -45,8 +43,13 @@ namespace Pale_Roots_1
         private bool _isAttacking = false;
         private float _swingTimer = 0f;
         private float _cooldownTimer = 0f;
-        private Vector2 _facingDirection = new Vector2(0, 1); // Default facing Down
+        private Vector2 _facingDirection = new Vector2(0, 1);
         private float _swordRotation = 0f;
+
+        // --- FIX: CENTERED PIVOT ---
+        // (0, -32) moves the pivot from the feet (Center) up to the Chest/Neck.
+        // It is centered on the X axis (0) so it swings evenly left and right.
+        private Vector2 _pivotOffset = new Vector2(0, -32);
 
         // HEALTH BAR TEXTURE
         private static Texture2D _healthBarTexture;
@@ -54,7 +57,6 @@ namespace Pale_Roots_1
         // ===================
         // CONSTRUCTOR
         // ===================
-        // Note: We added swordTexture to the arguments here!
         public Player(Game game, Texture2D texture, Texture2D swordTexture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount, 1)
         {
@@ -80,7 +82,6 @@ namespace Pale_Roots_1
         {
             if (!IsAlive) return;
 
-            // 1. Handle Cooldowns
             if (_cooldownTimer > 0) _cooldownTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             MouseState mouseState = Mouse.GetState();
@@ -88,21 +89,18 @@ namespace Pale_Roots_1
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
-            // 2. Handle Attack Input
             if (!_isAttacking && _cooldownTimer <= 0 &&
                (Keyboard.GetState().IsKeyDown(Keys.Space) || Mouse.GetState().LeftButton == ButtonState.Pressed))
             {
                 StartAttack(enemies);
             }
 
-            // 3. Update Attack Animation
             if (_isAttacking)
             {
                 _swingTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                // Calculate sword rotation (-45 to +45 degrees)
                 float progress = 1f - (_swingTimer / GameConstants.SwordSwingDuration);
-                _swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress); // Wider swing
+                _swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress);
 
                 if (_swingTimer <= 0)
                 {
@@ -111,11 +109,9 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 4. Movement (Only move if NOT attacking)
             if (!_isAttacking)
             {
                 HandleInput(currentLayer);
-                // Only animate legs if moving
                 if (_velocity != Vector2.Zero) base.Update(gameTime);
             }
         }
@@ -133,10 +129,9 @@ namespace Pale_Roots_1
             if (inputDirection != Vector2.Zero)
             {
                 inputDirection.Normalize();
-                _facingDirection = inputDirection; // Remember direction
+                _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                // Simple collision check
                 Vector2 proposedPosition = position + _velocity;
                 if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
                 {
@@ -155,7 +150,6 @@ namespace Pale_Roots_1
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
-            // Simple center point check for now to save time
             int tx = (int)((newPos.X + spriteWidth / 2) / GameConstants.TileSize);
             int ty = (int)((newPos.Y + spriteHeight / 2) / GameConstants.TileSize);
 
@@ -173,20 +167,31 @@ namespace Pale_Roots_1
             _isAttacking = true;
             _swingTimer = GameConstants.SwordSwingDuration;
 
-            Vector2 directionToMouse = _mouseWorldPosition - this.Center;
+            // 1. PIVOT: Center of the Chest
+            Vector2 truePivot = this.Center + _pivotOffset;
+
+            // 2. DIRECTION: Calculated from Chest to Mouse
+            Vector2 directionToMouse = _mouseWorldPosition - truePivot;
+
             if (directionToMouse != Vector2.Zero)
             {
                 directionToMouse.Normalize();
                 _facingDirection = directionToMouse;
             }
 
-            // Create Hitbox in front of player
-            Vector2 hitBoxCenter = this.Center + (_facingDirection * GameConstants.SwordRange);
+            // 3. ARM LENGTH: Push sword 40px away from body (Orbit Radius)
+            float armLength = 0f;
+            Vector2 pivotPoint = truePivot + (_facingDirection * armLength);
+
+            // 4. HITBOX: Centered on the blade
+            float reach = 60f;
+            Vector2 hitBoxCenter = pivotPoint + (_facingDirection * (reach / 2));
+
             Rectangle swordHitbox = new Rectangle(
-                (int)(hitBoxCenter.X - GameConstants.SwordArcWidth / 2),
-                (int)(hitBoxCenter.Y - GameConstants.SwordArcWidth / 2),
-                (int)GameConstants.SwordArcWidth,
-                (int)GameConstants.SwordArcWidth
+                (int)(hitBoxCenter.X - reach / 2),
+                (int)(hitBoxCenter.Y - reach / 2),
+                (int)reach,
+                (int)reach
             );
 
             foreach (var enemy in enemies)
@@ -206,12 +211,6 @@ namespace Pale_Roots_1
                     {
                         enemyObj.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
                     }
-
-
-                    // Knockback
-                    //Vector2 knockbackDir = enemy.Position - this.position;
-                    //if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
-                    //enemy.position += knockbackDir * GameConstants.SwordKnockback;
                 }
             }
         }
@@ -226,7 +225,7 @@ namespace Pale_Roots_1
             if (Health <= 0) Die();
         }
 
-        public void PerformAttack() { /* Used for AI, not player input */ }
+        public void PerformAttack() { }
 
         public void Die()
         {
@@ -241,20 +240,39 @@ namespace Pale_Roots_1
         {
             base.Draw(spriteBatch);
 
-            // Draw Sword
             if (_isAttacking)
             {
-                // Pivot at the handle (Left Middle of image)
-                Vector2 origin = new Vector2(0, _swordTexture.Height / 2);
+                // 1. PIVOT
+                Vector2 truePivot = this.Center + _pivotOffset;
+
+                // 2. ARM LENGTH (Orbit Radius)
+                float armLength = 0f;
+                Vector2 pivotPoint = truePivot + (_facingDirection * armLength);
+
+                // 3. HANDLE ORIGIN (Hilt is at 0)
+                Vector2 swordHandleOrigin = new Vector2(0, _swordTexture.Height / 2);
+
+                // 4. ROTATION
                 float baseAngle = (float)Math.Atan2(_facingDirection.Y, _facingDirection.X);
                 float finalAngle = baseAngle + _swordRotation;
 
-                Vector2 swordPos = this.Center + (_facingDirection * 20f);
+                // 5. DEBUG DOT (Should be on Chest)
+                spriteBatch.Draw(_healthBarTexture,
+                    new Rectangle((int)truePivot.X - 2, (int)truePivot.Y - 2, 4, 4),
+                    Color.Red);
 
-                spriteBatch.Draw(_swordTexture, this.Center, null, Color.White, finalAngle, origin, 1.0f, SpriteEffects.None, 0f);
+                // 6. DRAW SWORD
+                spriteBatch.Draw(_swordTexture,
+                    pivotPoint,
+                    null,
+                    Color.White,
+                    finalAngle,
+                    swordHandleOrigin,
+                    1.0f,
+                    SpriteEffects.None,
+                    0f);
             }
 
-            // Draw Health Bar
             if (IsAlive)
             {
                 int barWidth = (int)(spriteWidth * Scale);
