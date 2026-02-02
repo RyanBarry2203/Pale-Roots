@@ -150,8 +150,14 @@ namespace Pale_Roots_1
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
-            int tx = (int)((newPos.X + spriteWidth / 2) / GameConstants.TileSize);
-            int ty = (int)((newPos.Y + spriteHeight / 2) / GameConstants.TileSize);
+            //int tx = (int)((newPos.X + spriteWidth / 2) / GameConstants.TileSize);
+            //int ty = (int)((newPos.Y + spriteHeight / 2) / GameConstants.TileSize);
+
+            float scaledCenterX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
+            float scaledCenterY = newPos.Y + (spriteHeight * (float)Scale) / 2.0f;
+
+            int tx = (int)(scaledCenterX / GameConstants.TileSize);
+            int ty = (int)(scaledCenterY / GameConstants.TileSize);
 
             if (tx < 0 || tx >= layer.Tiles.GetLength(1) || ty < 0 || ty >= layer.Tiles.GetLength(0))
                 return false;
