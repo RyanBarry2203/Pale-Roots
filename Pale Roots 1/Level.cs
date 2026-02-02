@@ -11,9 +11,10 @@ namespace Pale_Roots_1
 
         public enum TileType
         {
-            Wall = 0,
-            Floor = 1,
-           
+            Floor= 0,
+            Wall = 1,
+            Tree = 2,
+
         }
 
         public Level(int[,] map, List<TileRef> tiles, Vector2 startPos)

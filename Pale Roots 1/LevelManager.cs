@@ -55,13 +55,17 @@ namespace Pale_Roots_1
 
             List<TileRef> palette = new List<TileRef>();
 
-            palette.Add(new TileRef(0, 0, (int)TileType.Floor)); // Floor
-            palette.Add(new TileRef(1, 0, (int)TileType.Floor));  // Flower Floor
+            //normal floor
+            palette.Add(new TileRef(0, 0, (int)TileType.Floor)); // Grass
+            // floer floor
+            palette.Add(new TileRef(1, 0, (int)TileType.Floor)); // flower grass
+            // wall
+            palette.Add(new TileRef(0, 1, (int)TileType.Wall)); // rock wall
+            //Path
+            palette.Add(new TileRef(0, 2, (int)TileType.Floor)); // dirt path
+            // Cracked wall
+            palette.Add(new TileRef(3, 2, (int)TileType.Wall)); // cracked wall
 
-            palette.Add(new TileRef(0, 1, (int)TileType.Wall)); // Wall
-
-            palette.Add(new TileRef(0, 2, (int)TileType.Floor)); // Path Floor
-            palette.Add(new TileRef(3, 2, (int)TileType.Floor)); // Cracked Wall
 
             int treeStartID = 10;
 
@@ -69,7 +73,7 @@ namespace Pale_Roots_1
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    palette.Add(new TileRef(i, j + 3, (int)TileType.Wall)); // Trees
+                    palette.Add(new TileRef(j, i + 3, (int)TileType.Tree)); // Trees
                 }
             }
 
@@ -148,10 +152,21 @@ namespace Pale_Roots_1
             {
                 for (int x = 0; x < CurrentLevel.Tiles.GetLength(1); x++)
                 {
-                    // If Tile ID is Wall, make it impassable
-                    if (CurrentLevel.Tiles[y, x].Id == (int)TileType.Wall)
+                    //// If Tile ID is Wall, make it impassable
+                    //if (CurrentLevel.Tiles[y, x].Id == (int)TileType.Wall)
+                    //{
+                    //    CurrentLevel.Tiles[y, x].Passable = false;
+                    //}
+
+                    int typeOfTile = CurrentLevel.Tiles[y, x].tileRef._tileMapValue;
+
+                    if (typeOfTile == (int)TileType.Wall || typeOfTile == (int)TileType.Tree)
                     {
-                        CurrentLevel.Tiles[y, x].Passable = false;
+                        CurrentLevel.Tiles[y, x].Passable = false;  
+                    }
+                    else                    
+                    {
+                        CurrentLevel.Tiles[y, x].Passable = true;
                     }
                 }
             }
