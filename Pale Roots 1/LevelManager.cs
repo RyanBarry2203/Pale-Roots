@@ -10,6 +10,7 @@ namespace Pale_Roots_1
         private Game _game;
         private List<Level> _allLevels = new List<Level>();
         public List<Enemy> enemies = new List<Enemy>();
+        //private Texture2D _mapSheet;
 
         // The Engine reads this to know about walls and floors
         public TileLayer CurrentLevel { get; private set; }
@@ -22,38 +23,106 @@ namespace Pale_Roots_1
 
         private void InitializeLevels()
         {
-            // 1. DEFINE PALETTE
-            // This tells the game what the numbers mean.
-            // 0 = Wall, 1 = Floor
+            //// 1. DEFINE PALETTE
+            //// This tells the game what the numbers mean.
+            //// 0 = Wall, 1 = Floor
+            //List<TileRef> palette = new List<TileRef>();
+
+            //// Wall (ID 0) -> Row 4, Col 0 on sheet
+            //palette.Add(new TileRef(0, 4, (int)TileType.Wall));
+
+            //// Floor (ID 1) -> Row 2, Col 3 on sheet
+            //palette.Add(new TileRef(3, 2, (int)TileType.Floor));
+
+            //// 2. DEFINE MAP
+            //// Let's make a Big Open Plane (30x30 tiles)
+            //// 0 = Wall, 1 = Floor
+            //int width = 30;
+            //int height = 30;
+            //int[,] bigMap = new int[height, width];
+
+            //for (int y = 0; y < height; y++)
+            //{
+            //    for (int x = 0; x < width; x++)
+            //    {
+            //        // Make the borders Walls, everything else Floor
+            //        if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
+            //            bigMap[y, x] = 0; // Wall
+            //        else
+            //            bigMap[y, x] = 1; // Floor
+            //    }
+            //}
+
             List<TileRef> palette = new List<TileRef>();
 
-            // Wall (ID 0) -> Row 4, Col 0 on sheet
-            palette.Add(new TileRef(0, 4, (int)TileType.Wall));
+            palette.Add(new TileRef(0, 0, (int)TileType.Floor)); // Floor
+            palette.Add(new TileRef(1, 0, (int)TileType.Floor));  // Flower Floor
 
-            // Floor (ID 1) -> Row 2, Col 3 on sheet
-            palette.Add(new TileRef(3, 2, (int)TileType.Floor));
+            palette.Add(new TileRef(0, 1, (int)TileType.Wall)); // Wall
 
-            // 2. DEFINE MAP
-            // Let's make a Big Open Plane (30x30 tiles)
-            // 0 = Wall, 1 = Floor
-            int width = 30;
-            int height = 30;
-            int[,] bigMap = new int[height, width];
+            palette.Add(new TileRef(0, 2, (int)TileType.Floor)); // Path Floor
+            palette.Add(new TileRef(3, 2, (int)TileType.Floor)); // Cracked Wall
 
-            for (int y = 0; y < height; y++)
+            int treeStartID = 10;
+
+            for (int i = 0; i < 5; i++)
             {
-                for (int x = 0; x < width; x++)
+                for (int j = 0; j < 5; j++)
                 {
-                    // Make the borders Walls, everything else Floor
-                    if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
-                        bigMap[y, x] = 0; // Wall
-                    else
-                        bigMap[y, x] = 1; // Floor
+                    palette.Add(new TileRef(i, j + 3, (int)TileType.Wall)); // Trees
                 }
             }
 
             // Add Level 1 with the big map
-            _allLevels.Add(new Level(bigMap, palette, new Vector2(100, 100)));
+            //_allLevels.Add(new Level(bigMap, palette, new Vector2(100, 100)));
+
+            int width = 30;
+            int height = 30;
+            int[,] map = new int[height, width];
+
+            for (int  i = 0;  i < height;  i++)
+            {
+                for (int j = 0; j < width; j++)
+                {
+                    map[i, j] = 0;
+                    if (CombatSystem.RandomInt(0, 10) > 8)
+                    {
+                        map[i, j] = 1;
+                    }
+                }
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                map[0, x] = 2;
+                map[height - 1, x] = 2;
+            }
+            for (int y = 0; y < height; y++)
+            {
+                map[y, 0] = 2;
+                map[y, width - 1] = 2;
+            }
+
+            int pathRow = height / 2;
+            for (int x = 0; x < width; x++)
+            {
+                map[pathRow, x] = 4;
+            }
+
+            int treeX = 10;
+            int treeY = 5;
+            int currentTreeID = 5;
+
+            for (int i = 0; i < 5; i++)
+            {
+                for (int j = 0; j < 5; j++)
+                {
+                    map[treeY + i, treeX + j] = currentTreeID;
+                    currentTreeID++;
+                }
+            }
+
+            _allLevels.Add(new Level(map, palette, new Vector2(100, 100)));
         }
 
         public void LoadLevel(int index)
@@ -63,10 +132,12 @@ namespace Pale_Roots_1
 
             // 1. LOAD TEXTURE
             // Ensure this file name is EXACTLY right in your Content folder!
-            Texture2D tileSheet = _game.Content.Load<Texture2D>("tank tiles 64 x 64");
+            Texture2D tileSheet = _game.Content.Load<Texture2D>("MapSheet");
 
             // CRITICAL: We must set this so TileLayer knows what image to draw
             Helper.SpriteSheet = tileSheet;
+
+
 
             // 2. CREATE LAYER
             CurrentLevel = new TileLayer(data.MapLayout, data.TilePalette, 64, 64);
