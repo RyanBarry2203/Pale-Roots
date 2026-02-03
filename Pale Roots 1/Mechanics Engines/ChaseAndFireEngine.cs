@@ -311,32 +311,59 @@ namespace Pale_Roots_1
         // ===================
         // DRAW
         // ===================
-        
+
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
-            // Draw map
+            // 1. DRAW BACKGROUND (Floor) FIRST
+            // This is always at the very bottom.
             _levelManager.Draw(spriteBatch);
-            
-            // Draw allies (behind player)
+
+            // 2. PREPARE A SORTABLE LIST OF EVERYTHING ELSE
+            // We put Player, Enemies, Allies, and Trees into one bucket.
+            List<Sprite> renderList = new List<Sprite>();
+
+            // Add Player
+            if (_player.Visible) renderList.Add(_player);
+
+            // Add Allies
             foreach (var ally in _allies)
             {
-                ally.Draw(spriteBatch);
+                if (ally.Visible) renderList.Add(ally);
             }
-            
-            // Draw player
-            _player.Draw(spriteBatch);
-            
-            // Draw enemies
+
+            // Add Enemies
             foreach (var enemy in _enemies)
             {
-                enemy.Draw(spriteBatch);
+                if (enemy.Visible) renderList.Add(enemy);
+            }
+
+            // Add World Objects (Trees, Rocks) from LevelManager
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                if (obj.Visible) renderList.Add(obj);
+            }
+
+            // 3. SORT BY Y POSITION (Depth Sorting)
+            // Objects with a higher Y (lower on screen) are drawn LAST (on top).
+            // This allows the player to walk "behind" a tree base.
+            renderList.Sort((a, b) => {
+                // We compare the bottom of the sprites (Y + Height) for accuracy
+                float aY = a.position.Y + (a.spriteHeight * (float)a.Scale);
+                float bY = b.position.Y + (b.spriteHeight * (float)b.Scale);
+                return aY.CompareTo(bY);
+            });
+
+            // 4. DRAW EVERYTHING IN ORDER
+            foreach (var sprite in renderList)
+            {
+                sprite.Draw(spriteBatch);
             }
         }
 
         // ===================
         // PUBLIC ACCESSORS
         // ===================
-        
+
         public Player GetPlayer() => _player;
         public int AllyCount => _allies.Count(a => a.IsAlive);
         public int EnemyCount => _enemies.Count(e => e.IsAlive);
