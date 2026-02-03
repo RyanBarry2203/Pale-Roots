@@ -31,7 +31,7 @@ namespace Pale_Roots_1
         protected float timer = 0f;
         public int spriteWidth = 0;
         public int spriteHeight = 0;
-        protected Rectangle sourceRectangle;
+        public Rectangle sourceRectangle;
 
         public Vector2 Center
         {

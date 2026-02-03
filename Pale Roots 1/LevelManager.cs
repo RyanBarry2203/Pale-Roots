@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
-using static Pale_Roots_1.Level;
 
 namespace Pale_Roots_1
 {
@@ -9,244 +8,136 @@ namespace Pale_Roots_1
     {
         private Game _game;
         private List<Level> _allLevels = new List<Level>();
-        public List<Enemy> enemies = new List<Enemy>();
-        //private Texture2D _mapSheet;
 
+        // --- ENTITY LISTS ---
+        public List<Enemy> enemies = new List<Enemy>();
         public List<WorldObject> MapObjects = new List<WorldObject>();
 
+        // --- GRAPHICS ---
+        public TileLayer CurrentLevel { get; private set; }
         private Texture2D _groundSheet;
         private Texture2D _animatedObjectSheet;
         private Texture2D _staticObjectSheet;
 
-        // The Engine reads this to know about walls and floors
-        public TileLayer CurrentLevel { get; private set; }
-
         public LevelManager(Game game)
         {
             _game = game;
-            InitializeLevels();
+            // We don't initialize here anymore, we do it in LoadLevel to be safe
         }
 
-        private void InitializeLevels()
+        public void LoadLevel(int index)
         {
-            // ---------------------------------------------------------
-            // 1. DEFINE PALETTE
-            // ---------------------------------------------------------
-            // We strictly define our IDs here so we know what numbers to use later.
-            // IDs 0, 1, 2 = GRASS (Walkable)
-            // IDs 3, 4, 5 = WALLS (Solid)
-            // ID  6       = PATH  (Walkable)
-            // IDs 10+     = TREE  (Solid)
+            // 1. LOAD TEXTURES
+            // Ensure these match your content names exactly (Case Sensitive!)
+            _groundSheet = _game.Content.Load<Texture2D>("Tiles");
+            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
+            _staticObjectSheet = _game.Content.Load<Texture2D>("Objects");
 
-            List<TileRef> palette = new List<TileRef>();
+            // 2. SETUP THE STATIC HELPER
+            // Crucial: This tells the TileLayer class which image to use for the floor.
+            Helper.SpriteSheet = _groundSheet;
 
-            // --- GRASS (IDs 0, 1, 2) ---
-            // Row 0, Cols 0-2 (Walkable)
-            for (int i = 0; i < 3; i++)
-            {
-                palette.Add(new TileRef(i, 0, (int)TileType.Floor));
-            }
-
-            // --- WALLS (IDs 3, 4, 5) ---
-            // Row 1, Cols 0-2 (Solid)
-            for (int i = 0; i < 3; i++)
-            {
-                palette.Add(new TileRef(i, 1, (int)TileType.Wall));
-            }
-
-            // --- DIRT PATH (IDs 6, 7, 8) ---
-            // Row 2, Cols 0-2 (Walkable)
-            // We add a loop here so the path can look "scuffed" and natural
-            for (int i = 0; i < 3; i++)
-            {
-                palette.Add(new TileRef(i, 2, (int)TileType.Floor));
-            }
-
-            // --- TREE (IDs 9+) ---
-            // Starts at current count (should be 9)
-            int treeStartID = palette.Count;
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    palette.Add(new TileRef(j, i + 3, (int)TileType.Tree));
-                }
-            }
-
-            // ---------------------------------------------------------
-            // 2. GENERATE MAP
-            // ---------------------------------------------------------
-            int width = 30;
-            int height = 30;
-            int[,] map = new int[height, width];
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    // FILL MAP WITH RANDOM GRASS
-                    // We use IDs 0, 1, and 2 which we defined as Grass above
-                    map[y, x] = CombatSystem.RandomInt(0, 3);
-                }
-            }
-
-            // CREATE BORDERS (Walls)
-            // We use ID 3 (The first wall variant)
-            // You could use RandomInt(3, 6) if you wanted mixed walls!
-            int wallID = 3;
-
-            for (int x = 0; x < width; x++)
-            {
-                map[0, x] = wallID;             // Top Edge
-                map[height - 1, x] = wallID;    // Bottom Edge
-            }
-
-            for (int y = 0; y < height; y++)
-            {
-                map[y, 0] = wallID;             // Left Edge
-                map[y, width - 1] = wallID;     // Right Edge
-            }
-
-            // CREATE PATH
-            // We use ID 6 (Dirt Path)
-            int pathRow = height / 2;
-            for (int x = 0; x < width - 1; x++) // Start at 1 to avoid overwriting the border wall
-            {
-                map[pathRow, x] = CombatSystem.RandomInt(6, 9);
-            }
-
-            // CREATE TREE
-            // We use the treeStartID we captured earlier
-            int treeX = 10;
-            int treeY = 5;
-            int currentTreeTile = treeStartID;
-
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    if (treeY + i < height && treeX + j < width)
-                    {
-                        map[treeY + i, treeX + j] = currentTreeTile;
-                    }
-                    currentTreeTile++;
-                }
-            }
-
-            // Add the level to the list
-            _allLevels.Add(new Level(map, palette, new Vector2(100, 100)));
+            // 3. GENERATE THE WORLD
+            InitializeGameWorld();
         }
+
         private void InitializeGameWorld()
         {
+            // Clear any old junk
             MapObjects.Clear();
+            enemies.Clear(); // Clear enemies if you want a fresh start
+
+            // --------------------------------------------------------
+            // STEP A: THE FLOOR (Background)
+            // --------------------------------------------------------
             List<TileRef> palette = new List<TileRef>();
 
-            // --- STEP A: DEFINE GROUND PALETTE (Tiles.png) ---
-            // Looking at source [1], Row 1 / Col 1 looks like stone/grass.
-            // We define a few floor tiles.
-            palette.Add(new TileRef(1, 1, (int)TileType.Floor)); // ID 0: Dark Ground
-            palette.Add(new TileRef(4, 1, (int)TileType.Floor)); // ID 1: Path Stone
-            palette.Add(new TileRef(0, 6, (int)TileType.Wall));  // ID 2: A brick wall (Row 6)
+            // We pick a safe tile from 'Tiles.png'. 
+            // Row 1, Col 1 is usually a safe dark stone/grass in these packs.
+            palette.Add(new TileRef(1, 1, 0)); // ID 0 = Floor
 
-            // --- STEP B: CREATE THE GRID (30x30) ---
-            int width = 30;
-            int height = 30;
+            // Create a 20x20 Grid (Small and manageable)
+            int width = 20;
+            int height = 20;
             int[,] map = new int[height, width];
 
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
-                    map[y, x] = 0; // Default ground
-
-                    // Create a random path or noise
-                    if (CombatSystem.RandomInt(0, 100) > 90)
-                    {
-                        map[y, x] = 1; // Speckles of stone
-                    }
+                    map[y, x] = 0; // Fill everything with ID 0
                 }
             }
 
-            // Create Borders (Walls)
-            for (int x = 0; x < width; x++) { map[0, x] = 2; map[height - 1, x] = 2; }
-            for (int y = 0; y < height; y++) { map[y, 0] = 2; map[y, width - 1] = 2; }
-
-            // Create the TileLayer for the background
+            // Create the TileLayer
+            // 64, 64 is the size we want to draw them on screen (scaled up)
             CurrentLevel = new TileLayer(map, palette, 64, 64);
 
-            // Set Collision for walls
-            for (int y = 0; y < height; y++)
+            // Set all floor tiles to be Walkable
+            foreach (var tile in CurrentLevel.Tiles) tile.Passable = true;
+
+
+            // --------------------------------------------------------
+            // STEP B: THE TREES (Foreground)
+            // --------------------------------------------------------
+            // We place exactly 5 trees.
+            for (int i = 0; i < 5; i++)
             {
-                for (int x = 0; x < width; x++)
-                {
-                    // If ID is 2 (Wall), make it solid
-                    if (CurrentLevel.Tiles[y, x].tileRef._tileMapValue == 2)
-                        CurrentLevel.Tiles[y, x].Passable = false;
-                    else
-                        CurrentLevel.Tiles[y, x].Passable = true;
-                }
-            }
-
-            // --- STEP C: ADD "LIVING" OBJECTS ---
-
-            // 1. ADD ANIMATED TREES (from Objects_animated.png [2])
-            // The sheet has trees in the top rows. 
-            for (int i = 0; i < 15; i++)
-            {
-                int tx = CombatSystem.RandomInt(2, 28);
-                int ty = CombatSystem.RandomInt(2, 28);
-
+                // Random position away from the edges
+                int tx = CombatSystem.RandomInt(2, 18);
+                int ty = CombatSystem.RandomInt(2, 18);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
 
-                // Create the tree. FrameCount is 4 (looks like 4 animation frames).
-                // scale: 2.0 to make them look big on the 64x64 grid
+                // Create the Tree
+                // The sheet is a grid of trees. We want the top-left one.
+                // It has 4 frames of animation.
                 var tree = new WorldObject(_game, _animatedObjectSheet, pos, 4, true);
 
-                // Adjust the Source Rectangle for the first tree type (Row 0)
-                // Assuming 32x48 standard size for these RPG assets
+                // MANUAL SLICING (Fixes the "Mess")
+                // We overwrite the automatic calculation.
+                // Each tree frame is roughly 32 pixels wide and 48 pixels tall in the file.
                 tree.spriteWidth = 32;
                 tree.spriteHeight = 48;
-                tree.Scale = 2.5;
+
+                // Set the Source Rectangle to the Top-Left corner of the sheet
+                // Frame calculation in Sprite.cs will handle the X offset for animation.
+                tree.Scale = 2.0f; // Scale up to look nice
 
                 MapObjects.Add(tree);
             }
 
-            // 2. ADD ROCKS (from Objects.png [3])
-            // These are static (1 frame)
-            for (int i = 0; i < 10; i++)
+            // --------------------------------------------------------
+            // STEP C: THE ROCKS (Static Cover)
+            // --------------------------------------------------------
+            // We place exactly 5 rocks.
+            for (int i = 0; i < 5; i++)
             {
-                int tx = CombatSystem.RandomInt(2, 28);
-                int ty = CombatSystem.RandomInt(2, 28);
+                int tx = CombatSystem.RandomInt(2, 18);
+                int ty = CombatSystem.RandomInt(2, 18);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
 
+                // Create Rock (1 Frame, Static)
                 var rock = new WorldObject(_game, _staticObjectSheet, pos, 1, true);
 
-                // Grab a rock from the sheet (Row 1, Col 0 approx)
+                // MANUAL SLICING
+                // We pick a specific rock from the big Objects.png atlas.
+                // Let's grab the grey rock at (0, 96) - roughly 3rd row down.
                 rock.spriteWidth = 32;
                 rock.spriteHeight = 32;
-                rock.Scale = 2.0;
+
+                // For static objects, we must hard-code the source rectangle 
+                // so it doesn't try to draw the whole sheet.
+                rock.sourceRectangle = new Rectangle(0, 96, 32, 32);
+
+                rock.Scale = 2.0f;
 
                 MapObjects.Add(rock);
             }
         }
 
-        public void LoadLevel(int index)
-        {
-
-            _groundSheet = _game.Content.Load<Texture2D>("tiles");
-            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
-            _staticObjectSheet = _game.Content.Load<Texture2D>("Objects");
-
-            // Set the static helper for the TileLayer (Background)
-            Helper.SpriteSheet = _groundSheet;
-
-            // 2. Generate the Map Data using the new assets
-            InitializeGameWorld();
-        }
-        // Example: In your LevelManager Update method
         public void Update(GameTime gameTime, Player player)
         {
-            // Update logic for enemies...
+            // Update Enemies
             foreach (Enemy enemy in enemies)
             {
                 enemy.CurrentCombatPartner = player;
@@ -254,7 +145,7 @@ namespace Pale_Roots_1
             }
             enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
 
-            // --- NEW: Update Map Objects (Animations) ---
+            // Update Map Objects (Animations)
             foreach (var obj in MapObjects)
             {
                 obj.Update(gameTime);
@@ -263,6 +154,8 @@ namespace Pale_Roots_1
 
         public void Draw(SpriteBatch spriteBatch)
         {
+            // Only draw the floor tiles here. 
+            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
             if (CurrentLevel != null)
             {
                 CurrentLevel.Draw(spriteBatch);
