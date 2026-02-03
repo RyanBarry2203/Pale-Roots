@@ -23,109 +23,111 @@ namespace Pale_Roots_1
 
         private void InitializeLevels()
         {
-            //// 1. DEFINE PALETTE
-            //// This tells the game what the numbers mean.
-            //// 0 = Wall, 1 = Floor
-            //List<TileRef> palette = new List<TileRef>();
-
-            //// Wall (ID 0) -> Row 4, Col 0 on sheet
-            //palette.Add(new TileRef(0, 4, (int)TileType.Wall));
-
-            //// Floor (ID 1) -> Row 2, Col 3 on sheet
-            //palette.Add(new TileRef(3, 2, (int)TileType.Floor));
-
-            //// 2. DEFINE MAP
-            //// Let's make a Big Open Plane (30x30 tiles)
-            //// 0 = Wall, 1 = Floor
-            //int width = 30;
-            //int height = 30;
-            //int[,] bigMap = new int[height, width];
-
-            //for (int y = 0; y < height; y++)
-            //{
-            //    for (int x = 0; x < width; x++)
-            //    {
-            //        // Make the borders Walls, everything else Floor
-            //        if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
-            //            bigMap[y, x] = 0; // Wall
-            //        else
-            //            bigMap[y, x] = 1; // Floor
-            //    }
-            //}
+            // ---------------------------------------------------------
+            // 1. DEFINE PALETTE
+            // ---------------------------------------------------------
+            // We strictly define our IDs here so we know what numbers to use later.
+            // IDs 0, 1, 2 = GRASS (Walkable)
+            // IDs 3, 4, 5 = WALLS (Solid)
+            // ID  6       = PATH  (Walkable)
+            // IDs 10+     = TREE  (Solid)
 
             List<TileRef> palette = new List<TileRef>();
 
-            //normal floor
-            palette.Add(new TileRef(0, 0, (int)TileType.Floor)); // Grass
-            // floer floor
-            palette.Add(new TileRef(1, 0, (int)TileType.Floor)); // flower grass
-            // wall
-            palette.Add(new TileRef(0, 1, (int)TileType.Wall)); // rock wall
-            //Path
-            palette.Add(new TileRef(0, 2, (int)TileType.Floor)); // dirt path
-            // Cracked wall
-            palette.Add(new TileRef(3, 2, (int)TileType.Wall)); // cracked wall
+            // --- GRASS (IDs 0, 1, 2) ---
+            // Row 0, Cols 0-2 (Walkable)
+            for (int i = 0; i < 3; i++)
+            {
+                palette.Add(new TileRef(i, 0, (int)TileType.Floor));
+            }
 
+            // --- WALLS (IDs 3, 4, 5) ---
+            // Row 1, Cols 0-2 (Solid)
+            for (int i = 0; i < 3; i++)
+            {
+                palette.Add(new TileRef(i, 1, (int)TileType.Wall));
+            }
 
-            int treeStartID = 10;
+            // --- DIRT PATH (IDs 6, 7, 8) ---
+            // Row 2, Cols 0-2 (Walkable)
+            // We add a loop here so the path can look "scuffed" and natural
+            for (int i = 0; i < 3; i++)
+            {
+                palette.Add(new TileRef(i, 2, (int)TileType.Floor));
+            }
 
+            // --- TREE (IDs 9+) ---
+            // Starts at current count (should be 9)
+            int treeStartID = palette.Count;
             for (int i = 0; i < 5; i++)
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    palette.Add(new TileRef(j, i + 3, (int)TileType.Tree)); // Trees
+                    palette.Add(new TileRef(j, i + 3, (int)TileType.Tree));
                 }
             }
 
-            // Add Level 1 with the big map
-            //_allLevels.Add(new Level(bigMap, palette, new Vector2(100, 100)));
-
+            // ---------------------------------------------------------
+            // 2. GENERATE MAP
+            // ---------------------------------------------------------
             int width = 30;
             int height = 30;
             int[,] map = new int[height, width];
 
-            for (int  i = 0;  i < height;  i++)
+            for (int y = 0; y < height; y++)
             {
-                for (int j = 0; j < width; j++)
+                for (int x = 0; x < width; x++)
                 {
-                    map[i, j] = 0;
-                    if (CombatSystem.RandomInt(0, 10) > 8)
-                    {
-                        map[i, j] = 1;
-                    }
+                    // FILL MAP WITH RANDOM GRASS
+                    // We use IDs 0, 1, and 2 which we defined as Grass above
+                    map[y, x] = CombatSystem.RandomInt(0, 3);
                 }
             }
 
+            // CREATE BORDERS (Walls)
+            // We use ID 3 (The first wall variant)
+            // You could use RandomInt(3, 6) if you wanted mixed walls!
+            int wallID = 3;
+
             for (int x = 0; x < width; x++)
             {
-                map[0, x] = 2;
-                map[height - 1, x] = 2;
+                map[0, x] = wallID;             // Top Edge
+                map[height - 1, x] = wallID;    // Bottom Edge
             }
+
             for (int y = 0; y < height; y++)
             {
-                map[y, 0] = 2;
-                map[y, width - 1] = 2;
+                map[y, 0] = wallID;             // Left Edge
+                map[y, width - 1] = wallID;     // Right Edge
             }
 
+            // CREATE PATH
+            // We use ID 6 (Dirt Path)
             int pathRow = height / 2;
-            for (int x = 0; x < width; x++)
+            for (int x = 0; x < width - 1; x++) // Start at 1 to avoid overwriting the border wall
             {
-                map[pathRow, x] = 4;
+                map[pathRow, x] = CombatSystem.RandomInt(6, 9);
             }
 
+            // CREATE TREE
+            // We use the treeStartID we captured earlier
             int treeX = 10;
             int treeY = 5;
-            int currentTreeID = 5;
+            int currentTreeTile = treeStartID;
 
             for (int i = 0; i < 5; i++)
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    map[treeY + i, treeX + j] = currentTreeID;
-                    currentTreeID++;
+                    if (treeY + i < height && treeX + j < width)
+                    {
+                        map[treeY + i, treeX + j] = currentTreeTile;
+                    }
+                    currentTreeTile++;
                 }
             }
 
+            // Add the level to the list
             _allLevels.Add(new Level(map, palette, new Vector2(100, 100)));
         }
 
