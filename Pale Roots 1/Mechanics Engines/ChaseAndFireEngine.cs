@@ -195,6 +195,8 @@ namespace Pale_Roots_1
             // Update player
             _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
 
+            _levelManager.Update(gameTime, _player);
+
             // Targeting scan
             _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;

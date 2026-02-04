@@ -49,7 +49,7 @@ namespace Pale_Roots_1
             // THE FLOOR
 
             List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(0, 0, 0)); // ID 0 = Floor
+            palette.Add(new TileRef(1, 3, 0)); // ID 0 = Floor
 
             int width = 30; // Made map slightly bigger
             int height = 30;
@@ -112,7 +112,8 @@ namespace Pale_Roots_1
         {
             int tx = CombatSystem.RandomInt(2, 28);
             int ty = CombatSystem.RandomInt(2, 28);
-            return new Vector2(tx * 64, ty * 64);
+
+            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
         }
 
         public void Update(GameTime gameTime, Player player)
