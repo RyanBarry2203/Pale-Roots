@@ -77,7 +77,7 @@ namespace Pale_Roots_1
             for (int i = 0; i < 10; i++)
             {
                 Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Bush_Green", pos, _staticObjectSheet);
+                CreateStaticObject("Rocks_Grey_Small", pos, _staticObjectSheet);
             }
 
             // 3. Place Animated Shrines
@@ -85,7 +85,7 @@ namespace Pale_Roots_1
             {
                 Vector2 pos = GetRandomPosition();
                 // Shrines have 4 frames
-                CreateAnimatedObject("Shrine_Blue", pos, _animatedObjectSheet, 4);
+                CreateAnimatedObject("Tree_Dead_Large", pos, _animatedObjectSheet, 4);
             }
         }
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)

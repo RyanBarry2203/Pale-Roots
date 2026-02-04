@@ -14,7 +14,7 @@ namespace Pale_Roots_1
             { "Rocks_Grey_Small", new Rectangle(0, 96, 32, 32)},
             { "Rock_Mossy_Small", new Rectangle(32, 96, 32, 32)},
 
-            { "Tree_Dead_Large ", new Rectangle(0, 0, 96, 96)},
+            { "Tree_Dead_Large", new Rectangle(0, 0, 96, 96)},
             { "Tree_Green_Large", new Rectangle(0, 192, 96, 96)},
 
             { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
