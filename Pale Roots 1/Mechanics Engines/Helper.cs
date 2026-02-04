@@ -15,16 +15,20 @@ namespace Pale_Roots_1
             { "Skull_Pile", new Rectangle(15, 433, 80, 60)},
 
             { "Tree_Dead_Large", new Rectangle(16, 16, 112, 128)},
-            { "Tree_Green_Large", new Rectangle(16, 16, 112, 128)},
 
             { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
 
             { "Ruins_Column", new Rectangle(8, 16, 87, 96) },
 
-            { "Ruins_Wall",   new Rectangle(48, 0, 48, 48) },
-            { "Bush_Green",   new Rectangle(0, 160, 16, 16) }, // Small bush
-
             { "Shrine_Blue", new Rectangle(0, 128, 32, 48) },
+            { "Bird_Skull", new Rectangle(16, 332, 51, 52) },
+            { "Skellington", new Rectangle(64, 320, 159, 119) },
+            { "Bone_In_Floor", new Rectangle(560, 432, 31, 50) },
+            { "Dying_Tree", new Rectangle(415, 496, 69, 93) },
+            { "Hand_In_Floor", new Rectangle(608, 523, 63, 71) },
+            { "Baby_Skellington", new Rectangle(239, 227, 32, 24) },
+
+
         };
 
         public static Rectangle GetSourceRect(string key)

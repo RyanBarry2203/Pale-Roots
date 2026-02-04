@@ -61,6 +61,12 @@
 /processorParam:TextureFormat=Color
 /build:Dragon_strip3.png
 
+#begin Groovy.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Groovy.wav
+
 #begin Ground_rocks.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -84,6 +90,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Ground.png
+
+#begin Guitar.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Guitar.wav
+
+#begin Ihavenoidea.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Ihavenoidea.wav
 
 #begin MapSheet.png
 /importer:TextureImporter
@@ -157,6 +175,12 @@
 /processorParam:TextureFormat=Color
 /build:more water_detilazation.png
 
+#begin MoreGuitar.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:MoreGuitar.wav
+
 #begin Objects_animated.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -204,6 +228,12 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Objects.png
+
+#begin PaleRootsMenu.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:PaleRootsMenu.wav
 
 #begin Player/Attack 1.png
 /importer:TextureImporter
@@ -313,6 +343,12 @@
 /processorParam:TextureFormat=Color
 /build:Player/Run.png
 
+#begin SoundTrackAttempt1.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:SoundTrackAttempt1.wav
+
 #begin spots.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -402,6 +438,12 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:water_detilazation.png
+
+#begin Whimsy.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Whimsy.wav
 
 #begin wizard_strip3.png
 /importer:TextureImporter

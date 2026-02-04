@@ -37,7 +37,7 @@ namespace Pale_Roots_1
             // 1. Load the song (Make sure the file is in Content and named "BattleTheme" or whatever your file is!)
             // If your file is called "music.mp3", putting "music" here usually works.
 
-            warTheme = Content.Load<SoundEffect>("war theme"); // <--- CHANGE "BattleTheme" TO YOUR FILE NAME
+            warTheme = Content.Load<SoundEffect>("MoreGuitar"); // <--- CHANGE "BattleTheme" TO YOUR FILE NAME
 
             warTheme.Play();
 
