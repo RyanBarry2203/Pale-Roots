@@ -19,7 +19,7 @@ namespace Pale_Roots_1
 
             { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
 
-            { "Ruins_Column", new Rectangle(0, 0, 48, 48) },
+            { "Ruins_Column", new Rectangle(0, 0, 32, 64) },
             { "Ruins_Wall",   new Rectangle(48, 0, 48, 48) },
             { "Bush_Green",   new Rectangle(0, 160, 16, 16) }, // Small bush
 

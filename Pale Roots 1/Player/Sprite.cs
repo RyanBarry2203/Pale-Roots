@@ -76,7 +76,11 @@ namespace Pale_Roots_1
             _sheetStartX = source.X;
             _sheetStartY = source.Y;
 
+            this.spriteWidth = source.Width;
+            this.spriteHeight = source.Height;
             this.sourceRectangle = source;
+
+            this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
         }
 
         public virtual void Draw(SpriteBatch spriteBatch)

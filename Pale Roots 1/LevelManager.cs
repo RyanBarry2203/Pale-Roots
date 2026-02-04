@@ -94,8 +94,6 @@ namespace Pale_Roots_1
 
             var obj = new WorldObject(_game, sheet, position, 1, true);
 
-            obj.spriteWidth = data.Width;
-            obj.spriteHeight = data.Height;
             obj.SetSpriteSheetLocation(data);
 
             MapObjects.Add(obj);
@@ -106,8 +104,6 @@ namespace Pale_Roots_1
 
             var obj = new WorldObject(_game, sheet, position, frames, true);
 
-            obj.spriteWidth = data.Width;
-            obj.spriteHeight = data.Height;
             obj.SetSpriteSheetLocation(data);
 
             MapObjects.Add(obj);
