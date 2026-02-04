@@ -39,7 +39,7 @@ namespace Pale_Roots_1
             MyProjectile = p;
         }
 
-        public void UpdateSentry(GameTime gameTime, PlayerWithWeapon p)
+        public void UpdateSentry(GameTime gameTime, Player p)
         {
             if (reloadTimer > 0)
                 reloadTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;

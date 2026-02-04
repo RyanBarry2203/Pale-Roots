@@ -33,6 +33,9 @@ namespace Pale_Roots_1
         public int spriteHeight = 0;
         public Rectangle sourceRectangle;
 
+        protected int _sheetStartX = 0;
+        protected int _sheetStartY = 0;
+
         public Vector2 Center
         {
             get
@@ -65,7 +68,15 @@ namespace Pale_Roots_1
                 if (currentFrame >= numberOfFrames) currentFrame = 0;
                 timer = 0f;
             }
-            sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
+            int frameOffsetX = currentFrame * spriteWidth;
+            sourceRectangle = new Rectangle(_sheetStartX + frameOffsetX, _sheetStartY, spriteWidth, spriteHeight);
+        }
+        public void SetSpriteSheetLocation(Rectangle source)
+        {
+            _sheetStartX = source.X;
+            _sheetStartY = source.Y;
+
+            this.sourceRectangle = source;
         }
 
         public virtual void Draw(SpriteBatch spriteBatch)

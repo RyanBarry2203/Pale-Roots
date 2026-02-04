@@ -43,96 +43,75 @@ namespace Pale_Roots_1
 
         private void InitializeGameWorld()
         {
-            // Clear any old junk
             MapObjects.Clear();
-            enemies.Clear(); // Clear enemies if you want a fresh start
+            enemies.Clear();
 
             // --------------------------------------------------------
-            // STEP A: THE FLOOR (Background)
+            // STEP A: THE FLOOR
             // --------------------------------------------------------
             List<TileRef> palette = new List<TileRef>();
-
-            // We pick a safe tile from 'Tiles.png'. 
-            // Row 1, Col 1 is usually a safe dark stone/grass in these packs.
             palette.Add(new TileRef(1, 1, 0)); // ID 0 = Floor
 
-            // Create a 20x20 Grid (Small and manageable)
-            int width = 20;
-            int height = 20;
+            int width = 30; // Made map slightly bigger
+            int height = 30;
             int[,] map = new int[height, width];
 
+            // Fill map with floor
             for (int y = 0; y < height; y++)
-            {
                 for (int x = 0; x < width; x++)
-                {
-                    map[y, x] = 0; // Fill everything with ID 0
-                }
-            }
+                    map[y, x] = 0;
 
-            // Create the TileLayer
-            // 64, 64 is the size we want to draw them on screen (scaled up)
             CurrentLevel = new TileLayer(map, palette, 64, 64);
-
-            // Set all floor tiles to be Walkable
             foreach (var tile in CurrentLevel.Tiles) tile.Passable = true;
 
+            // --------------------------------------------------------
+            // STEP B: DATA-DRIVEN OBJECT PLACEMENT
+            // --------------------------------------------------------
 
-            // --------------------------------------------------------
-            // STEP B: THE TREES (Foreground)
-            // --------------------------------------------------------
-            // We place exactly 5 trees.
+            // Place 5 Rocks using the Helper Data
             for (int i = 0; i < 5; i++)
             {
-                // Random position away from the edges
-                int tx = CombatSystem.RandomInt(2, 18);
-                int ty = CombatSystem.RandomInt(2, 18);
-                Vector2 pos = new Vector2(tx * 64, ty * 64);
-
-                // Create the Tree
-                // The sheet is a grid of trees. We want the top-left one.
-                // It has 4 frames of animation.
-                var tree = new WorldObject(_game, _animatedObjectSheet, pos, 4, true);
-
-                // MANUAL SLICING (Fixes the "Mess")
-                // We overwrite the automatic calculation.
-                // Each tree frame is roughly 32 pixels wide and 48 pixels tall in the file.
-                tree.spriteWidth = 32;
-                tree.spriteHeight = 48;
-
-                // Set the Source Rectangle to the Top-Left corner of the sheet
-                // Frame calculation in Sprite.cs will handle the X offset for animation.
-                tree.Scale = 2.0f; // Scale up to look nice
-
-                MapObjects.Add(tree);
+                Vector2 pos = GetRandomPosition();
+                CreateStaticObject("Rock_Grey_Small", pos, _staticObjectSheet);
             }
 
-            // --------------------------------------------------------
-            // STEP C: THE ROCKS (Static Cover)
-            // --------------------------------------------------------
-            // We place exactly 5 rocks.
+            // Place 5 Trees using the Helper Data
             for (int i = 0; i < 5; i++)
             {
-                int tx = CombatSystem.RandomInt(2, 18);
-                int ty = CombatSystem.RandomInt(2, 18);
-                Vector2 pos = new Vector2(tx * 64, ty * 64);
-
-                // Create Rock (1 Frame, Static)
-                var rock = new WorldObject(_game, _staticObjectSheet, pos, 1, true);
-
-                // MANUAL SLICING
-                // We pick a specific rock from the big Objects.png atlas.
-                // Let's grab the grey rock at (0, 96) - roughly 3rd row down.
-                rock.spriteWidth = 32;
-                rock.spriteHeight = 32;
-
-                // For static objects, we must hard-code the source rectangle 
-                // so it doesn't try to draw the whole sheet.
-                rock.sourceRectangle = new Rectangle(0, 96, 32, 32);
-
-                rock.Scale = 2.0f;
-
-                MapObjects.Add(rock);
+                Vector2 pos = GetRandomPosition();
+                // Trees have 4 frames of animation
+                CreateAnimatedObject("Tree_Dead_Large", pos, _animatedObjectSheet, 4);
             }
+        }
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, 1, true);
+
+            obj.spriteWidth = data.Width;
+            obj.spriteHeight = data.Height;
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, frames, true);
+
+            obj.spriteWidth = data.Width;
+            obj.spriteHeight = data.Height;
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private Vector2 GetRandomPosition()
+        {
+            int tx = CombatSystem.RandomInt(2, 28);
+            int ty = CombatSystem.RandomInt(2, 28);
+            return new Vector2(tx * 64, ty * 64);
         }
 
         public void Update(GameTime gameTime, Player player)
