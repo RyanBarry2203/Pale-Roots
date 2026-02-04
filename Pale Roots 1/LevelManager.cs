@@ -72,12 +72,17 @@ namespace Pale_Roots_1
                 Vector2 pos = GetRandomPosition();
                 CreateStaticObject("Ruins_Column", pos, _staticObjectSheet);
             }
+            for (int i = 0; i < 6; i++)
+            {
+                Vector2 pos = GetRandomPosition();
+                CreateStaticObject("Skull_Pile", pos, _staticObjectSheet);
+            }
 
             // 2. Place some Bushes (Static)
             for (int i = 0; i < 10; i++)
             {
                 Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Rocks_Grey_Small", pos, _staticObjectSheet);
+                CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
             }
 
             // 3. Place Animated Shrines

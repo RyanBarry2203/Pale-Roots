@@ -16,7 +16,7 @@ namespace Pale_Roots_1
             // DEFAULT SCALE:
             // If the sprite feels too small, change this to 2.0f. 
             // In your screenshot, they were massive, so let's stick to 1.5f for now.
-            Scale = 1.0f;
+            Scale = 3.0f;
         }
 
         // TIGHTER HITBOX

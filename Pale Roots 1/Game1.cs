@@ -61,7 +61,14 @@ namespace Pale_Roots_1
 
             // 1. Begin Draw with the Camera Matrix from the Engine
             // This ensures the Zoom and Follow logic affects everything we draw
-            _spriteBatch.Begin(transformMatrix: _gameEngine._camera.CurrentCameraTranslation);
+            _spriteBatch.Begin(
+                SpriteSortMode.Deferred,
+                BlendState.AlphaBlend,
+                SamplerState.PointClamp, 
+                null,
+                null,
+                null,
+                _gameEngine._camera.CurrentCameraTranslation);
 
             // 2. Tell the Engine to draw everything (Map, Player, Armies)
             _gameEngine.Draw(gameTime, _spriteBatch);

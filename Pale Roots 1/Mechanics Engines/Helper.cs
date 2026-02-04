@@ -11,15 +11,16 @@ namespace Pale_Roots_1
 
         public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
         {
-            { "Rocks_Grey_Small", new Rectangle(0, 96, 32, 32)},
-            { "Rock_Mossy_Small", new Rectangle(32, 96, 32, 32)},
+            { "Big_Rock", new Rectangle(16, 192, 64, 64)},
+            { "Skull_Pile", new Rectangle(15, 433, 80, 60)},
 
-            { "Tree_Dead_Large", new Rectangle(0, 0, 96, 96)},
-            { "Tree_Green_Large", new Rectangle(0, 192, 96, 96)},
+            { "Tree_Dead_Large", new Rectangle(16, 16, 112, 128)},
+            { "Tree_Green_Large", new Rectangle(16, 16, 112, 128)},
 
             { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
 
-            { "Ruins_Column", new Rectangle(0, 0, 32, 64) },
+            { "Ruins_Column", new Rectangle(8, 16, 87, 96) },
+
             { "Ruins_Wall",   new Rectangle(48, 0, 48, 48) },
             { "Bush_Green",   new Rectangle(0, 160, 16, 16) }, // Small bush
 
