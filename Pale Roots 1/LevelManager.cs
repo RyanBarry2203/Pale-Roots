@@ -28,10 +28,10 @@ namespace Pale_Roots_1
         public void LoadLevel(int index)
         {
             // 1. LOAD TEXTURES
-            // Ensure these match your content names exactly (Case Sensitive!)
-            _groundSheet = _game.Content.Load<Texture2D>("Tiles");
+
+            _groundSheet = _game.Content.Load<Texture2D>("tiles");
             _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
-            _staticObjectSheet = _game.Content.Load<Texture2D>("Objects");
+            _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
 
             // 2. SETUP THE STATIC HELPER
             // Crucial: This tells the TileLayer class which image to use for the floor.
@@ -46,11 +46,10 @@ namespace Pale_Roots_1
             MapObjects.Clear();
             enemies.Clear();
 
-            // --------------------------------------------------------
-            // STEP A: THE FLOOR
-            // --------------------------------------------------------
+            // THE FLOOR
+
             List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(1, 1, 0)); // ID 0 = Floor
+            palette.Add(new TileRef(0, 0, 0)); // ID 0 = Floor
 
             int width = 30; // Made map slightly bigger
             int height = 30;
@@ -64,23 +63,29 @@ namespace Pale_Roots_1
             CurrentLevel = new TileLayer(map, palette, 64, 64);
             foreach (var tile in CurrentLevel.Tiles) tile.Passable = true;
 
-            // --------------------------------------------------------
-            // STEP B: DATA-DRIVEN OBJECT PLACEMENT
-            // --------------------------------------------------------
 
-            // Place 5 Rocks using the Helper Data
-            for (int i = 0; i < 5; i++)
+            // DATA-DRIVEN OBJECT PLACEMENT
+
+            // 1. Place some Ruins (Static)
+            for (int i = 0; i < 6; i++)
             {
                 Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Rock_Grey_Small", pos, _staticObjectSheet);
+                CreateStaticObject("Ruins_Column", pos, _staticObjectSheet);
             }
 
-            // Place 5 Trees using the Helper Data
-            for (int i = 0; i < 5; i++)
+            // 2. Place some Bushes (Static)
+            for (int i = 0; i < 10; i++)
             {
                 Vector2 pos = GetRandomPosition();
-                // Trees have 4 frames of animation
-                CreateAnimatedObject("Tree_Dead_Large", pos, _animatedObjectSheet, 4);
+                CreateStaticObject("Bush_Green", pos, _staticObjectSheet);
+            }
+
+            // 3. Place Animated Shrines
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 pos = GetRandomPosition();
+                // Shrines have 4 frames
+                CreateAnimatedObject("Shrine_Blue", pos, _animatedObjectSheet, 4);
             }
         }
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)

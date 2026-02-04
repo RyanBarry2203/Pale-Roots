@@ -150,43 +150,22 @@ namespace Pale_Roots_1
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
-            //int tx = (int)((newPos.X + spriteWidth / 2) / GameConstants.TileSize);
-            //int ty = (int)((newPos.Y + spriteHeight / 2) / GameConstants.TileSize);
 
-            //float scaledCenterX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
-            //float scaledCenterY = newPos.Y + (spriteHeight * (float)Scale) / 2.0f;
+            float mapWidth = layer.Tiles.GetLength(1) * 64;
+            float mapHeight = layer.Tiles.GetLength(0) * 64;
 
-            //int tx = (int)(scaledCenterX / GameConstants.TileSize);
-            //int ty = (int)(scaledCenterY / GameConstants.TileSize);
+            // Check Left/Top
+            if (newPos.X < 0 || newPos.Y < 0) return false;
 
-            //if (tx < 0 || tx >= layer.Tiles.GetLength(1) || ty < 0 || ty >= layer.Tiles.GetLength(0))
-            //    return false;
+            // Check Right/Bottom Account for sprite size
+            if (newPos.X + (spriteWidth * Scale) > mapWidth) return false;
+            if (newPos.Y + (spriteHeight * Scale) > mapHeight) return false;
 
-            //return layer.Tiles[ty, tx].Passable;
-
+            // Tile Passability Check
             float feetY = newPos.Y + (spriteHeight * (float)Scale);
-            float headY = newPos.Y + (spriteHeight * (float)Scale) * 0.5f;
-
             float centerX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
 
-            float widthBuffer = 15f;
 
-            int leftTileX = (int)((centerX - widthBuffer) / GameConstants.TileSize);
-            int rightTileX = (int)((centerX + widthBuffer) / GameConstants.TileSize);
-
-            int feetTileY = (int)((feetY - 5) / GameConstants.TileSize);
-
-            if (leftTileX < 0 || rightTileX >= layer.Tiles.GetLength(1) || feetTileY < 0 || feetTileY >= layer.Tiles.GetLength(0))
-            {
-                return false;
-            }
-            Tile tileLeft = layer.Tiles[feetTileY, leftTileX];
-            Tile tileRight = layer.Tiles[feetTileY, rightTileX];
-
-            if (!tileLeft.Passable || !tileRight.Passable)
-            {
-                return false;
-            }
             return true;
         }
 

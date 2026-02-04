@@ -10,8 +10,8 @@ namespace Pale_Roots_1
 {
     public class TileLayer
     {
-        int LayerTileWidth = 64;
-        int LayerTileHeight = 64;
+        int SourceTileSize = 16;
+        int DestTileSize = 64;
         List<TileRef> tileRefs = new List<TileRef>();
 
         
@@ -23,8 +23,12 @@ namespace Pale_Roots_1
             get { return _tiles; }
             set { _tiles = value; }
         }
-        public TileLayer(int[,] LayerMap,List<TileRef> MapSheetReferences, int TileWidth, int TileHeight)
+        public TileLayer(int[,] LayerMap,List<TileRef> MapSheetReferences, int destSize, int sourceSize)
         {
+
+            DestTileSize = destSize;
+            SourceTileSize = sourceSize;
+
             tileRefs = MapSheetReferences;
             tileMapHeight = LayerMap.GetLength(0); // row int[row,col]
             tileMapWidth = LayerMap.GetLength(1); // dim 0 = row, dim 1 = col
@@ -47,14 +51,23 @@ namespace Pale_Roots_1
         public void Draw(SpriteBatch spriteBatch)
         {
             foreach (var Tile in Tiles)
-                {
-                spriteBatch.Draw(Helper.SpriteSheet,
-                new Rectangle(Tile.X * LayerTileWidth, Tile.Y * LayerTileHeight, 
-                    LayerTileWidth, LayerTileHeight),
-                new Rectangle(Tile.tileRef._sheetPosX * LayerTileWidth, Tile.tileRef._sheetPosY * LayerTileHeight, 
-                    LayerTileWidth, LayerTileHeight), 
-                Color.White);
-                }
+            {
+
+                Rectangle destRect = new Rectangle(
+                    Tile.X * DestTileSize,
+                    Tile.Y * DestTileSize,
+                    DestTileSize,
+                    DestTileSize);
+
+
+                Rectangle sourceRect = new Rectangle(
+                    Tile.tileRef._sheetPosX * SourceTileSize,
+                    Tile.tileRef._sheetPosY * SourceTileSize,
+                    SourceTileSize,
+                    SourceTileSize);
+
+                spriteBatch.Draw(Helper.SpriteSheet, destRect, sourceRect, Color.White);
+            }
         }
     }
 }

@@ -17,7 +17,13 @@ namespace Pale_Roots_1
             { "Tree_Dead_Large ", new Rectangle(0, 0, 96, 96)},
             { "Tree_Green_Large", new Rectangle(0, 192, 96, 96)},
 
-            { "HealthBar_Border", new Rectangle(0, 0, 1, 1)}
+            { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
+
+            { "Ruins_Column", new Rectangle(0, 0, 48, 48) },
+            { "Ruins_Wall",   new Rectangle(48, 0, 48, 48) },
+            { "Bush_Green",   new Rectangle(0, 160, 16, 16) }, // Small bush
+
+            { "Shrine_Blue", new Rectangle(0, 128, 32, 48) },
         };
 
         public static Rectangle GetSourceRect(string key)
