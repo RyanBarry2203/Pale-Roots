@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
 
 namespace Pale_Roots_1
@@ -46,51 +47,116 @@ namespace Pale_Roots_1
             MapObjects.Clear();
             enemies.Clear();
 
-            // THE FLOOR
-
-            List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(1, 3, 0)); // ID 0 = Floor
-
-            int width = 30; // Made map slightly bigger
-            int height = 30;
+            // 1. SETUP RECTANGULAR DIMENSIONS
+            // Width: 3840 / 64 = 60 tiles
+            // Height: 2160 / 64 = ~33.75 tiles. Let's round up to 34.
+            int width = 60;
+            int height = 34;
             int[,] map = new int[height, width];
 
-            // Fill map with floor
+            // 2. CREATE FLOOR
             for (int y = 0; y < height; y++)
+            {
                 for (int x = 0; x < width; x++)
+                {
                     map[y, x] = 0;
+                }
+            }
 
+            List<TileRef> palette = new List<TileRef>();
+            palette.Add(new TileRef(1, 3, 0));
             CurrentLevel = new TileLayer(map, palette, 64, 64);
-            foreach (var tile in CurrentLevel.Tiles) tile.Passable = true;
 
+            // 3. GENERATE RECTANGULAR TREE BORDER
 
-            // DATA-DRIVEN OBJECT PLACEMENT
+            float centerX = width / 2f;
+            float centerY = height / 2f;
 
-            // 1. Place some Ruins (Static)
-            for (int i = 0; i < 6; i++)
+            // DEFINING THE SAFE ZONE
+            // We want the clearing to match the screen shape (Wide).
+            // Width is 60. Let's keep 12 tiles of trees on sides -> Radius X = 18.
+            // Height is 34. Let's keep 5 tiles of trees on top/bottom -> Radius Y = 12.
+
+            float safeRadiusX = 25f; // Wide
+            float safeRadiusY = 13f; // Short
+
+            for (int y = 0; y < height; y++)
             {
-                Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Ruins_Column", pos, _staticObjectSheet);
+                for (int x = 0; x < width; x++)
+                {
+                    // --- RECTANGULAR SDF MATH ---
+
+                    // 1. Distance from center
+                    float dx = Math.Abs(x - centerX);
+                    float dy = Math.Abs(y - centerY);
+
+                    // 2. Subtract the specific radius for that axis
+                    // This creates a box that is wider than it is tall
+                    float excessX = Math.Max(dx - safeRadiusX, 0);
+                    float excessY = Math.Max(dy - safeRadiusY, 0);
+
+                    // 3. Calculate distance outside that box
+                    float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
+
+                    if (distanceOutsideBox > 0)
+                    {
+                        // 4. Calculate Chance (Gradient)
+                        // We make the gradient slightly steeper (6.0f) so the trees get dense faster
+                        float chance = distanceOutsideBox / 6.0f;
+                        chance *= 0.8f; // Density multiplier
+
+                        if (CombatSystem.RandomFloat() < chance)
+                        {
+                            Vector2 pos = new Vector2(x * 64, y * 64);
+
+                            // Jitter
+                            pos.X += CombatSystem.RandomInt(-20, 20);
+                            pos.Y += CombatSystem.RandomInt(-20, 20);
+
+                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet);
+                        }
+                    }
+                }
             }
-            for (int i = 0; i < 6; i++)
+
+            PlaceLandMarks();
+        }
+        private void PlaceLandMarks()
+        {
+            Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+            CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+            Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
+            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet);
+            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet);
+
+            Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
+            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet);
+
+
+            Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
+            int radius = 150;
+            int skullCount = 8;
+
+            for (int i = 0; i < skullCount; i++)
             {
-                Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Skull_Pile", pos, _staticObjectSheet);
+                float angle = i * (MathHelper.TwoPi / skullCount);
+                Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
+                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet);
             }
 
-            // 2. Place some Bushes (Static)
-            for (int i = 0; i < 10; i++)
-            {
-                Vector2 pos = GetRandomPosition();
-                CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
-            }
 
-            // 3. Place Animated Shrines
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 15; i++)
             {
-                Vector2 pos = GetRandomPosition();
-                // Shrines have 4 frames
-                CreateAnimatedObject("Tree_Dead_Large", pos, _animatedObjectSheet, 4);
+
+                int rx = CombatSystem.RandomInt(10, 50);
+                int ry = CombatSystem.RandomInt(5, 29); 
+                Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+                if (CombatSystem.RandomInt(0, 100) > 50)
+                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
+                else
+                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet);
             }
         }
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)

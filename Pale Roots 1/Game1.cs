@@ -25,6 +25,10 @@ namespace Pale_Roots_1
 
         protected override void Initialize()
         {
+            // Fix: Set backbuffer size using _graphics, not GraphicsDevice
+            _graphics.PreferredBackBufferWidth = 960;
+            _graphics.PreferredBackBufferHeight = 540;
+            _graphics.ApplyChanges();
             base.Initialize();
         }
 

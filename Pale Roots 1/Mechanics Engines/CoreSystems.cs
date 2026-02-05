@@ -53,7 +53,7 @@ namespace Pale_Roots_1
 
         // MAP & TILES
         public const int TileSize = 64;
-        public static readonly Vector2 DefaultMapSize = new Vector2(1920, 1920);
+        public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
     }
 
     // ============================================================================

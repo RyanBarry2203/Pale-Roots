@@ -1,8 +1,9 @@
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Pale_Roots_1
 {
@@ -39,9 +40,9 @@ namespace Pale_Roots_1
 
         private bool _battleStarted = false;
         private Vector2 _mapSize;
-        private Vector2 _playerSpawnPos = new Vector2(300, 900);
-        private Vector2 _allySpawnOrigin = new Vector2(150, 780);
-        private Vector2 _enemySpawnOrigin = new Vector2(1600, 900);
+        private Vector2 _playerSpawnPos = new Vector2(500, 1230);
+        private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
+        private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
         // ===================
         // TARGETING
@@ -84,7 +85,14 @@ namespace Pale_Roots_1
             // Setup camera
             _camera = new Camera(Vector2.Zero, _mapSize);
             Viewport vp = game.GraphicsDevice.Viewport;
-            _camera.Zoom = (float)vp.Width / _mapSize.X;
+
+            float scaleX = (float)vp.Width / _mapSize.X;
+            float scaleY = (float)vp.Height / _mapSize.Y;
+
+
+            _camera.Zoom = Math.Min(scaleX, scaleY);
+
+
             _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
 
             // Create armies

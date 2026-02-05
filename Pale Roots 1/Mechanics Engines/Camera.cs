@@ -37,6 +37,8 @@ namespace Pale_Roots_1
             UpdateMatrix(viewport);
         }
 
+        // In Camera.cs
+
         private void ClampPosition(Viewport viewport)
         {
             float visibleWidth = viewport.Width / Zoom;
@@ -45,11 +47,28 @@ namespace Pale_Roots_1
             float halfWidth = visibleWidth / 2f;
             float halfHeight = visibleHeight / 2f;
 
-            // Keep the camera center inside the map
-            Position = new Vector2(
-                MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth),
-                MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight)
-            );
+            float newX = Position.X;
+            float newY = Position.Y;
+
+            if (visibleWidth > _mapSize.X)
+            {
+                newX = _mapSize.X / 2f;
+            }
+            else
+            {
+                newX = MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth);
+            }
+
+            if (visibleHeight > _mapSize.Y)
+            {
+                newY = _mapSize.Y / 2f;
+            }
+            else
+            {
+                newY = MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight);
+            }
+
+            Position = new Vector2(newX, newY);
         }
 
         private void UpdateMatrix(Viewport viewport)
