@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -34,24 +35,26 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override wander to use screen-wide random targets
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Move toward target
-            MoveToward(_randomTarget, Velocity);
+            MoveToward(_randomTarget, Velocity, obstacles);
 
             // Pick new target when we arrive
             if (Vector2.Distance(position, _randomTarget) < 5f)
             {
-                _randomTarget = CreateRandomTarget();
+                int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
+                int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
+                _randomTarget = new Vector2(rx, ry);
             }
         }
 
         /// <summary>
         /// Override charge to also wander (this enemy doesn't charge)
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
-            PerformWander();
+            PerformWander(obstacles);
         }
     }
 }

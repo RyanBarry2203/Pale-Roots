@@ -151,6 +151,19 @@ namespace Pale_Roots_1
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
 
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int playerW = (int)(spriteWidth * scale * 0.4f);
+            int playerH = (int)(spriteHeight * scale * 0.2f);
+
+            // X: Center - Half Box
+            int playerX = (int)(newPos.X - (playerW / 2));
+
+            // Y: Bottom of sprite - Box Height
+            int playerY = (int)(newPos.Y + (spriteHeight * scale / 2) - playerH);
+
+            Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
+
             float mapWidth = layer.Tiles.GetLength(1) * 64;
             float mapHeight = layer.Tiles.GetLength(0) * 64;
 
@@ -164,6 +177,8 @@ namespace Pale_Roots_1
             // Tile Passability Check
             float feetY = newPos.Y + (spriteHeight * (float)Scale);
             float centerX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
+
+
 
 
             return true;

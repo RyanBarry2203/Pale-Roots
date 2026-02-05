@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -24,7 +25,7 @@ namespace Pale_Roots_1
             Velocity = 2.0f; // Slightly slower than default
         }
 
-        protected override void UpdateAI(GameTime gameTime)
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Check if current target is still in range
             if (CurrentTarget != null)
@@ -40,18 +41,18 @@ namespace Pale_Roots_1
                 }
             }
             
-            base.UpdateAI(gameTime);
+            base.UpdateAI(gameTime, obstacles);
         }
 
         /// <summary>
         /// Override wander to return to start position when not aggro
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Return to start position
             if (Vector2.Distance(position, startPosition) > 5f)
             {
-                MoveToward(startPosition, Velocity * 0.5f);
+                MoveToward(startPosition, Velocity * 0.5f, obstacles);
             }
             // else just idle at start position
         }

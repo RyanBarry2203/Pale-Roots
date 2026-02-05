@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -38,10 +39,7 @@ namespace Pale_Roots_1
 
         public Vector2 Center
         {
-            get
-            {
-                return position + new Vector2((spriteWidth * (float)Scale) / 2f, (spriteHeight * (float)Scale) / 2f);
-            }
+            get { return position; }
         }
 
         public Sprite(Game g, Texture2D texture, Vector2 userPosition, int framecount, double scale)
@@ -82,6 +80,53 @@ namespace Pale_Roots_1
 
             this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
         }
+        // In Sprite.cs
+
+        protected void ClampToMap()
+        {
+            float mapW = GameConstants.DefaultMapSize.X;
+            float mapH = GameConstants.DefaultMapSize.Y;
+
+            float halfWidth = (spriteWidth * (float)Scale) / 2f;
+            float halfHeight = (spriteHeight * (float)Scale) / 2f;
+
+            // Clamp X (Keep center within bounds minus half width)
+            if (position.X < halfWidth) position.X = halfWidth;
+            if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+
+            // Clamp Y
+            if (position.Y < halfHeight) position.Y = halfHeight;
+            if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+        }
+
+        protected bool IsColliding(Vector2 newPos, List<WorldObject> objects)
+        {
+            if (objects == null) return false;
+
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int w = (int)(spriteWidth * scale * 0.4f); // 40% width
+            int h = (int)(spriteHeight * scale * 0.2f); // 20% height
+
+            // X: NewPos is center. Subtract half box width to get Left.
+            int x = (int)(newPos.X - (w / 2));
+
+            // Y: NewPos is center. Add half sprite height to get Bottom, then subtract box height.
+            int y = (int)(newPos.Y + (spriteHeight * scale / 2) - h);
+
+            Rectangle futureFeetBox = new Rectangle(x, y, w, h);
+
+            foreach (var obj in objects)
+            {
+                if (obj.IsSolid && futureFeetBox.Intersects(obj.CollisionBox))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {

@@ -198,7 +198,7 @@ namespace Pale_Roots_1
         private void UpdateBattle(GameTime gameTime, Viewport vp)
         {
             // Zoom in to battle view
-            _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
+            //_camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player
             _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
@@ -240,7 +240,7 @@ namespace Pale_Roots_1
                     }
                 }
 
-                ally.Update(gameTime);
+                ally.Update(gameTime, _levelManager.MapObjects);
             }
         }
 
@@ -265,7 +265,7 @@ namespace Pale_Roots_1
                     }
                 }
 
-                enemy.Update(gameTime);
+                enemy.Update(gameTime, _levelManager.MapObjects);
             }
         }
 
@@ -367,6 +367,10 @@ namespace Pale_Roots_1
             foreach (var sprite in renderList)
             {
                 sprite.Draw(spriteBatch);
+            }
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                obj.DrawDebug(spriteBatch);
             }
         }
 

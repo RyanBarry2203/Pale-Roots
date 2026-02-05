@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -128,7 +129,7 @@ namespace Pale_Roots_1
         // UPDATE - Main State Machine
         // ===================
         
-        public override void Update(GameTime gametime)
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             if (_knockBackVelocity != Vector2.Zero)
             {
@@ -144,7 +145,7 @@ namespace Pale_Roots_1
             switch (_lifecycleState)
             {
                 case ENEMYSTATE.ALIVE:
-                    UpdateAI(gametime);
+                    UpdateAI(gametime, obstacles);
                     break;
                     
                 case ENEMYSTATE.DYING:
@@ -160,7 +161,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// AI State Machine - determines behavior based on current state
         /// </summary>
-        protected virtual void UpdateAI(GameTime gameTime)
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Cooldown timer
             if (_attackCooldown > 0)
@@ -176,11 +177,11 @@ namespace Pale_Roots_1
             switch (CurrentAIState)
             {
                 case AISTATE.Charging:
-                    PerformCharge();
+                    PerformCharge(obstacles);
                     break;
                     
                 case AISTATE.Chasing:
-                    PerformChase();
+                    PerformChase(obstacles);
                     break;
                     
                 case AISTATE.InCombat:
@@ -188,7 +189,7 @@ namespace Pale_Roots_1
                     break;
                     
                 case AISTATE.Wandering:
-                    PerformWander();
+                    PerformWander(obstacles);
                     break;
             }
         }
@@ -201,10 +202,12 @@ namespace Pale_Roots_1
         /// Charging: Move in initial direction (usually toward enemy lines)
         /// Override in subclasses for different charge behavior
         /// </summary>
-        protected virtual void PerformCharge()
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             // Default: charge left (toward player side)
             position.X -= Velocity;
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
         }
 
         /// <summary>
@@ -216,7 +219,7 @@ namespace Pale_Roots_1
         {
             _knockBackVelocity += force;
         }
-        protected virtual void PerformChase()
+        protected virtual void PerformChase(List<WorldObject> obstacle)
         {
             if (_currentTarget == null)
             {
@@ -224,7 +227,7 @@ namespace Pale_Roots_1
                 return;
             }
 
-            MoveToward(_currentTarget.Center, Velocity);
+            MoveToward(_currentTarget.Center, Velocity, obstacle);
 
             // Check if close enough to engage
             float distance = CombatSystem.GetDistance(this, _currentTarget);
@@ -266,7 +269,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// Wandering: Move randomly near start position
         /// </summary>
-        protected virtual void PerformWander()
+        protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             // Pick new target if needed
             if (wanderTarget == Vector2.Zero || 
@@ -278,7 +281,7 @@ namespace Pale_Roots_1
                 );
             }
 
-            MoveToward(wanderTarget, Velocity * 0.5f); // Wander slower
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles); // Wander slower
         }
 
         /// <summary>

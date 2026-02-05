@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -34,22 +35,25 @@ namespace Pale_Roots_1
         /// <summary>
         /// Charge faster than normal movement
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
             // Boost speed while charging
             Velocity = _baseVelocity * ChargeSpeedMultiplier;
             
             // Charge left toward player side
             position.X -= Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
         }
 
         /// <summary>
         /// Normal speed when chasing specific target
         /// </summary>
-        protected override void PerformChase()
+        protected override void PerformChase(List<WorldObject> obstacles)
         {
             Velocity = _baseVelocity;
-            base.PerformChase();
+            base.PerformChase(obstacles);
         }
 
         /// <summary>

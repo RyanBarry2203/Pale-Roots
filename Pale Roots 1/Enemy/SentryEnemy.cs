@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -47,7 +48,7 @@ namespace Pale_Roots_1
         // UPDATE
         // ===================
         
-        protected override void UpdateAI(GameTime gameTime)
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Reload timer
             if (_reloadTimer > 0)
@@ -101,12 +102,12 @@ namespace Pale_Roots_1
         // OVERRIDE BEHAVIORS (disable movement)
         // ===================
         
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
             // Sentries don't move
         }
 
-        protected override void PerformChase()
+        protected override void PerformChase(List<WorldObject> obstacles)
         {
             // Sentries don't move - just track with rotation
             if (CurrentTarget != null)
@@ -115,7 +116,7 @@ namespace Pale_Roots_1
             }
         }
 
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Sentries don't move - idle in place
         }

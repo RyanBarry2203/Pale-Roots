@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -107,14 +108,14 @@ namespace Pale_Roots_1
         // UPDATE - Main State Machine
         // ===================
         
-        public override void Update(GameTime gametime)
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             base.Update(gametime);
 
             switch (_lifecycleState)
             {
                 case ALLYSTATE.ALIVE:
-                    UpdateAI(gametime);
+                    UpdateAI(gametime, obstacles);
                     break;
                     
                 case ALLYSTATE.DYING:
@@ -130,7 +131,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// AI State Machine - mirrors Enemy but charges opposite direction
         /// </summary>
-        protected virtual void UpdateAI(GameTime gameTime)
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Cooldown timer
             if (_attackCooldown > 0)
@@ -146,11 +147,11 @@ namespace Pale_Roots_1
             switch (CurrentAIState)
             {
                 case Enemy.AISTATE.Charging:
-                    PerformCharge();
+                    PerformCharge(obstacles);
                     break;
                     
                 case Enemy.AISTATE.Chasing:
-                    PerformChase();
+                    PerformChase(obstacles);
                     break;
                     
                 case Enemy.AISTATE.InCombat:
@@ -158,7 +159,7 @@ namespace Pale_Roots_1
                     break;
                     
                 case Enemy.AISTATE.Wandering:
-                    PerformWander();
+                    PerformWander(obstacles);
                     break;
             }
         }
@@ -170,12 +171,16 @@ namespace Pale_Roots_1
         /// <summary>
         /// Allies charge RIGHT (toward enemy lines)
         /// </summary>
-        protected virtual void PerformCharge()
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
+
         }
 
-        protected virtual void PerformChase()
+        protected virtual void PerformChase(List<WorldObject> obstacles)
         {
             if (_currentTarget == null)
             {
@@ -183,7 +188,7 @@ namespace Pale_Roots_1
                 return;
             }
 
-            MoveToward(_currentTarget.Center, Velocity);
+            MoveToward(_currentTarget.Center, Velocity, obstacles);
 
             float distance = CombatSystem.GetDistance(this, _currentTarget);
             if (distance < GameConstants.CombatEngageRange)
@@ -215,7 +220,7 @@ namespace Pale_Roots_1
             }
         }
 
-        protected virtual void PerformWander()
+        protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             if (wanderTarget == Vector2.Zero || 
                 Vector2.Distance(position, wanderTarget) < 5f)
@@ -226,7 +231,7 @@ namespace Pale_Roots_1
                 );
             }
 
-            MoveToward(wanderTarget, Velocity * 0.5f);
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
         }
 
         protected virtual void UpdateDying(GameTime gameTime)

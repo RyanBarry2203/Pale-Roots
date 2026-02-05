@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -30,7 +31,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override wander to patrol between points
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Lerp toward current target
             position = Vector2.Lerp(position, _currentPatrolTarget, PatrolLerpSpeed);
@@ -49,9 +50,9 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override charge to patrol instead
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
-            PerformWander();
+            PerformWander(obstacles);
         }
         
         /// <summary>

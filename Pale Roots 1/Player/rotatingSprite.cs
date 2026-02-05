@@ -67,15 +67,24 @@ namespace Pale_Roots_1
             }
             return radians;
         }
-        public void MoveToward(Vector2 target, float speed)
+        public void MoveToward(Vector2 target, float speed, List<WorldObject> obstacles)
         {
             Vector2 direction = target - position;
 
             if (direction != Vector2.Zero)
             {
                 direction.Normalize();
-                position += direction * speed;
+                
+                Vector2 velocity = direction * speed;
+                Vector2 newPos = position + velocity;
+
+                if (!IsColliding(newPos, obstacles))
+                {
+                    position = newPos;
+                }
                 angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
+
+                ClampToMap();
             }
         }
 
