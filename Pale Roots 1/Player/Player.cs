@@ -46,6 +46,21 @@ namespace Pale_Roots_1
         private Vector2 _facingDirection = new Vector2(0, 1);
         private float _swordRotation = 0f;
 
+        // animation stuff
+
+        public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
+        private Direction _currentDirection = Direction.Down;
+
+        private Texture2D _txIdle;
+        private Texture2D _txRun;
+        private Texture2D _txAttack1;
+        private Texture2D _txAttack2; // Optional, if you want combo attacks
+        private Texture2D _txHurt;
+        private Texture2D _txDeath;
+
+        private AnimationManager _animManager;
+        private SpriteEffects _flipEffect = SpriteEffects.None;
+
         // --- FIX: CENTERED PIVOT ---
         // (0, -32) moves the pivot from the feet (Center) up to the Chest/Neck.
         // It is centered on the X axis (0) so it swings evenly left and right.
@@ -66,13 +81,34 @@ namespace Pale_Roots_1
             _health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
 
-            Scale = 90.0f / spriteHeight;
+            Scale = 3f; // Adjust as needed based sprite Size
 
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
                 _healthBarTexture.SetData(new[] { Color.White });
             }
+
+            _animManager = new AnimationManager();
+
+            // 1. Load the specific strips
+            _txIdle = game.Content.Load<Texture2D>("Player/Idle");
+            _txRun = game.Content.Load<Texture2D>("Player/Run");
+            _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1"); // Note the space in filename!
+            _txHurt = game.Content.Load<Texture2D>("Player/Hurt"); 
+            _txDeath = game.Content.Load<Texture2D>("Player/Death");
+
+            // 2. Register Animations
+            // Format: Texture, FrameCount, Row(0), Speed(ms per frame), IsLooping
+
+            _animManager.AddAnimation("Idle", new Animation(_txIdle, 8, 0, 100f, true, 1, 125));
+            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 8, 0, 80f, false, 1, 0));
+            _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
+            _animManager.AddAnimation("Death", new Animation(_txDeath, 10, 0, 150f, false, 1));
+
+            // Start default
+            _animManager.Play("Idle");
         }
 
         // ===================
@@ -112,8 +148,37 @@ namespace Pale_Roots_1
             if (!_isAttacking)
             {
                 HandleInput(currentLayer);
-                if (_velocity != Vector2.Zero) base.Update(gameTime);
             }
+
+            if (_velocity.X < -0.1f)
+            {
+                _flipEffect = SpriteEffects.FlipHorizontally;
+            }
+            else if (_velocity.X > 0.1f)
+            {
+                _flipEffect = SpriteEffects.None;
+            }
+
+            string animKey = "Idle"; // Default
+
+            if (!IsAlive)
+            {
+                animKey = "Death";
+            }
+            else if (_isAttacking)
+            {
+
+                animKey = "Attack1";
+            }
+            else if (_velocity != Vector2.Zero)
+            {
+                animKey = "Run";
+            }
+            // Note: If you add a "Hurt" state later, it would go here.
+
+            // 4. UPDATE THE MANAGER
+            _animManager.Play(animKey);
+            _animManager.Update(gameTime);
         }
 
         private void HandleInput(TileLayer currentLayer)
@@ -263,7 +328,7 @@ namespace Pale_Roots_1
         // ===================
         public override void Draw(SpriteBatch spriteBatch)
         {
-            base.Draw(spriteBatch);
+            _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect);
 
             if (_isAttacking)
             {
@@ -300,7 +365,7 @@ namespace Pale_Roots_1
 
             if (IsAlive)
             {
-                int barWidth = (int)(spriteWidth * Scale);
+                int barWidth = (int)(32 * Scale);
                 int barY = (int)position.Y - 15;
                 spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X, barY, barWidth, 8), Color.DarkRed);
                 float healthPercent = (float)Health / MaxHealth;

@@ -78,6 +78,10 @@ namespace Pale_Roots_1
 
         protected override void Initialize()
         {
+            // Fix: Set backbuffer size using _graphics, not GraphicsDevice
+            _graphics.PreferredBackBufferWidth = 960;
+            _graphics.PreferredBackBufferHeight = 540;
+            _graphics.ApplyChanges();
             base.Initialize();
         }
 
@@ -90,7 +94,7 @@ namespace Pale_Roots_1
             // 1. Load the song (Make sure the file is in Content and named "BattleTheme" or whatever your file is!)
             // If your file is called "music.mp3", putting "music" here usually works.
 
-            warTheme = Content.Load<SoundEffect>("war theme"); // <--- CHANGE "BattleTheme" TO YOUR FILE NAME
+            warTheme = Content.Load<SoundEffect>("MoreGuitar"); // <--- CHANGE "BattleTheme" TO YOUR FILE NAME
 
             warTheme.Play();
 
@@ -114,7 +118,14 @@ namespace Pale_Roots_1
 
             // 1. Begin Draw with the Camera Matrix from the Engine
             // This ensures the Zoom and Follow logic affects everything we draw
-            _spriteBatch.Begin(transformMatrix: _gameEngine._camera.CurrentCameraTranslation);
+            _spriteBatch.Begin(
+                SpriteSortMode.Deferred,
+                BlendState.AlphaBlend,
+                SamplerState.PointClamp, 
+                null,
+                null,
+                null,
+                _gameEngine._camera.CurrentCameraTranslation);
 
             // 2. Tell the Engine to draw everything (Map, Player, Armies)
             _gameEngine.Draw(gameTime, _spriteBatch);
@@ -154,8 +165,8 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
-using static Pale_Roots_1.Level;
 
 namespace Pale_Roots_1
 {
@@ -163,186 +174,205 @@ namespace Pale_Roots_1
     {
         private Game _game;
         private List<Level> _allLevels = new List<Level>();
-        public List<Enemy> enemies = new List<Enemy>();
-        //private Texture2D _mapSheet;
 
-        // The Engine reads this to know about walls and floors
+        // --- ENTITY LISTS ---
+        public List<Enemy> enemies = new List<Enemy>();
+        public List<WorldObject> MapObjects = new List<WorldObject>();
+
+        // --- GRAPHICS ---
         public TileLayer CurrentLevel { get; private set; }
+        private Texture2D _groundSheet;
+        private Texture2D _animatedObjectSheet;
+        private Texture2D _staticObjectSheet;
 
         public LevelManager(Game game)
         {
             _game = game;
-            InitializeLevels();
-        }
-
-        private void InitializeLevels()
-        {
-            //// 1. DEFINE PALETTE
-            //// This tells the game what the numbers mean.
-            //// 0 = Wall, 1 = Floor
-            //List<TileRef> palette = new List<TileRef>();
-
-            //// Wall (ID 0) -> Row 4, Col 0 on sheet
-            //palette.Add(new TileRef(0, 4, (int)TileType.Wall));
-
-            //// Floor (ID 1) -> Row 2, Col 3 on sheet
-            //palette.Add(new TileRef(3, 2, (int)TileType.Floor));
-
-            //// 2. DEFINE MAP
-            //// Let's make a Big Open Plane (30x30 tiles)
-            //// 0 = Wall, 1 = Floor
-            //int width = 30;
-            //int height = 30;
-            //int[,] bigMap = new int[height, width];
-
-            //for (int y = 0; y < height; y++)
-            //{
-            //    for (int x = 0; x < width; x++)
-            //    {
-            //        // Make the borders Walls, everything else Floor
-            //        if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
-            //            bigMap[y, x] = 0; // Wall
-            //        else
-            //            bigMap[y, x] = 1; // Floor
-            //    }
-            //}
-
-            List<TileRef> palette = new List<TileRef>();
-
-            //normal floor
-            palette.Add(new TileRef(0, 0, (int)TileType.Floor)); // Grass
-            // floer floor
-            palette.Add(new TileRef(1, 0, (int)TileType.Floor)); // flower grass
-            // wall
-            palette.Add(new TileRef(0, 1, (int)TileType.Wall)); // rock wall
-            //Path
-            palette.Add(new TileRef(0, 2, (int)TileType.Floor)); // dirt path
-            // Cracked wall
-            palette.Add(new TileRef(3, 2, (int)TileType.Wall)); // cracked wall
-
-
-            int treeStartID = 10;
-
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    palette.Add(new TileRef(j, i + 3, (int)TileType.Tree)); // Trees
-                }
-            }
-
-            // Add Level 1 with the big map
-            //_allLevels.Add(new Level(bigMap, palette, new Vector2(100, 100)));
-
-            int width = 30;
-            int height = 30;
-            int[,] map = new int[height, width];
-
-            for (int  i = 0;  i < height;  i++)
-            {
-                for (int j = 0; j < width; j++)
-                {
-                    map[i, j] = 0;
-                    if (CombatSystem.RandomInt(0, 10) > 8)
-                    {
-                        map[i, j] = 1;
-                    }
-                }
-            }
-
-            for (int x = 0; x < width; x++)
-            {
-                map[0, x] = 2;
-                map[height - 1, x] = 2;
-            }
-            for (int y = 0; y < height; y++)
-            {
-                map[y, 0] = 2;
-                map[y, width - 1] = 2;
-            }
-
-            int pathRow = height / 2;
-            for (int x = 0; x < width; x++)
-            {
-                map[pathRow, x] = 4;
-            }
-
-            int treeX = 10;
-            int treeY = 5;
-            int currentTreeID = 5;
-
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    map[treeY + i, treeX + j] = currentTreeID;
-                    currentTreeID++;
-                }
-            }
-
-            _allLevels.Add(new Level(map, palette, new Vector2(100, 100)));
+            // We don't initialize here anymore, we do it in LoadLevel to be safe
         }
 
         public void LoadLevel(int index)
         {
-            if (index < 0 || index >= _allLevels.Count) return;
-            Level data = _allLevels[index];
+            // 1. LOAD TEXTURES
 
-            // 1. LOAD TEXTURE
-            // Ensure this file name is EXACTLY right in your Content folder!
-            Texture2D tileSheet = _game.Content.Load<Texture2D>("MapSheet");
+            _groundSheet = _game.Content.Load<Texture2D>("tiles");
+            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
+            _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
 
-            // CRITICAL: We must set this so TileLayer knows what image to draw
-            Helper.SpriteSheet = tileSheet;
+            // 2. SETUP THE STATIC HELPER
+            // Crucial: This tells the TileLayer class which image to use for the floor.
+            Helper.SpriteSheet = _groundSheet;
 
+            // 3. GENERATE THE WORLD
+            InitializeGameWorld();
+        }
 
+        private void InitializeGameWorld()
+        {
+            MapObjects.Clear();
+            enemies.Clear();
 
-            // 2. CREATE LAYER
-            CurrentLevel = new TileLayer(data.MapLayout, data.TilePalette, 64, 64);
+            // 1. SETUP RECTANGULAR DIMENSIONS
+            // Width: 3840 / 64 = 60 tiles
+            // Height: 2160 / 64 = ~33.75 tiles. Let's round up to 34.
+            int width = 60;
+            int height = 34;
+            int[,] map = new int[height, width];
 
-            // 3. SET COLLISION
-            // Loop through the map and make walls solid
-            for (int y = 0; y < CurrentLevel.Tiles.GetLength(0); y++)
+            // 2. CREATE FLOOR
+            for (int y = 0; y < height; y++)
             {
-                for (int x = 0; x < CurrentLevel.Tiles.GetLength(1); x++)
+                for (int x = 0; x < width; x++)
                 {
-                    //// If Tile ID is Wall, make it impassable
-                    //if (CurrentLevel.Tiles[y, x].Id == (int)TileType.Wall)
-                    //{
-                    //    CurrentLevel.Tiles[y, x].Passable = false;
-                    //}
+                    map[y, x] = 0;
+                }
+            }
 
-                    int typeOfTile = CurrentLevel.Tiles[y, x].tileRef._tileMapValue;
+            List<TileRef> palette = new List<TileRef>();
+            palette.Add(new TileRef(1, 3, 0));
+            CurrentLevel = new TileLayer(map, palette, 64, 64);
 
-                    if (typeOfTile == (int)TileType.Wall || typeOfTile == (int)TileType.Tree)
+            // 3. GENERATE RECTANGULAR TREE BORDER
+
+            float centerX = width / 2f;
+            float centerY = height / 2f;
+
+            // DEFINING THE SAFE ZONE
+            // We want the clearing to match the screen shape (Wide).
+            // Width is 60. Let's keep 12 tiles of trees on sides -> Radius X = 18.
+            // Height is 34. Let's keep 5 tiles of trees on top/bottom -> Radius Y = 12.
+
+            float safeRadiusX = 25f; // Wide
+            float safeRadiusY = 13f; // Short
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    // --- RECTANGULAR SDF MATH ---
+
+                    // 1. Distance from center
+                    float dx = Math.Abs(x - centerX);
+                    float dy = Math.Abs(y - centerY);
+
+                    // 2. Subtract the specific radius for that axis
+                    // This creates a box that is wider than it is tall
+                    float excessX = Math.Max(dx - safeRadiusX, 0);
+                    float excessY = Math.Max(dy - safeRadiusY, 0);
+
+                    // 3. Calculate distance outside that box
+                    float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
+
+                    if (distanceOutsideBox > 0)
                     {
-                        CurrentLevel.Tiles[y, x].Passable = false;  
-                    }
-                    else                    
-                    {
-                        CurrentLevel.Tiles[y, x].Passable = true;
+                        // 4. Calculate Chance (Gradient)
+                        // We make the gradient slightly steeper (6.0f) so the trees get dense faster
+                        float chance = distanceOutsideBox / 6.0f;
+                        chance *= 0.8f; // Density multiplier
+
+                        if (CombatSystem.RandomFloat() < chance)
+                        {
+                            Vector2 pos = new Vector2(x * 64, y * 64);
+
+                            // Jitter
+                            pos.X += CombatSystem.RandomInt(-20, 20);
+                            pos.Y += CombatSystem.RandomInt(-20, 20);
+
+                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet);
+                        }
                     }
                 }
             }
-        }
-        // Example: In your LevelManager Update method
-        public void Update(GameTime gameTime, Player player)
-        {
-            foreach (Enemy enemy in enemies)
-            {
-                // Give the enemy the player reference so 'CheckForTarget' actually works
-                enemy.CurrentCombatPartner = player;
 
-                // Call the enemy's update logic we just wrote
-                enemy.Update(gameTime);
+            PlaceLandMarks();
+        }
+        private void PlaceLandMarks()
+        {
+            Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+            CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+            Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
+            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet);
+            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet);
+
+            Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
+            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet);
+
+
+            Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
+            int radius = 150;
+            int skullCount = 8;
+
+            for (int i = 0; i < skullCount; i++)
+            {
+                float angle = i * (MathHelper.TwoPi / skullCount);
+                Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
+                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet);
             }
 
-            // Clean up dead enemies from the list to save memory
-            enemies.RemoveAll(e => e.EnemyStateza == Enemy.ENEMYSTATE.DEAD);
+
+            for (int i = 0; i < 15; i++)
+            {
+
+                int rx = CombatSystem.RandomInt(10, 50);
+                int ry = CombatSystem.RandomInt(5, 29); 
+                Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+                if (CombatSystem.RandomInt(0, 100) > 50)
+                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
+                else
+                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet);
+            }
+        }
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, 1, true);
+
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, frames, true);
+
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private Vector2 GetRandomPosition()
+        {
+            int tx = CombatSystem.RandomInt(2, 28);
+            int ty = CombatSystem.RandomInt(2, 28);
+
+            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
+        }
+
+        public void Update(GameTime gameTime, Player player)
+        {
+            // Update Enemies
+            foreach (Enemy enemy in enemies)
+            {
+                enemy.CurrentCombatPartner = player;
+                enemy.Update(gameTime);
+            }
+            enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
+
+            // Update Map Objects (Animations)
+            foreach (var obj in MapObjects)
+            {
+                obj.Update(gameTime);
+            }
         }
 
         public void Draw(SpriteBatch spriteBatch)
         {
+            // Only draw the floor tiles here. 
+            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
             if (CurrentLevel != null)
             {
                 CurrentLevel.Draw(spriteBatch);
@@ -354,6 +384,135 @@ using var game = new Pale_Roots_1.Game1();
 game.Run();
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+//using SharpDX.Direct2D1;
+using System;
+
+namespace Pale_Roots_1
+{
+    public class WorldObject : Sprite
+    {
+        public bool IsSolid { get; set; }
+        private static Texture2D _debugTexture;
+
+        public float BoxWidthPercentage { get; set; } = 0.5f; 
+        public float BoxHeightPercentage { get; set; } = 0.2f;
+
+        private int _pixelOffsetX;
+        private int _pixelWidth;
+
+        public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
+            : base(g, texture, pos, frameCount, 1.0)
+        {
+            IsSolid = isSolid;
+            mililsecondsBetweenFrames = 200; // Slow animation for trees
+
+            // DEFAULT SCALE:
+            // If the sprite feels too small, change this to 2.0f. 
+            // In your screenshot, they were massive, so let's stick to 1.5f for now.
+            Scale = 3.0f;
+        }
+
+        // TIGHTER HITBOX
+        // This calculates the collision box at the FEET of the object only.
+        public Rectangle CollisionBox
+        {
+            get
+            {
+                float scale = (float)Scale;
+
+                int finalWidth = (int)(_pixelWidth * scale);
+
+                int finalHeight = (int)(spriteHeight * scale * 0.2f);
+
+                // Start at Center.
+                // Move Left by half the total sprite width (to get to left edge).
+                // Move Right by the pixel offset.
+                int x = (int)(position.X - (spriteWidth * scale / 2) + (_pixelOffsetX * scale));
+
+                //Calculate Y Position (Bottom aligned)
+                int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
+
+                return new Rectangle(x, y, finalWidth, finalHeight);
+            }
+        }
+        private void CalculatePixelTightBox()
+        {
+
+            Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
+            spriteImage.GetData(rawData);
+
+            Rectangle src = sourceRectangle;
+
+            int startY = src.Y + (int)(src.Height * 0.8f);
+            int endY = src.Y + src.Height;
+
+            int minX = src.Width; // Start high
+            int maxX = 0;         // Start low
+            bool foundPixels = false;
+
+
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = src.X; x < src.X + src.Width; x++)
+                {
+                    // Calculate index in the 1D array
+                    int index = y * spriteImage.Width + x;
+
+                    // Check Alpha (Transparency). If it's not see-through...
+                    if (rawData[index].A > 20)
+                    {
+                        int localX = x - src.X; // X relative to the frame (0 to 64)
+
+                        if (localX < minX) minX = localX;
+                        if (localX > maxX) maxX = localX;
+                        foundPixels = true;
+                    }
+                }
+            }
+
+            // 5. Store the results
+            if (foundPixels)
+            {
+                _pixelOffsetX = minX;
+                _pixelWidth = maxX - minX;
+            }
+            else
+            {
+                // Fallback if the image is empty for some reason
+                _pixelOffsetX = 0;
+                _pixelWidth = src.Width;
+            }
+        }
+        public new void SetSpritesheetLocation(Rectangle source)
+        {
+            base.SetSpriteSheetLocation(source);
+            CalculatePixelTightBox();
+        }
+        public void DrawDebug(SpriteBatch spriteBatch)
+        {
+            if (_debugTexture == null)
+            {
+                _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                _debugTexture.SetData(new[] { Color.Red });
+            }
+
+            Rectangle box = CollisionBox;
+
+            int thickness = 2;
+
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
+            // Bottom
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
+            // Left
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
+            // Right
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -388,22 +547,25 @@ namespace Pale_Roots_1
         /// <summary>
         /// Charge faster than normal movement
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
             // Boost speed while charging
             Velocity = _baseVelocity * ChargeSpeedMultiplier;
             
             // Charge left toward player side
             position.X -= Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
         }
 
         /// <summary>
         /// Normal speed when chasing specific target
         /// </summary>
-        protected override void PerformChase()
+        protected override void PerformChase(List<WorldObject> obstacles)
         {
             Velocity = _baseVelocity;
-            base.PerformChase();
+            base.PerformChase(obstacles);
         }
 
         /// <summary>
@@ -418,6 +580,7 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -442,7 +605,7 @@ namespace Pale_Roots_1
             Velocity = 2.0f; // Slightly slower than default
         }
 
-        protected override void UpdateAI(GameTime gameTime)
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Check if current target is still in range
             if (CurrentTarget != null)
@@ -458,18 +621,18 @@ namespace Pale_Roots_1
                 }
             }
             
-            base.UpdateAI(gameTime);
+            base.UpdateAI(gameTime, obstacles);
         }
 
         /// <summary>
         /// Override wander to return to start position when not aggro
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Return to start position
             if (Vector2.Distance(position, startPosition) > 5f)
             {
-                MoveToward(startPosition, Velocity * 0.5f);
+                MoveToward(startPosition, Velocity * 0.5f, obstacles);
             }
             // else just idle at start position
         }
@@ -497,6 +660,7 @@ namespace Pale_Roots_1
     }
 }
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -626,7 +790,7 @@ namespace Pale_Roots_1
         // UPDATE - Main State Machine
         // ===================
         
-        public override void Update(GameTime gametime)
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             if (_knockBackVelocity != Vector2.Zero)
             {
@@ -642,7 +806,7 @@ namespace Pale_Roots_1
             switch (_lifecycleState)
             {
                 case ENEMYSTATE.ALIVE:
-                    UpdateAI(gametime);
+                    UpdateAI(gametime, obstacles);
                     break;
                     
                 case ENEMYSTATE.DYING:
@@ -658,7 +822,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// AI State Machine - determines behavior based on current state
         /// </summary>
-        protected virtual void UpdateAI(GameTime gameTime)
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Cooldown timer
             if (_attackCooldown > 0)
@@ -674,11 +838,11 @@ namespace Pale_Roots_1
             switch (CurrentAIState)
             {
                 case AISTATE.Charging:
-                    PerformCharge();
+                    PerformCharge(obstacles);
                     break;
                     
                 case AISTATE.Chasing:
-                    PerformChase();
+                    PerformChase(obstacles);
                     break;
                     
                 case AISTATE.InCombat:
@@ -686,7 +850,7 @@ namespace Pale_Roots_1
                     break;
                     
                 case AISTATE.Wandering:
-                    PerformWander();
+                    PerformWander(obstacles);
                     break;
             }
         }
@@ -699,10 +863,12 @@ namespace Pale_Roots_1
         /// Charging: Move in initial direction (usually toward enemy lines)
         /// Override in subclasses for different charge behavior
         /// </summary>
-        protected virtual void PerformCharge()
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             // Default: charge left (toward player side)
             position.X -= Velocity;
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
         }
 
         /// <summary>
@@ -714,7 +880,7 @@ namespace Pale_Roots_1
         {
             _knockBackVelocity += force;
         }
-        protected virtual void PerformChase()
+        protected virtual void PerformChase(List<WorldObject> obstacle)
         {
             if (_currentTarget == null)
             {
@@ -722,7 +888,7 @@ namespace Pale_Roots_1
                 return;
             }
 
-            MoveToward(_currentTarget.Center, Velocity);
+            MoveToward(_currentTarget.Center, Velocity, obstacle);
 
             // Check if close enough to engage
             float distance = CombatSystem.GetDistance(this, _currentTarget);
@@ -764,7 +930,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// Wandering: Move randomly near start position
         /// </summary>
-        protected virtual void PerformWander()
+        protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             // Pick new target if needed
             if (wanderTarget == Vector2.Zero || 
@@ -776,7 +942,7 @@ namespace Pale_Roots_1
                 );
             }
 
-            MoveToward(wanderTarget, Velocity * 0.5f); // Wander slower
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles); // Wander slower
         }
 
         /// <summary>
@@ -911,7 +1077,7 @@ namespace Pale_Roots_1
             MyProjectile = p;
         }
 
-        public void UpdateSentry(GameTime gameTime, PlayerWithWeapon p)
+        public void UpdateSentry(GameTime gameTime, Player p)
         {
             if (reloadTimer > 0)
                 reloadTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -973,6 +1139,7 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -1003,7 +1170,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override wander to patrol between points
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Lerp toward current target
             position = Vector2.Lerp(position, _currentPatrolTarget, PatrolLerpSpeed);
@@ -1022,9 +1189,9 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override charge to patrol instead
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
-            PerformWander();
+            PerformWander(obstacles);
         }
         
         /// <summary>
@@ -1044,6 +1211,7 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -1078,29 +1246,32 @@ namespace Pale_Roots_1
         /// <summary>
         /// Override wander to use screen-wide random targets
         /// </summary>
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Move toward target
-            MoveToward(_randomTarget, Velocity);
+            MoveToward(_randomTarget, Velocity, obstacles);
 
             // Pick new target when we arrive
             if (Vector2.Distance(position, _randomTarget) < 5f)
             {
-                _randomTarget = CreateRandomTarget();
+                int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
+                int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
+                _randomTarget = new Vector2(rx, ry);
             }
         }
 
         /// <summary>
         /// Override charge to also wander (this enemy doesn't charge)
         /// </summary>
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
-            PerformWander();
+            PerformWander(obstacles);
         }
     }
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -1148,7 +1319,7 @@ namespace Pale_Roots_1
         // UPDATE
         // ===================
         
-        protected override void UpdateAI(GameTime gameTime)
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Reload timer
             if (_reloadTimer > 0)
@@ -1202,12 +1373,12 @@ namespace Pale_Roots_1
         // OVERRIDE BEHAVIORS (disable movement)
         // ===================
         
-        protected override void PerformCharge()
+        protected override void PerformCharge(List<WorldObject> obstacles)
         {
             // Sentries don't move
         }
 
-        protected override void PerformChase()
+        protected override void PerformChase(List<WorldObject> obstacles)
         {
             // Sentries don't move - just track with rotation
             if (CurrentTarget != null)
@@ -1216,7 +1387,7 @@ namespace Pale_Roots_1
             }
         }
 
-        protected override void PerformWander()
+        protected override void PerformWander(List<WorldObject> obstacles)
         {
             // Sentries don't move - idle in place
         }
@@ -1286,6 +1457,8 @@ namespace Pale_Roots_1
             UpdateMatrix(viewport);
         }
 
+        // In Camera.cs
+
         private void ClampPosition(Viewport viewport)
         {
             float visibleWidth = viewport.Width / Zoom;
@@ -1294,11 +1467,28 @@ namespace Pale_Roots_1
             float halfWidth = visibleWidth / 2f;
             float halfHeight = visibleHeight / 2f;
 
-            // Keep the camera center inside the map
-            Position = new Vector2(
-                MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth),
-                MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight)
-            );
+            float newX = Position.X;
+            float newY = Position.Y;
+
+            if (visibleWidth > _mapSize.X)
+            {
+                newX = _mapSize.X / 2f;
+            }
+            else
+            {
+                newX = MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth);
+            }
+
+            if (visibleHeight > _mapSize.Y)
+            {
+                newY = _mapSize.Y / 2f;
+            }
+            else
+            {
+                newY = MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight);
+            }
+
+            Position = new Vector2(newX, newY);
         }
 
         private void UpdateMatrix(Viewport viewport)
@@ -1313,11 +1503,12 @@ namespace Pale_Roots_1
         }
     }
 }
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Pale_Roots_1
 {
@@ -1354,9 +1545,9 @@ namespace Pale_Roots_1
 
         private bool _battleStarted = false;
         private Vector2 _mapSize;
-        private Vector2 _playerSpawnPos = new Vector2(300, 900);
-        private Vector2 _allySpawnOrigin = new Vector2(150, 780);
-        private Vector2 _enemySpawnOrigin = new Vector2(1600, 900);
+        private Vector2 _playerSpawnPos = new Vector2(500, 1230);
+        private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
+        private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
         // ===================
         // TARGETING
@@ -1399,7 +1590,14 @@ namespace Pale_Roots_1
             // Setup camera
             _camera = new Camera(Vector2.Zero, _mapSize);
             Viewport vp = game.GraphicsDevice.Viewport;
-            _camera.Zoom = (float)vp.Width / _mapSize.X;
+
+            float scaleX = (float)vp.Width / _mapSize.X;
+            float scaleY = (float)vp.Height / _mapSize.Y;
+
+
+            _camera.Zoom = Math.Min(scaleX, scaleY);
+
+
             _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
 
             // Create armies
@@ -1505,10 +1703,12 @@ namespace Pale_Roots_1
         private void UpdateBattle(GameTime gameTime, Viewport vp)
         {
             // Zoom in to battle view
-            _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
+            //_camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player
             _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+
+            _levelManager.Update(gameTime, _player);
 
             // Targeting scan
             _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -1545,7 +1745,7 @@ namespace Pale_Roots_1
                     }
                 }
 
-                ally.Update(gameTime);
+                ally.Update(gameTime, _levelManager.MapObjects);
             }
         }
 
@@ -1570,7 +1770,7 @@ namespace Pale_Roots_1
                     }
                 }
 
-                enemy.Update(gameTime);
+                enemy.Update(gameTime, _levelManager.MapObjects);
             }
         }
 
@@ -1626,32 +1826,63 @@ namespace Pale_Roots_1
         // ===================
         // DRAW
         // ===================
-        
+
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
-            // Draw map
+            // 1. DRAW BACKGROUND (Floor) FIRST
+            // This is always at the very bottom.
             _levelManager.Draw(spriteBatch);
-            
-            // Draw allies (behind player)
+
+            // 2. PREPARE A SORTABLE LIST OF EVERYTHING ELSE
+            // We put Player, Enemies, Allies, and Trees into one bucket.
+            List<Sprite> renderList = new List<Sprite>();
+
+            // Add Player
+            if (_player.Visible) renderList.Add(_player);
+
+            // Add Allies
             foreach (var ally in _allies)
             {
-                ally.Draw(spriteBatch);
+                if (ally.Visible) renderList.Add(ally);
             }
-            
-            // Draw player
-            _player.Draw(spriteBatch);
-            
-            // Draw enemies
+
+            // Add Enemies
             foreach (var enemy in _enemies)
             {
-                enemy.Draw(spriteBatch);
+                if (enemy.Visible) renderList.Add(enemy);
+            }
+
+            // Add World Objects (Trees, Rocks) from LevelManager
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                if (obj.Visible) renderList.Add(obj);
+            }
+
+            // 3. SORT BY Y POSITION (Depth Sorting)
+            // Objects with a higher Y (lower on screen) are drawn LAST (on top).
+            // This allows the player to walk "behind" a tree base.
+            renderList.Sort((a, b) => {
+                // We compare the bottom of the sprites (Y + Height) for accuracy
+                float aY = a.position.Y + (a.spriteHeight * (float)a.Scale);
+                float bY = b.position.Y + (b.spriteHeight * (float)b.Scale);
+                return aY.CompareTo(bY);
+            });
+
+            // 4. DRAW EVERYTHING IN ORDER
+            foreach (var sprite in renderList)
+            {
+                sprite.Draw(spriteBatch);
+            }
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                obj.DrawDebug(spriteBatch);
             }
         }
 
         // ===================
         // PUBLIC ACCESSORS
         // ===================
-        
+
         public Player GetPlayer() => _player;
         public int AllyCount => _allies.Count(a => a.IsAlive);
         public int EnemyCount => _enemies.Count(e => e.IsAlive);
@@ -1769,7 +2000,7 @@ namespace Pale_Roots_1
 
         // MAP & TILES
         public const int TileSize = 64;
-        public static readonly Vector2 DefaultMapSize = new Vector2(1920, 1920);
+        public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
     }
 
     // ============================================================================
@@ -2011,18 +2242,48 @@ namespace Pale_Roots_1
         }
     }
 }
-using Microsoft.Xna.Framework.Graphics;
-using System;
+using Microsoft.Xna.Framework;
+using Microsoft;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    public static class Helper
+    public static class  Helper
     {
         public static Texture2D SpriteSheet { get; set; }
+
+        public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
+        {
+            { "Big_Rock", new Rectangle(16, 192, 64, 64)},
+            { "Skull_Pile", new Rectangle(15, 433, 80, 60)},
+
+            { "Tree_Dead_Large", new Rectangle(16, 16, 112, 128)},
+
+            { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
+
+            { "Ruins_Column", new Rectangle(8, 16, 87, 96) },
+
+            { "Shrine_Blue", new Rectangle(0, 128, 32, 48) },
+            { "Bird_Skull", new Rectangle(16, 332, 51, 52) },
+            { "Skellington", new Rectangle(64, 320, 159, 119) },
+            { "Bone_In_Floor", new Rectangle(560, 432, 31, 50) },
+            { "Dying_Tree", new Rectangle(415, 496, 69, 93) },
+            { "Hand_In_Floor", new Rectangle(608, 523, 63, 71) },
+            { "Baby_Skellington", new Rectangle(239, 227, 32, 24) },
+
+
+        };
+
+        public static Rectangle GetSourceRect(string key)
+        {
+            if (SourceRects.ContainsKey(key))
+            {
+                return SourceRects[key];
+            }
+            return new Rectangle(0, 0, 32, 32);
+
+        }
     }
 }
 using System;
@@ -2511,7 +2772,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+49cf4701ae528eae94ad79513380373876947b57")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f34369e0cc74e11fc12bd9849a413c668449f8b")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -2521,6 +2782,7 @@ using System.Reflection;
 // Generated by the MSBuild WriteCodeFragment class.
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -2629,14 +2891,14 @@ namespace Pale_Roots_1
         // UPDATE - Main State Machine
         // ===================
         
-        public override void Update(GameTime gametime)
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             base.Update(gametime);
 
             switch (_lifecycleState)
             {
                 case ALLYSTATE.ALIVE:
-                    UpdateAI(gametime);
+                    UpdateAI(gametime, obstacles);
                     break;
                     
                 case ALLYSTATE.DYING:
@@ -2652,7 +2914,7 @@ namespace Pale_Roots_1
         /// <summary>
         /// AI State Machine - mirrors Enemy but charges opposite direction
         /// </summary>
-        protected virtual void UpdateAI(GameTime gameTime)
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             // Cooldown timer
             if (_attackCooldown > 0)
@@ -2668,11 +2930,11 @@ namespace Pale_Roots_1
             switch (CurrentAIState)
             {
                 case Enemy.AISTATE.Charging:
-                    PerformCharge();
+                    PerformCharge(obstacles);
                     break;
                     
                 case Enemy.AISTATE.Chasing:
-                    PerformChase();
+                    PerformChase(obstacles);
                     break;
                     
                 case Enemy.AISTATE.InCombat:
@@ -2680,7 +2942,7 @@ namespace Pale_Roots_1
                     break;
                     
                 case Enemy.AISTATE.Wandering:
-                    PerformWander();
+                    PerformWander(obstacles);
                     break;
             }
         }
@@ -2692,12 +2954,16 @@ namespace Pale_Roots_1
         /// <summary>
         /// Allies charge RIGHT (toward enemy lines)
         /// </summary>
-        protected virtual void PerformCharge()
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
+
         }
 
-        protected virtual void PerformChase()
+        protected virtual void PerformChase(List<WorldObject> obstacles)
         {
             if (_currentTarget == null)
             {
@@ -2705,7 +2971,7 @@ namespace Pale_Roots_1
                 return;
             }
 
-            MoveToward(_currentTarget.Center, Velocity);
+            MoveToward(_currentTarget.Center, Velocity, obstacles);
 
             float distance = CombatSystem.GetDistance(this, _currentTarget);
             if (distance < GameConstants.CombatEngageRange)
@@ -2737,7 +3003,7 @@ namespace Pale_Roots_1
             }
         }
 
-        protected virtual void PerformWander()
+        protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             if (wanderTarget == Vector2.Zero || 
                 Vector2.Distance(position, wanderTarget) < 5f)
@@ -2748,7 +3014,7 @@ namespace Pale_Roots_1
                 );
             }
 
-            MoveToward(wanderTarget, Velocity * 0.5f);
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
         }
 
         protected virtual void UpdateDying(GameTime gameTime)
@@ -2981,19 +3247,38 @@ namespace Pale_Roots_1
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
-            //int tx = (int)((newPos.X + spriteWidth / 2) / GameConstants.TileSize);
-            //int ty = (int)((newPos.Y + spriteHeight / 2) / GameConstants.TileSize);
 
-            float scaledCenterX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
-            float scaledCenterY = newPos.Y + (spriteHeight * (float)Scale) / 2.0f;
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int playerW = (int)(spriteWidth * scale * 0.4f);
+            int playerH = (int)(spriteHeight * scale * 0.2f);
 
-            int tx = (int)(scaledCenterX / GameConstants.TileSize);
-            int ty = (int)(scaledCenterY / GameConstants.TileSize);
+            // X: Center - Half Box
+            int playerX = (int)(newPos.X - (playerW / 2));
 
-            if (tx < 0 || tx >= layer.Tiles.GetLength(1) || ty < 0 || ty >= layer.Tiles.GetLength(0))
-                return false;
+            // Y: Bottom of sprite - Box Height
+            int playerY = (int)(newPos.Y + (spriteHeight * scale / 2) - playerH);
 
-            return layer.Tiles[ty, tx].Passable;
+            Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
+
+            float mapWidth = layer.Tiles.GetLength(1) * 64;
+            float mapHeight = layer.Tiles.GetLength(0) * 64;
+
+            // Check Left/Top
+            if (newPos.X < 0 || newPos.Y < 0) return false;
+
+            // Check Right/Bottom Account for sprite size
+            if (newPos.X + (spriteWidth * Scale) > mapWidth) return false;
+            if (newPos.Y + (spriteHeight * Scale) > mapHeight) return false;
+
+            // Tile Passability Check
+            float feetY = newPos.Y + (spriteHeight * (float)Scale);
+            float centerX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
+
+
+
+
+            return true;
         }
 
         // ===================
@@ -3125,145 +3410,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
-using Microsoft.Xna.Framework.Audio;
-//using Engines;
-
-namespace Pale_Roots_1
-{
-    
-        public class PlayerWithWeapon : Sprite
-        {
-            protected Game myGame;
-            protected float playerVelocity = 6.0f;
-        private Projectile myProjectile;
-        //public CrossHair Site;
-        //public SoundEffect shoot;
-        private SoundEffect shoot;
-        //had to add logic for previous keyboard state to prevent multiple firings on a single key press as the shoot sound was constanly playing
-        private KeyboardState previousKeyboardState;
-
-
-        public Vector2 CentrePos
-            {
-                get { return position + new Vector2(spriteWidth/ 2, spriteHeight / 2); }
-                
-            }
-
-        public Projectile MyProjectile
-        {
-            get
-            {
-                return myProjectile;
-            }
-
-            set
-            {
-                myProjectile = value;
-            }
-        }
-
-        public PlayerWithWeapon(Game g, Texture2D texture, Vector2 userPosition, int framecount) : base(g,texture,userPosition,framecount, 1)
-            {
-                myGame = g;
-            var vp = g.GraphicsDevice.Viewport;
-            //Site = new CrossHair(g,
-            //                     g.Content.Load<Texture2D>("scope2"),
-            //                     new Vector2(vp.Width / 2, vp.Height / 2),
-            //                     1);
-            //shoot = g.Content.Load<SoundEffect>("shoot");
-            //didnt know where to load the asset as there is no load content method here so loaded it in the constructor
-
-        }
-
-        public void loadProjectile(Projectile r)
-            {
-                MyProjectile = r;
-            }
-
-
-        public void Update(GameTime gameTime, TileLayer layer)
-        {
-           
-            Viewport gameScreen = myGame.GraphicsDevice.Viewport;
-            if (Keyboard.GetState().IsKeyDown(Keys.D))
-            {
-                this.position += new Vector2(1, 0) * playerVelocity;
-            }
-            if (Keyboard.GetState().IsKeyDown(Keys.A))
-            {
-                this.position += new Vector2(-1, 0) * playerVelocity;
-            }
-            if (Keyboard.GetState().IsKeyDown(Keys.W))
-            {
-                this.position += new Vector2(0, -1) * playerVelocity;
-            }
-            if (Keyboard.GetState().IsKeyDown(Keys.S))
-            {
-                this.position += new Vector2(0, 1) * playerVelocity;
-            }
-            // check for site change
-            
-            //Site.Update(gameTime);
-            // Whenever the rocket is still and loaded it follows the player posiion
-            if (MyProjectile != null 
-                && MyProjectile.ProjectileState 
-                == Projectile.PROJECTILE_STATE.STILL)
-                MyProjectile.position = this.CentrePos;
-            // if a roecket is loaded
-            if (MyProjectile != null && MyProjectile.ProjectileState
-                == Projectile.PROJECTILE_STATE.STILL)
-            {
-                KeyboardState ks = Keyboard.GetState();
-                // fire the rocket and it looks for the target
-                if (Keyboard.GetState().IsKeyDown(Keys.Space) && previousKeyboardState.IsKeyUp(Keys.Space))
-                {     //had a probloem here where because the asset i got for the new crosshair was massive, i shrunk the scale but the project was still firing to the top left corner of the origiuonal
-                    //image size not the scaled down size. So i adjusted the target position by half the width and height of the original image to get it to fire to the right place.
-                    //MyProjectile.fire(Site.position);
-                    //MyProjectile.fire(Site.position + new Vector2(Site.spriteWidth * 0.1f, Site.spriteHeight * 0.1f));
-                    //shoot = Content.Load<SoundEffect>("shoot");
-                    shoot.Play();
-                }
-
-            }
-
-            // Make sure the player stays in the bounds see previous lab for details
-            position = Vector2.Clamp(position, Vector2.Zero,
-                                            new Vector2(gameScreen.Width - spriteWidth,
-                                                        gameScreen.Height - spriteHeight));
-            
-            // Update the Camera with respect to the players new position
-            //Vector2 delta = cam.Pos - this.position;
-            //cam.Pos += delta;
-            
-            if (MyProjectile != null)
-                MyProjectile.Update(gameTime);
-            // Update the players site
-            //Site.Update(gameTime);
-            // call Sprite Update to get it to animated 
-            base.Update(gameTime);
-        }
-            
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            base.Draw(spriteBatch);
-            //Site.Draw(spriteBatch);
-            if (MyProjectile != null 
-                && MyProjectile.ProjectileState 
-                != Projectile.PROJECTILE_STATE.STILL)
-                    MyProjectile.Draw(spriteBatch);
-            
-        }
-
-    }
-}
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 //using AnimatedSprite;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
@@ -3329,15 +3475,24 @@ namespace Pale_Roots_1
             }
             return radians;
         }
-        public void MoveToward(Vector2 target, float speed)
+        public void MoveToward(Vector2 target, float speed, List<WorldObject> obstacles)
         {
             Vector2 direction = target - position;
 
             if (direction != Vector2.Zero)
             {
                 direction.Normalize();
-                position += direction * speed;
+                
+                Vector2 velocity = direction * speed;
+                Vector2 newPos = position + velocity;
+
+                if (!IsColliding(newPos, obstacles))
+                {
+                    position = newPos;
+                }
                 angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
+
+                ClampToMap();
             }
         }
 
@@ -3365,6 +3520,7 @@ namespace Pale_Roots_1
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -3395,14 +3551,14 @@ namespace Pale_Roots_1
         protected float timer = 0f;
         public int spriteWidth = 0;
         public int spriteHeight = 0;
-        protected Rectangle sourceRectangle;
+        public Rectangle sourceRectangle;
+
+        protected int _sheetStartX = 0;
+        protected int _sheetStartY = 0;
 
         public Vector2 Center
         {
-            get
-            {
-                return position + new Vector2((spriteWidth * (float)Scale) / 2f, (spriteHeight * (float)Scale) / 2f);
-            }
+            get { return position; }
         }
 
         public Sprite(Game g, Texture2D texture, Vector2 userPosition, int framecount, double scale)
@@ -3429,8 +3585,67 @@ namespace Pale_Roots_1
                 if (currentFrame >= numberOfFrames) currentFrame = 0;
                 timer = 0f;
             }
-            sourceRectangle = new Rectangle(currentFrame * spriteWidth, 0, spriteWidth, spriteHeight);
+            int frameOffsetX = currentFrame * spriteWidth;
+            sourceRectangle = new Rectangle(_sheetStartX + frameOffsetX, _sheetStartY, spriteWidth, spriteHeight);
         }
+        public void SetSpriteSheetLocation(Rectangle source)
+        {
+            _sheetStartX = source.X;
+            _sheetStartY = source.Y;
+
+            this.spriteWidth = source.Width;
+            this.spriteHeight = source.Height;
+            this.sourceRectangle = source;
+
+            this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
+        }
+        // In Sprite.cs
+
+        protected void ClampToMap()
+        {
+            float mapW = GameConstants.DefaultMapSize.X;
+            float mapH = GameConstants.DefaultMapSize.Y;
+
+            float halfWidth = (spriteWidth * (float)Scale) / 2f;
+            float halfHeight = (spriteHeight * (float)Scale) / 2f;
+
+            // Clamp X (Keep center within bounds minus half width)
+            if (position.X < halfWidth) position.X = halfWidth;
+            if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+
+            // Clamp Y
+            if (position.Y < halfHeight) position.Y = halfHeight;
+            if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+        }
+
+        protected bool IsColliding(Vector2 newPos, List<WorldObject> objects)
+        {
+            if (objects == null) return false;
+
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int w = (int)(spriteWidth * scale * 0.4f); // 40% width
+            int h = (int)(spriteHeight * scale * 0.2f); // 20% height
+
+            // X: NewPos is center. Subtract half box width to get Left.
+            int x = (int)(newPos.X - (w / 2));
+
+            // Y: NewPos is center. Add half sprite height to get Bottom, then subtract box height.
+            int y = (int)(newPos.Y + (spriteHeight * scale / 2) - h);
+
+            Rectangle futureFeetBox = new Rectangle(x, y, w, h);
+
+            foreach (var obj in objects)
+            {
+                if (obj.IsSolid && futureFeetBox.Intersects(obj.CollisionBox))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
 
         public virtual void Draw(SpriteBatch spriteBatch)
         {
@@ -3512,209 +3727,6 @@ namespace Pale_Roots_1
         }
     }
 }
-//using GP01Week11_Lab2_2025;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-//using Game1;
-
-namespace Pale_Roots_1
-{
-
-    public class TiledPlayer : TiledSprite
-    {
-        //public SoundEffect engineSound;
-        public float RotationSpeed { get; set; }
-        public float speed { get; set; }
-
-        //public SoundEffect engineSound { get; set; }    
-        public TiledPlayer(Vector2 tilePosition,
-            List<TileRef> sheetRefs, int frameWidth,
-            int frameHeight, float layerDepth) : base(tilePosition, sheetRefs, frameWidth, frameHeight, layerDepth)
-        {
-            speed = 5.0f;
-            RotationSpeed = 0.02f;
-        }
-        public override void Update(GameTime gametime)
-        {
-            if (InputEngine.IsKeyHeld(Keys.X))
-                AngleOfRotation += RotationSpeed;
-            if (InputEngine.IsKeyHeld(Keys.Z))
-                AngleOfRotation -= RotationSpeed;
-
-            if (InputEngine.IsKeyHeld(Keys.Down))
-                PixelPosition += new Vector2(
-                    (float)Math.Sin(AngleOfRotation),
-                    -(float)Math.Cos(AngleOfRotation)) * 5;
-
-            if (InputEngine.IsKeyHeld(Keys.Up))
-                PixelPosition -= new Vector2(
-                    (float)Math.Sin(AngleOfRotation),
-                    -(float)Math.Cos(AngleOfRotation)) * 5;
-
-            base.Update(gametime);
-        }
-        public void PlayEngineSound(SoundEffect engineSound)
-        {
-            if (InputEngine.IsKeyHeld(Keys.Up) || InputEngine.IsKeyHeld(Keys.Down))
-            {
-
-                    engineSound.Play();  
-            }
-
-        }
-        public override void Draw(SpriteBatch spriteBatch, Texture2D SpriteSheet)
-        {
-            base.Draw(spriteBatch, SpriteSheet);
-        }
-
-    }
-}
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-
-
-namespace Pale_Roots_1
-{
-    public class TiledSprite
-    {
-        //sprite texture and position
-
-        private bool visible;
-        protected Vector2 origin;
-        private float angleOfRotation;
-        protected float spriteDepth = 1f;
-        protected Vector2 pixelPosition;
-        public bool Visible
-        {
-            get { return visible; }
-            set { visible = value; }
-        }
-
-       
-
-        //the number of frames in the sprite sheet
-        //the current fram in the animation
-        //the time between frames
-        int mililsecondsBetweenFrames = 100;
-        float timer = 0f;
-
-        //the width and height of our texture
-        public int FrameWidth = 0;
-        public int FrameHeight = 0;
-
-        //the source of our image within the sprite sheet to draw
-        Rectangle sourceRectangle;
-
-        public Rectangle SourceRectangle
-        {
-            get { return sourceRectangle; }
-            set { sourceRectangle = value; }
-        }
-
-
-        public Vector2 PixelPosition
-        {
-            get
-            {
-                return pixelPosition;
-            }
-
-            set { pixelPosition = value; }
-        }
-
-        public int CurrentFrame
-        {
-            get
-            {
-                return _currentFrame;
-            }
-
-            set
-            {
-                _currentFrame = value;
-            }
-        }
-
-        public float AngleOfRotation { get => angleOfRotation; set => angleOfRotation = value; }
-
-        protected List<TileRef> Frames = new List<TileRef>();
-        private int _currentFrame;
-
-        public TiledSprite(Vector2 tilePosition, List<TileRef> sheetRefs, int frameWidth, int frameHeight, float layerDepth)
-        {
-            spriteDepth = layerDepth;
-            pixelPosition = tilePosition;
-            visible = true;
-            FrameHeight = frameHeight;
-            FrameWidth = frameWidth;
-            Frames = sheetRefs;
-            // added to allow sprites to rotate
-            origin = new Vector2(FrameWidth / 2, FrameHeight / 2);
-            AngleOfRotation = 0;
-            CurrentFrame = 0;
-        }
-
-
-        public virtual void Update(GameTime gametime)
-        {
-            timer += (float)gametime.ElapsedGameTime.Milliseconds;
-
-            //if the timer is greater then the time between frames, then animate
-            if (timer > mililsecondsBetweenFrames)
-            {
-                _currentFrame++;
-                //if we have exceed the number of frames
-                if (_currentFrame > Frames.Count - 1)
-                {
-                    _currentFrame = 0;
-                }
-                //reset our timer
-                timer = 0f;
-            }
-            //set the source to be the current frame in our animation
-            sourceRectangle = new Rectangle(Frames[CurrentFrame]._sheetPosX * FrameWidth,
-                    Frames[CurrentFrame]._sheetPosY * FrameHeight,
-                    FrameWidth, FrameHeight);
-
-        }
-        public bool collisionDetect(TiledSprite other)
-        {
-            Rectangle myBound = new Rectangle((int)this.PixelPosition.X, (int)this.PixelPosition.Y, this.FrameWidth, this.FrameHeight);
-            Rectangle otherBound = new Rectangle((int)other.PixelPosition.X, (int)other.PixelPosition.Y, other.FrameWidth, other.FrameHeight);
-
-            return myBound.Intersects(otherBound);
-        }
-
-        
-
-
-
-        public virtual void Draw(SpriteBatch spriteBatch, Texture2D SpriteSheet)
-        {
-            if (visible)
-            {
-                spriteBatch.Draw(SpriteSheet,
-                    PixelPosition + origin, sourceRectangle,
-                    Color.White, AngleOfRotation, origin,
-                    1.0f, SpriteEffects.None, spriteDepth);
-            }
-        }
-
-    }
-}
-
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -3727,8 +3739,8 @@ namespace Pale_Roots_1
 {
     public class TileLayer
     {
-        int LayerTileWidth = 64;
-        int LayerTileHeight = 64;
+        int SourceTileSize = 16;
+        int DestTileSize = 64;
         List<TileRef> tileRefs = new List<TileRef>();
 
         
@@ -3740,8 +3752,12 @@ namespace Pale_Roots_1
             get { return _tiles; }
             set { _tiles = value; }
         }
-        public TileLayer(int[,] LayerMap,List<TileRef> MapSheetReferences, int TileWidth, int TileHeight)
+        public TileLayer(int[,] LayerMap,List<TileRef> MapSheetReferences, int destSize, int sourceSize)
         {
+
+            DestTileSize = destSize;
+            SourceTileSize = sourceSize;
+
             tileRefs = MapSheetReferences;
             tileMapHeight = LayerMap.GetLength(0); // row int[row,col]
             tileMapWidth = LayerMap.GetLength(1); // dim 0 = row, dim 1 = col
@@ -3764,14 +3780,4027 @@ namespace Pale_Roots_1
         public void Draw(SpriteBatch spriteBatch)
         {
             foreach (var Tile in Tiles)
+            {
+
+                Rectangle destRect = new Rectangle(
+                    Tile.X * DestTileSize,
+                    Tile.Y * DestTileSize,
+                    DestTileSize,
+                    DestTileSize);
+
+
+                Rectangle sourceRect = new Rectangle(
+                    Tile.tileRef._sheetPosX * SourceTileSize,
+                    Tile.tileRef._sheetPosY * SourceTileSize,
+                    SourceTileSize,
+                    SourceTileSize);
+
+                spriteBatch.Draw(Helper.SpriteSheet, destRect, sourceRect, Color.White);
+            }
+        }
+    }
+}
+namespace Pale_Roots_1
+{
+    public class TileRef
+    {
+        public int _sheetPosX;
+        public int _sheetPosY;
+        public int _tileMapValue;
+
+        public TileRef(int x, int y, int val)
+        {
+            _sheetPosX = x;
+            _sheetPosY = y;
+            _tileMapValue = val;
+        }
+    }
+}
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public class Animation
+    {
+        public Texture2D Texture { get; private set; }
+        public int FrameCount { get; private set; }
+        public int SheetRow { get; private set; }
+        public float FrameSpeed { get; private set; }
+        public bool IsLooping { get; private set; }
+
+        // NEW: We need to know the total rows to calculate height correctly
+        public int TotalRows { get; private set; }
+
+        // UPDATED CONSTRUCTOR: Added 'totalRows' at the end
+        public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1)
+        {
+            Texture = texture;
+            FrameCount = frameCount;
+            SheetRow = sheetRow;
+            FrameSpeed = frameSpeed;
+            IsLooping = isLooping;
+            TotalRows = totalRows;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class AnimationManager
+    {
+        private Dictionary<string, Animation> _anims = new Dictionary<string, Animation>();
+        private Animation _currentAnimation;
+        private string _currentKey;
+
+        private float _timer;
+        public int CurrentFrame { get; private set; }
+
+        public float LayerDepth { get; set; }
+
+        public void AddAnimation(string key, Animation animation)
+        {
+            _anims[key] = animation;
+        }
+        public void Play(string key)
+        {
+            if (_currentKey == key) return;
+
+            if (_anims.ContainsKey(key))
+            {
+                _currentKey = key;
+                _currentAnimation = _anims[key];
+                CurrentFrame = 0;
+                _timer = 0;
+            }
+        }
+        public void Update(GameTime gameTime)
+        {
+            if (_currentAnimation == null) return;
+
+            _timer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            if (_timer > _currentAnimation.FrameSpeed)
+            {
+                _timer = 0f;
+                CurrentFrame++;
+
+                if (CurrentFrame >= _currentAnimation.FrameCount)
                 {
-                spriteBatch.Draw(Helper.SpriteSheet,
-                new Rectangle(Tile.X * LayerTileWidth, Tile.Y * LayerTileHeight, 
-                    LayerTileWidth, LayerTileHeight),
-                new Rectangle(Tile.tileRef._sheetPosX * LayerTileWidth, Tile.tileRef._sheetPosY * LayerTileHeight, 
-                    LayerTileWidth, LayerTileHeight), 
-                Color.White);
+                    CurrentFrame = 0;
                 }
+                else
+                {
+                    CurrentFrame = _currentAnimation.FrameCount - 1;
+                }
+            }
+        }
+        public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect)
+        {
+            if (_currentAnimation == null) return;
+
+            // 1. CALCULATE FRAME DIMENSIONS
+            // Width = Total Image Width / Number of Frames in a row
+            int frameWidth = _currentAnimation.Texture.Width / _currentAnimation.FrameCount;
+
+            // Height = Total Image Height / Number of Rows (NEW LOGIC)
+            int frameHeight = _currentAnimation.Texture.Height / _currentAnimation.TotalRows;
+
+            // 2. DEFINE THE CUTOUT (Source Rectangle)
+            Rectangle source = new Rectangle(
+                CurrentFrame * frameWidth,                  // X: Move across based on frame
+                _currentAnimation.SheetRow * frameHeight,   // Y: Move down based on Row (0 for strips)
+                frameWidth,
+                frameHeight
+            );
+
+            // 3. CENTER THE ORIGIN
+            // This fixes the "floating" or "grounded" feeling. 
+            // We pivot around the bottom-center of the sprite feet.
+            Vector2 origin = new Vector2(frameWidth / 2f, frameHeight / 2f);
+
+            spriteBatch.Draw(
+                _currentAnimation.Texture,
+                position,
+                source,
+                Color.White,
+                0f,
+                origin,
+                scale,
+                effect,
+                LayerDepth
+            );
+        }
+    }
+}
+using System;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+//using AnimatedSprite; // Needed to see the Sprite base class
+
+namespace Pale_Roots_1
+{
+    public class Collectible : Sprite
+    {
+        public int HealthValue { get; private set; }
+
+        // Static to share memory across all collectibles
+        private static Texture2D healthBarTexture;
+
+        public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
+            : base(game, texture, position, frameCount, 1)
+        {
+            Random r = new Random();
+            HealthValue = r.Next(50, 101);
+
+            // Lazy loading the texture once
+            if (healthBarTexture == null)
+            {
+                healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                healthBarTexture.SetData(new[] { Color.White });
+            }
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+
+            // Draw health bar above it
+            Rectangle barRect = new Rectangle(
+                (int)position.X,
+                (int)position.Y - 10,
+                HealthValue / 2,
+                5
+            );
+
+            spriteBatch.Draw(healthBarTexture, barRect, Color.Green);
+
+            // Ensure you have a font named "NameID" in your Content pipeline, 
+            // otherwise this line will crash.
+            // spriteBatch.DrawString(
+            //    game.Content.Load<SpriteFont>("NameID"),
+            //    HealthValue.ToString(),
+            //    new Vector2(position.X, position.Y - 25),
+            //    Color.White
+            // );
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+
+namespace Pale_Roots_1
+{
+    public class Game1 : Game
+    {
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        private SoundEffect warTheme;
+
+        // The Engine now owns the Player, Enemies, Allies, and Camera
+        private ChaseAndFireEngine _gameEngine;
+
+        public Game1()
+        {
+            _graphics = new GraphicsDeviceManager(this);
+            Content.RootDirectory = "Content";
+            IsMouseVisible = true;
+            new InputEngine(this); // Keeps your Input helper working
+        }
+
+        protected override void Initialize()
+        {
+            // Fix: Set backbuffer size using _graphics, not GraphicsDevice
+            //_graphics.PreferredBackBufferWidth = 960;
+            //_graphics.PreferredBackBufferHeight = 540;
+            _graphics.PreferredBackBufferWidth = 1920;
+            _graphics.PreferredBackBufferHeight = 1080;
+            _graphics.ApplyChanges();
+            base.Initialize();
+        }
+
+        protected override void LoadContent()
+        {
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            _gameEngine = new ChaseAndFireEngine(this);
+
+            // --- AUDIO CODE ---
+            // 1. Load the song (Make sure the file is in Content and named "BattleTheme" or whatever your file is!)
+            // If your file is called "music.mp3", putting "music" here usually works.
+
+            warTheme = Content.Load<SoundEffect>("MoreGuitar"); // <--- CHANGE "BattleTheme" TO YOUR FILE NAME
+
+            warTheme.Play();
+
+        }
+
+        protected override void Update(GameTime gameTime)
+        {
+            // Exit on Escape
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+                Exit();
+
+            // All game logic (movement, charging, camera zoom) happens here now
+            _gameEngine.Update(gameTime);
+
+            base.Update(gameTime);
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            GraphicsDevice.Clear(Color.CornflowerBlue);
+
+            // 1. Begin Draw with the Camera Matrix from the Engine
+            // This ensures the Zoom and Follow logic affects everything we draw
+            _spriteBatch.Begin(
+                SpriteSortMode.Deferred,
+                BlendState.AlphaBlend,
+                SamplerState.PointClamp, 
+                null,
+                null,
+                null,
+                _gameEngine._camera.CurrentCameraTranslation);
+
+            // 2. Tell the Engine to draw everything (Map, Player, Armies)
+            _gameEngine.Draw(gameTime, _spriteBatch);
+
+            _spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+    }
+}
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+
+namespace Pale_Roots_1
+{
+    public class Level
+    {
+        public int[,] MapLayout { get; set; }
+        public List<TileRef> TilePalette { get; set; }
+        public Vector2 PlayerStartPos { get; set; }
+
+        public enum TileType
+        {
+            Floor= 0,
+            Wall = 1,
+            Tree = 2,
+
+        }
+
+        public Level(int[,] map, List<TileRef> tiles, Vector2 startPos)
+        {
+            MapLayout = map;
+            TilePalette = tiles;
+            PlayerStartPos = startPos;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class LevelManager
+    {
+        private Game _game;
+        private List<Level> _allLevels = new List<Level>();
+
+        // --- ENTITY LISTS ---
+        public List<Enemy> enemies = new List<Enemy>();
+        public List<WorldObject> MapObjects = new List<WorldObject>();
+
+        // --- GRAPHICS ---
+        public TileLayer CurrentLevel { get; private set; }
+        private Texture2D _groundSheet;
+        private Texture2D _animatedObjectSheet;
+        private Texture2D _staticObjectSheet;
+
+        public LevelManager(Game game)
+        {
+            _game = game;
+            // We don't initialize here anymore, we do it in LoadLevel to be safe
+        }
+
+        public void LoadLevel(int index)
+        {
+            // 1. LOAD TEXTURES
+
+            _groundSheet = _game.Content.Load<Texture2D>("tiles");
+            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
+            _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
+
+            // 2. SETUP THE STATIC HELPER
+            // Crucial: This tells the TileLayer class which image to use for the floor.
+            Helper.SpriteSheet = _groundSheet;
+
+            // 3. GENERATE THE WORLD
+            InitializeGameWorld();
+        }
+
+        private void InitializeGameWorld()
+        {
+            MapObjects.Clear();
+            enemies.Clear();
+
+            // 1. SETUP RECTANGULAR DIMENSIONS
+            // Width: 3840 / 64 = 60 tiles
+            // Height: 2160 / 64 = ~33.75 tiles. Let's round up to 34.
+            int width = 60;
+            int height = 34;
+            int[,] map = new int[height, width];
+
+            // 2. CREATE FLOOR
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    map[y, x] = 0;
+                }
+            }
+
+            List<TileRef> palette = new List<TileRef>();
+            palette.Add(new TileRef(1, 3, 0));
+            CurrentLevel = new TileLayer(map, palette, 64, 64);
+
+            // 3. GENERATE RECTANGULAR TREE BORDER
+
+            float centerX = width / 2f;
+            float centerY = height / 2f;
+
+            // DEFINING THE SAFE ZONE
+            // We want the clearing to match the screen shape (Wide).
+            // Width is 60. Let's keep 12 tiles of trees on sides -> Radius X = 18.
+            // Height is 34. Let's keep 5 tiles of trees on top/bottom -> Radius Y = 12.
+
+            float safeRadiusX = 25f; // Wide
+            float safeRadiusY = 13f; // Short
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    // --- RECTANGULAR SDF MATH ---
+
+                    // 1. Distance from center
+                    float dx = Math.Abs(x - centerX);
+                    float dy = Math.Abs(y - centerY);
+
+                    // 2. Subtract the specific radius for that axis
+                    // This creates a box that is wider than it is tall
+                    float excessX = Math.Max(dx - safeRadiusX, 0);
+                    float excessY = Math.Max(dy - safeRadiusY, 0);
+
+                    // 3. Calculate distance outside that box
+                    float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
+
+                    if (distanceOutsideBox > 0)
+                    {
+                        // 4. Calculate Chance (Gradient)
+                        // We make the gradient slightly steeper (6.0f) so the trees get dense faster
+                        float chance = distanceOutsideBox / 6.0f;
+                        chance *= 0.8f; // Density multiplier
+
+                        if (CombatSystem.RandomFloat() < chance)
+                        {
+                            Vector2 pos = new Vector2(x * 64, y * 64);
+
+                            // Jitter
+                            pos.X += CombatSystem.RandomInt(-20, 20);
+                            pos.Y += CombatSystem.RandomInt(-20, 20);
+
+                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet);
+                        }
+                    }
+                }
+            }
+
+            PlaceLandMarks();
+        }
+        private void PlaceLandMarks()
+        {
+            Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+            CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+            Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
+            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet);
+            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet);
+
+            Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
+            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet);
+
+
+            Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
+            int radius = 150;
+            int skullCount = 8;
+
+            for (int i = 0; i < skullCount; i++)
+            {
+                float angle = i * (MathHelper.TwoPi / skullCount);
+                Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
+                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet);
+            }
+
+
+            for (int i = 0; i < 15; i++)
+            {
+
+                int rx = CombatSystem.RandomInt(10, 50);
+                int ry = CombatSystem.RandomInt(5, 29); 
+                Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+                if (CombatSystem.RandomInt(0, 100) > 50)
+                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
+                else
+                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet);
+            }
+        }
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, 1, true);
+
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, frames, true);
+
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private Vector2 GetRandomPosition()
+        {
+            int tx = CombatSystem.RandomInt(2, 28);
+            int ty = CombatSystem.RandomInt(2, 28);
+
+            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
+        }
+
+        public void Update(GameTime gameTime, Player player)
+        {
+            // Update Enemies
+            foreach (Enemy enemy in enemies)
+            {
+                enemy.CurrentCombatPartner = player;
+                enemy.Update(gameTime);
+            }
+            enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
+
+            // Update Map Objects (Animations)
+            foreach (var obj in MapObjects)
+            {
+                obj.Update(gameTime);
+            }
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            // Only draw the floor tiles here. 
+            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
+            if (CurrentLevel != null)
+            {
+                CurrentLevel.Draw(spriteBatch);
+            }
+        }
+    }
+}
+using var game = new Pale_Roots_1.Game1();
+game.Run();
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+//using SharpDX.Direct2D1;
+using System;
+
+namespace Pale_Roots_1
+{
+    public class WorldObject : Sprite
+    {
+        public bool IsSolid { get; set; }
+        private static Texture2D _debugTexture;
+
+        public float BoxWidthPercentage { get; set; } = 0.5f; 
+        public float BoxHeightPercentage { get; set; } = 0.2f;
+
+        private int _pixelOffsetX;
+        private int _pixelWidth;
+
+        public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
+            : base(g, texture, pos, frameCount, 1.0)
+        {
+            IsSolid = isSolid;
+            mililsecondsBetweenFrames = 200; // Slow animation for trees
+
+            // DEFAULT SCALE:
+            // If the sprite feels too small, change this to 2.0f. 
+            // In your screenshot, they were massive, so let's stick to 1.5f for now.
+            Scale = 3.0f;
+        }
+
+        // TIGHTER HITBOX
+        // This calculates the collision box at the FEET of the object only.
+        public Rectangle CollisionBox
+        {
+            get
+            {
+                float scale = (float)Scale;
+
+                int finalWidth = (int)(_pixelWidth * scale);
+
+                int finalHeight = (int)(spriteHeight * scale * 0.2f);
+
+                // Start at Center.
+                // Move Left by half the total sprite width (to get to left edge).
+                // Move Right by the pixel offset.
+                int x = (int)(position.X - (spriteWidth * scale / 2) + (_pixelOffsetX * scale));
+
+                //Calculate Y Position (Bottom aligned)
+                int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
+
+                return new Rectangle(x, y, finalWidth, finalHeight);
+            }
+        }
+        private void CalculatePixelTightBox()
+        {
+
+            Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
+            spriteImage.GetData(rawData);
+
+            Rectangle src = sourceRectangle;
+
+            int startY = src.Y + (int)(src.Height * 0.8f);
+            int endY = src.Y + src.Height;
+
+            int minX = src.Width; // Start high
+            int maxX = 0;         // Start low
+            bool foundPixels = false;
+
+
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = src.X; x < src.X + src.Width; x++)
+                {
+                    // Calculate index in the 1D array
+                    int index = y * spriteImage.Width + x;
+
+                    // Check Alpha (Transparency). If it's not see-through...
+                    if (rawData[index].A > 20)
+                    {
+                        int localX = x - src.X; // X relative to the frame (0 to 64)
+
+                        if (localX < minX) minX = localX;
+                        if (localX > maxX) maxX = localX;
+                        foundPixels = true;
+                    }
+                }
+            }
+
+            // 5. Store the results
+            if (foundPixels)
+            {
+                _pixelOffsetX = minX;
+                _pixelWidth = maxX - minX;
+            }
+            else
+            {
+                // Fallback if the image is empty for some reason
+                _pixelOffsetX = 0;
+                _pixelWidth = src.Width;
+            }
+        }
+        public new void SetSpritesheetLocation(Rectangle source)
+        {
+            base.SetSpriteSheetLocation(source);
+            CalculatePixelTightBox();
+        }
+        public void DrawDebug(SpriteBatch spriteBatch)
+        {
+            if (_debugTexture == null)
+            {
+                _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                _debugTexture.SetData(new[] { Color.Red });
+            }
+
+            Rectangle box = CollisionBox;
+
+            int thickness = 2;
+
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
+            // Bottom
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
+            // Left
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
+            // Right
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Fast charging enemy for battle scenarios.
+    /// Inherits from CircularChasingEnemy but with higher speed.
+    /// 
+    /// This class now actually has a purpose beyond just setting velocity!
+    /// It represents aggressive front-line enemies.
+    /// </summary>
+    public class ChargingBattleEnemy : CircularChasingEnemy
+    {
+        /// <summary>Speed boost when charging (multiplier)</summary>
+        public float ChargeSpeedMultiplier { get; set; } = 1.5f;
+        
+        /// <summary>Base speed for this enemy type</summary>
+        private float _baseVelocity;
+
+        public ChargingBattleEnemy(Game g, Texture2D texture, Vector2 position1, int framecount)
+            : base(g, texture, position1, framecount)
+        {
+            _baseVelocity = 3.0f;
+            Velocity = _baseVelocity;
+            
+            // Larger chase radius - these are aggressive
+            ChaseRadius = GameConstants.DefaultChaseRadius * 1.5f;
+            
+            // Start charging
+            CurrentAIState = AISTATE.Charging;
+        }
+
+        /// <summary>
+        /// Charge faster than normal movement
+        /// </summary>
+        protected override void PerformCharge(List<WorldObject> obstacles)
+        {
+            // Boost speed while charging
+            Velocity = _baseVelocity * ChargeSpeedMultiplier;
+            
+            // Charge left toward player side
+            position.X -= Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
+        }
+
+        /// <summary>
+        /// Normal speed when chasing specific target
+        /// </summary>
+        protected override void PerformChase(List<WorldObject> obstacles)
+        {
+            Velocity = _baseVelocity;
+            base.PerformChase(obstacles);
+        }
+
+        /// <summary>
+        /// Normal speed in combat
+        /// </summary>
+        protected override void PerformCombat(GameTime gameTime)
+        {
+            Velocity = _baseVelocity;
+            base.PerformCombat(gameTime);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Enemy that only chases targets within a detection radius.
+    /// Returns to start position if target leaves the zone.
+    /// 
+    /// Good for: Territorial enemies, guards, ambush predators
+    /// </summary>
+    public class CircularChasingEnemy : Enemy
+    {
+        /// <summary>Radius within which this enemy will detect and chase targets</summary>
+        public float ChaseRadius { get; set; }
+        
+        /// <summary>If true, enemy has detected a target and is in full pursuit</summary>
+        private bool _isAggro = false;
+
+        public CircularChasingEnemy(Game g, Texture2D texture, Vector2 position1, int framecount)
+            : base(g, texture, position1, framecount)
+        {
+            ChaseRadius = GameConstants.DefaultChaseRadius;
+            Velocity = 2.0f; // Slightly slower than default
+        }
+
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
+        {
+            // Check if current target is still in range
+            if (CurrentTarget != null)
+            {
+                float distanceToTarget = CombatSystem.GetDistance(this, CurrentTarget);
+                
+                // If target leaves chase radius, disengage
+                if (distanceToTarget > ChaseRadius * 1.5f) // Give some buffer before disengaging
+                {
+                    _isAggro = false;
+                    CombatSystem.ClearTarget(this);
+                    CurrentAIState = AISTATE.Wandering;
+                }
+            }
+            
+            base.UpdateAI(gameTime, obstacles);
+        }
+
+        /// <summary>
+        /// Override wander to return to start position when not aggro
+        /// </summary>
+        protected override void PerformWander(List<WorldObject> obstacles)
+        {
+            // Return to start position
+            if (Vector2.Distance(position, startPosition) > 5f)
+            {
+                MoveToward(startPosition, Velocity * 0.5f, obstacles);
+            }
+            // else just idle at start position
+        }
+
+        /// <summary>
+        /// Check if a target is within chase zone
+        /// </summary>
+        public bool IsInChaseZone(ICombatant target)
+        {
+            if (target == null) return false;
+            return CombatSystem.GetDistance(this, target) <= ChaseRadius;
+        }
+
+        /// <summary>
+        /// Trigger aggro on this enemy
+        /// </summary>
+        public void Aggro(ICombatant target)
+        {
+            if (target == null || !CombatSystem.IsValidTarget(this, target)) return;
+            
+            _isAggro = true;
+            CombatSystem.AssignTarget(this, target);
+            CurrentAIState = AISTATE.Chasing;
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Base enemy class with full state machine for AI behavior.
+    /// Implements ICombatant for standardized combat interactions.
+    /// 
+    /// STATE MACHINE:
+    /// - Charging: Initial rush toward enemy lines
+    /// - Chasing: Pursuing a specific target
+    /// - InCombat: Actively fighting a target
+    /// - Wandering: No target, moving randomly
+    /// </summary>
+    public class Enemy : RotatingSprite, ICombatant
+    {
+        // ===================
+        // ENUMS
+        // ===================
+        
+        public enum ENEMYSTATE { ALIVE, DYING, DEAD }
+        public enum AISTATE { Charging, Chasing, InCombat, Wandering }
+
+        private Vector2 _knockBackVelocity;
+
+        // ===================
+        // STATE
+        // ===================
+        
+        private ENEMYSTATE _lifecycleState = ENEMYSTATE.ALIVE;
+        public ENEMYSTATE LifecycleState 
+        { 
+            get => _lifecycleState; 
+            set => _lifecycleState = value; 
+        }
+        
+        // Keep old name for compatibility
+        public ENEMYSTATE EnemyStateza 
+        { 
+            get => _lifecycleState; 
+            set => _lifecycleState = value; 
+        }
+
+        public AISTATE CurrentAIState { get; set; } = AISTATE.Charging;
+
+        // ===================
+        // ICOMBATANT IMPLEMENTATION
+        // ===================
+        
+        public string Name { get; set; } = "Enemy";
+        public CombatTeam Team => CombatTeam.Enemy;
+        
+        private int _health;
+        public int Health 
+        { 
+            get => _health; 
+            set => _health = Math.Max(0, value); 
+        }
+        
+        public int MaxHealth { get; protected set; }
+        public int AttackDamage { get; protected set; }
+        public bool IsAlive => _health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
+        public bool IsActive => Visible && _lifecycleState != ENEMYSTATE.DEAD;
+        
+        private ICombatant _currentTarget;
+        public ICombatant CurrentTarget 
+        { 
+            get => _currentTarget;
+            set => _currentTarget = value;
+        }
+        
+        // Legacy property for compatibility
+        public Sprite CurrentCombatPartner
+        {
+            get => _currentTarget as Sprite;
+            set => _currentTarget = value as ICombatant;
+        }
+        
+        public int AttackerCount { get; set; }
+        
+        public Vector2 Position => position;
+        // Center is inherited from Sprite
+
+        // ===================
+        // MOVEMENT & COMBAT
+        // ===================
+        
+        protected float Velocity;
+        protected Vector2 startPosition;
+        protected Vector2 wanderTarget;
+        
+        private float _attackCooldown = 0f;
+        private int _deathCountdown;
+
+        // ===================
+        // HEALTH BAR
+        // ===================
+        
+        private static Texture2D _healthBarTexture;
+        private bool _drawHealthBar = true;
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        
+        public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
+            : base(g, texture, userPosition, framecount)
+        {
+            startPosition = userPosition;
+            Velocity = GameConstants.DefaultEnemySpeed;
+            MaxHealth = GameConstants.DefaultHealth;
+            _health = MaxHealth;
+            AttackDamage = GameConstants.DefaultMeleeDamage;
+            _deathCountdown = GameConstants.DeathCountdown;
+            CurrentAIState = AISTATE.Charging;
+            
+            // Create shared health bar texture
+            if (_healthBarTexture == null)
+            {
+                _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
+                _healthBarTexture.SetData(new[] { Color.White });
+            }
+        }
+
+        // ===================
+        // UPDATE - Main State Machine
+        // ===================
+        
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
+        {
+            if (_knockBackVelocity != Vector2.Zero)
+            {
+                position += _knockBackVelocity;
+                _knockBackVelocity *= GameConstants.KnockbackFriction;
+                
+                // Stop if velocity is very low
+                if (_knockBackVelocity.Length() < 0.1f)
+                    _knockBackVelocity = Vector2.Zero;
+            }
+            base.Update(gametime);
+
+            switch (_lifecycleState)
+            {
+                case ENEMYSTATE.ALIVE:
+                    UpdateAI(gametime, obstacles);
+                    break;
+                    
+                case ENEMYSTATE.DYING:
+                    UpdateDying(gametime);
+                    break;
+                    
+                case ENEMYSTATE.DEAD:
+                    // Do nothing, waiting for cleanup
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// AI State Machine - determines behavior based on current state
+        /// </summary>
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
+        {
+            // Cooldown timer
+            if (_attackCooldown > 0)
+                _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            // Validate target is still valid
+            if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
+            {
+                CombatSystem.ClearTarget(this);
+                CurrentAIState = AISTATE.Wandering;
+            }
+
+            switch (CurrentAIState)
+            {
+                case AISTATE.Charging:
+                    PerformCharge(obstacles);
+                    break;
+                    
+                case AISTATE.Chasing:
+                    PerformChase(obstacles);
+                    break;
+                    
+                case AISTATE.InCombat:
+                    PerformCombat(gameTime);
+                    break;
+                    
+                case AISTATE.Wandering:
+                    PerformWander(obstacles);
+                    break;
+            }
+        }
+
+        // ===================
+        // AI BEHAVIORS
+        // ===================
+        
+        /// <summary>
+        /// Charging: Move in initial direction (usually toward enemy lines)
+        /// Override in subclasses for different charge behavior
+        /// </summary>
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
+        {
+            // Default: charge left (toward player side)
+            position.X -= Velocity;
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
+        }
+
+        /// <summary>
+        /// Chasing: Pursue the current target
+        /// </summary>
+        /// 
+
+        public void ApplyKnockback(Vector2 force) 
+        {
+            _knockBackVelocity += force;
+        }
+        protected virtual void PerformChase(List<WorldObject> obstacle)
+        {
+            if (_currentTarget == null)
+            {
+                CurrentAIState = AISTATE.Wandering;
+                return;
+            }
+
+            MoveToward(_currentTarget.Center, Velocity, obstacle);
+
+            // Check if close enough to engage
+            float distance = CombatSystem.GetDistance(this, _currentTarget);
+            if (distance < GameConstants.CombatEngageRange)
+            {
+                CurrentAIState = AISTATE.InCombat;
+            }
+        }
+
+        /// <summary>
+        /// In Combat: Attack the target, maintain position
+        /// </summary>
+        protected virtual void PerformCombat(GameTime gameTime)
+        {
+            if (_currentTarget == null || !_currentTarget.IsAlive)
+            {
+                CurrentAIState = AISTATE.Wandering;
+                return;
+            }
+
+            // Face the target
+            SnapToFace(_currentTarget.Center);
+
+            float distance = CombatSystem.GetDistance(this, _currentTarget);
+
+            // Attack if in range and cooldown ready
+            if (distance < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
+            {
+                PerformAttack();
+            }
+
+            // Break combat if target moves too far
+            if (distance > GameConstants.CombatBreakRange)
+            {
+                CurrentAIState = AISTATE.Chasing;
+            }
+        }
+
+        /// <summary>
+        /// Wandering: Move randomly near start position
+        /// </summary>
+        protected virtual void PerformWander(List<WorldObject> obstacles)
+        {
+            // Pick new target if needed
+            if (wanderTarget == Vector2.Zero || 
+                Vector2.Distance(position, wanderTarget) < 5f)
+            {
+                wanderTarget = startPosition + new Vector2(
+                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
+                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
+                );
+            }
+
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles); // Wander slower
+        }
+
+        /// <summary>
+        /// Dying: Play death animation, then become dead
+        /// </summary>
+        protected virtual void UpdateDying(GameTime gameTime)
+        {
+            _deathCountdown--;
+            
+            // Could add death animation here
+            // Fade out, play particles, etc.
+            
+            if (_deathCountdown <= 0)
+            {
+                _lifecycleState = ENEMYSTATE.DEAD;
+                Visible = false;
+            }
+        }
+
+        // ===================
+        // ICOMBATANT METHODS
+        // ===================
+        
+        public virtual void TakeDamage(int amount, ICombatant attacker)
+        {
+            if (!IsAlive) return;
+            
+            Health -= amount;
+            
+            // Visual feedback - could flash red, play sound, etc.
+            
+            if (Health <= 0)
+            {
+                Die();
+            }
+        }
+
+        public virtual void PerformAttack()
+        {
+            if (_currentTarget == null || _attackCooldown > 0) return;
+            
+            CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
+            _attackCooldown = GameConstants.DefaultAttackCooldown;
+        }
+
+        public virtual void Die()
+        {
+            _lifecycleState = ENEMYSTATE.DYING;
+            _deathCountdown = GameConstants.DeathCountdown;
+            
+            // Clear our target
+            CombatSystem.ClearTarget(this);
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+        
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+            
+            if (_drawHealthBar && IsAlive)
+            {
+                DrawHealthBar(spriteBatch);
+            }
+        }
+
+        protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
+        {
+            int barWidth = spriteWidth;
+            int barHeight = 5;
+            int barX = (int)position.X - (barWidth / 2);
+            int barY = (int)position.Y - spriteHeight / 2 - 10;
+
+            // Background (red)
+            spriteBatch.Draw(_healthBarTexture, 
+                new Rectangle(barX, barY, barWidth, barHeight), 
+                Color.Red);
+
+            // Foreground (green) - proportional to health
+            float healthPercent = (float)Health / MaxHealth;
+            int currentBarWidth = (int)(barWidth * healthPercent);
+            
+            Color healthColor = healthPercent > 0.6f ? Color.Green :
+                               healthPercent > 0.3f ? Color.Orange : Color.Red;
+                               
+            spriteBatch.Draw(_healthBarTexture, 
+                new Rectangle(barX, barY, currentBarWidth, barHeight), 
+                healthColor);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// A stationary turret enemy that detects and fires projectiles at the player.
+    /// Inherits from Enemy (which inherits from RotatingSprite -> Sprite).
+    /// </summary>
+    internal class Enemy_sentry : Enemy
+    {
+        public Projectile MyProjectile { get; set; }
+
+        private float detectionRadius = 400f;
+        private float reloadTimer = 0;
+        private float timeToReload = 2000f;
+
+        public float MaxHealth = 100;
+        public float CurrentHealth = 100;
+
+        // Static texture to prevent memory leaks (created once for all sentries)
+        private static Texture2D healthTexture;
+
+        public Enemy_sentry(Game g, Texture2D tx, Vector2 StartPosition, int NoOfFrames)
+            : base(g, tx, StartPosition, NoOfFrames)
+        {
+            this.rotationSpeed = 0.15f;
+
+            // Only create the texture if it doesn't exist yet
+            if (healthTexture == null)
+            {
+                healthTexture = new Texture2D(g.GraphicsDevice, 1, 1);
+                healthTexture.SetData(new[] { Color.White });
+            }
+        }
+
+        public void LoadProjectile(Projectile p)
+        {
+            MyProjectile = p;
+        }
+
+        public void UpdateSentry(GameTime gameTime, Player p)
+        {
+            if (reloadTimer > 0)
+                reloadTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            // FIX: Changed 'WorldOrigin' to 'Center' - which exists in Sprite base class
+            // Center returns: position + new Vector2((spriteWidth * Scale) / 2f, (spriteHeight * Scale) / 2f)
+            float distance = Vector2.Distance(this.Center, p.CentrePos);
+
+            if (distance < detectionRadius)
+            {
+                // We can use follow because we inherit from Enemy -> RotatingSprite
+                this.follow(p);
+
+                if (MyProjectile != null &&
+                    MyProjectile.ProjectileState == Projectile.PROJECTILE_STATE.STILL &&
+                    reloadTimer <= 0)
+                {
+                    MyProjectile.fire(p.CentrePos);
+                    reloadTimer = timeToReload;
+                }
+            }
+
+            if (MyProjectile != null)
+            {
+                if (MyProjectile.ProjectileState == Projectile.PROJECTILE_STATE.STILL)
+                {
+                    MyProjectile.position = this.position;
+                }
+                MyProjectile.Update(gameTime);
+            }
+
+            base.Update(gameTime);
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+
+            if (MyProjectile != null)
+            {
+                MyProjectile.Draw(spriteBatch);
+            }
+
+            // Draw Health Bar
+            int barWidth = spriteWidth;
+            int barHeight = 5;
+            int barX = (int)position.X - (barWidth / 2);
+            int barY = (int)position.Y - 10;
+
+            // Background (red = missing health)
+            spriteBatch.Draw(healthTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
+
+            // Foreground (green = current health)
+            if (CurrentHealth < 0) CurrentHealth = 0;
+            int currentBarWidth = (int)(barWidth * (CurrentHealth / MaxHealth));
+            spriteBatch.Draw(healthTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), Color.Green);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Enemy that patrols between two points.
+    /// Good for guarding areas or creating predictable patterns.
+    /// </summary>
+    public class PlatformEnemy : Enemy
+    {
+        private Vector2 _pointA;
+        private Vector2 _pointB;
+        private Vector2 _currentPatrolTarget;
+        
+        /// <summary>Speed of interpolation (0-1, higher = faster)</summary>
+        public float PatrolLerpSpeed { get; set; } = 0.05f;
+
+        public PlatformEnemy(Game g, Texture2D texture, Vector2 position1, Vector2 position2, int framecount)
+            : base(g, texture, position1, framecount)
+        {
+            _pointA = position1;
+            _pointB = position2;
+            _currentPatrolTarget = _pointB;
+            
+            // Start in wandering state (patrol mode)
+            CurrentAIState = AISTATE.Wandering;
+        }
+
+        /// <summary>
+        /// Override wander to patrol between points
+        /// </summary>
+        protected override void PerformWander(List<WorldObject> obstacles)
+        {
+            // Lerp toward current target
+            position = Vector2.Lerp(position, _currentPatrolTarget, PatrolLerpSpeed);
+            
+            // Swap targets when we reach one
+            if (Vector2.Distance(position, _pointB) < 1)
+            {
+                _currentPatrolTarget = _pointA;
+            }
+            else if (Vector2.Distance(position, _pointA) < 1)
+            {
+                _currentPatrolTarget = _pointB;
+            }
+        }
+
+        /// <summary>
+        /// Override charge to patrol instead
+        /// </summary>
+        protected override void PerformCharge(List<WorldObject> obstacles)
+        {
+            PerformWander(obstacles);
+        }
+        
+        /// <summary>
+        /// After combat, return to patrol
+        /// </summary>
+        protected override void PerformCombat(GameTime gameTime)
+        {
+            base.PerformCombat(gameTime);
+            
+            // If target is lost, go back to patrolling
+            if (CurrentTarget == null || !CurrentTarget.IsAlive)
+            {
+                CurrentAIState = AISTATE.Wandering;
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Enemy that wanders randomly across the screen.
+    /// Uses CombatSystem.RandomInt instead of creating new Random() each call.
+    /// </summary>
+    public class RandomEnemy : Enemy
+    {
+        private Vector2 _randomTarget;
+
+        public RandomEnemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
+            : base(g, texture, userPosition, framecount)
+        {
+            _randomTarget = CreateRandomTarget();
+            
+            // Start wandering instead of charging
+            CurrentAIState = AISTATE.Wandering;
+        }
+
+        /// <summary>
+        /// Create a random target position within screen bounds
+        /// </summary>
+        private Vector2 CreateRandomTarget()
+        {
+            // Use the shared random from CombatSystem
+            int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
+            int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
+            return new Vector2(rx, ry);
+        }
+
+        /// <summary>
+        /// Override wander to use screen-wide random targets
+        /// </summary>
+        protected override void PerformWander(List<WorldObject> obstacles)
+        {
+            // Move toward target
+            MoveToward(_randomTarget, Velocity, obstacles);
+
+            // Pick new target when we arrive
+            if (Vector2.Distance(position, _randomTarget) < 5f)
+            {
+                int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
+                int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
+                _randomTarget = new Vector2(rx, ry);
+            }
+        }
+
+        /// <summary>
+        /// Override charge to also wander (this enemy doesn't charge)
+        /// </summary>
+        protected override void PerformCharge(List<WorldObject> obstacles)
+        {
+            PerformWander(obstacles);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Stationary turret enemy that rotates to track targets and fires projectiles.
+    /// Does not move, but has ranged attacks.
+    /// </summary>
+    public class SentryEnemy : Enemy
+    {
+        // ===================
+        // PROJECTILE
+        // ===================
+        
+        public Projectile MyProjectile { get; set; }
+        
+        private float _reloadTimer = 0;
+        private float _reloadTime;
+        private float _detectionRadius;
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        
+        public SentryEnemy(Game g, Texture2D tx, Vector2 startPosition, int noOfFrames)
+            : base(g, tx, startPosition, noOfFrames)
+        {
+            rotationSpeed = 0.15f;
+            _reloadTime = GameConstants.DefaultReloadTime;
+            _detectionRadius = GameConstants.DefaultDetectionRadius;
+            
+            // Sentries don't charge or wander - they stay put
+            CurrentAIState = AISTATE.Wandering; // Will idle in place
+        }
+
+        // ===================
+        // PROJECTILE SETUP
+        // ===================
+        
+        public void LoadProjectile(Projectile p)
+        {
+            MyProjectile = p;
+        }
+
+        // ===================
+        // UPDATE
+        // ===================
+        
+        protected override void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
+        {
+            // Reload timer
+            if (_reloadTimer > 0)
+                _reloadTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            // Check for targets in range
+            if (CurrentTarget != null && CombatSystem.IsValidTarget(this, CurrentTarget))
+            {
+                float distance = CombatSystem.GetDistance(this, CurrentTarget);
+                
+                if (distance < _detectionRadius)
+                {
+                    Follow(CurrentTarget.Center);
+
+                    // Fire if ready
+                    if (MyProjectile != null && 
+                        MyProjectile.ProjectileState == Projectile.PROJECTILE_STATE.STILL &&
+                        _reloadTimer <= 0)
+                    {
+                        FireAtTarget();
+                    }
+                }
+            }
+
+            // Update projectile position when not firing
+            if (MyProjectile != null)
+            {
+                if (MyProjectile.ProjectileState == Projectile.PROJECTILE_STATE.STILL)
+                {
+                    MyProjectile.position = this.position;
+                }
+                MyProjectile.Update(gameTime);
+            }
+
+            // Don't call base.UpdateAI - we handle everything here
+            // Sentry doesn't move, so no need for chase/wander logic
+        }
+
+        /// <summary>
+        /// Fire projectile at current target
+        /// </summary>
+        private void FireAtTarget()
+        {
+            if (CurrentTarget == null || MyProjectile == null) return;
+            
+            MyProjectile.fire(CurrentTarget.Center);
+            _reloadTimer = _reloadTime;
+        }
+
+        // ===================
+        // OVERRIDE BEHAVIORS (disable movement)
+        // ===================
+        
+        protected override void PerformCharge(List<WorldObject> obstacles)
+        {
+            // Sentries don't move
+        }
+
+        protected override void PerformChase(List<WorldObject> obstacles)
+        {
+            // Sentries don't move - just track with rotation
+            if (CurrentTarget != null)
+            {
+                Follow(CurrentTarget.Center);
+            }
+        }
+
+        protected override void PerformWander(List<WorldObject> obstacles)
+        {
+            // Sentries don't move - idle in place
+        }
+
+        // ===================
+        // RANGED ATTACK
+        // ===================
+        
+        public override void PerformAttack()
+        {
+            // Sentries use projectiles, not melee
+            // Attack is handled by FireAtTarget in UpdateAI
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+        
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+            
+            // Draw projectile
+            if (MyProjectile != null)
+            {
+                MyProjectile.Draw(spriteBatch);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public class Camera
+    {
+        public Vector2 Position { get; private set; }
+        public float Zoom { get; set; } = 1.0f;
+        public Matrix CurrentCameraTranslation { get; private set; }
+
+        private Vector2 _mapSize;
+
+        public Camera(Vector2 startPos, Vector2 mapSize)
+        {
+            Position = startPos;
+            _mapSize = mapSize;
+            Zoom = 1.0f;
+        }
+
+        // FIX 1: We must pass Viewport here so we can calculate the Matrix immediately!
+        public void LookAt(Vector2 targetPos, Viewport viewport)
+        {
+            Position = targetPos;
+
+            // FIX 2: Check bounds immediately
+            ClampPosition(viewport);
+
+            // FIX 3: Calculate the Matrix NOW.
+            UpdateMatrix(viewport);
+        }
+
+        public void follow(Vector2 targetPos, Viewport viewport)
+        {
+            Position = targetPos;
+            ClampPosition(viewport);
+            UpdateMatrix(viewport);
+        }
+
+        // In Camera.cs
+
+        private void ClampPosition(Viewport viewport)
+        {
+            float visibleWidth = viewport.Width / Zoom;
+            float visibleHeight = viewport.Height / Zoom;
+
+            float halfWidth = visibleWidth / 2f;
+            float halfHeight = visibleHeight / 2f;
+
+            float newX = Position.X;
+            float newY = Position.Y;
+
+            if (visibleWidth > _mapSize.X)
+            {
+                newX = _mapSize.X / 2f;
+            }
+            else
+            {
+                newX = MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth);
+            }
+
+            if (visibleHeight > _mapSize.Y)
+            {
+                newY = _mapSize.Y / 2f;
+            }
+            else
+            {
+                newY = MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight);
+            }
+
+            Position = new Vector2(newX, newY);
+        }
+
+        private void UpdateMatrix(Viewport viewport)
+        {
+            Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);
+
+            // Center-Pivot Math: Move World Center to (0,0) -> Zoom -> Move to Screen Center
+            CurrentCameraTranslation =
+                Matrix.CreateTranslation(new Vector3(-Position.X, -Position.Y, 0)) *
+                Matrix.CreateScale(new Vector3(Zoom, Zoom, 1)) *
+                Matrix.CreateTranslation(new Vector3(screenCenter.X, screenCenter.Y, 0));
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Main game engine handling the battle between player/allies and enemies.
+    /// 
+    /// CLEANED UP:
+    /// - Uses new Ally class instead of plain Sprites
+    /// - Uses CombatSystem for target assignment
+    /// - Uses GameConstants instead of magic numbers
+    /// - Subscribes to combat events for effects
+    /// </summary>
+    public class ChaseAndFireEngine
+    {
+        // ===================
+        // REFERENCES
+        // ===================
+        
+        public LevelManager _levelManager;
+        public Camera _camera;
+        public Game _gameOwnedBy;
+
+        // ===================
+        // ENTITIES
+        // ===================
+        
+        private Player _player;
+        private List<Ally> _allies = new List<Ally>();
+        private List<Enemy> _enemies = new List<Enemy>();
+
+        // ===================
+        // BATTLE STATE
+        // ===================
+
+        private bool _battleStarted = false;
+        private Vector2 _mapSize;
+        private Vector2 _playerSpawnPos = new Vector2(500, 1230);
+        private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
+        private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
+
+        // ===================
+        // TARGETING
+        // ===================
+        
+        private float _targetingTimer = 0f;
+
+        // ===================
+        // STATS (for UI)
+        // ===================
+        
+        public int EnemiesKilled { get; private set; }
+        public int AlliesLost { get; private set; }
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        
+        public ChaseAndFireEngine(Game game)
+        {
+            _gameOwnedBy = game;
+            _mapSize = GameConstants.DefaultMapSize;
+            
+            // Initialize level
+            _levelManager = new LevelManager(game);
+            _levelManager.LoadLevel(0);
+
+            Texture2D swordTx = game.Content.Load<Texture2D>("sword");
+
+            // Create player
+            _player = new Player(
+                game, 
+                game.Content.Load<Texture2D>("wizard_strip3"), 
+                swordTx,
+                _playerSpawnPos, 
+                3
+            );
+            _player.Name = "Hero";
+
+            // Setup camera
+            _camera = new Camera(Vector2.Zero, _mapSize);
+            Viewport vp = game.GraphicsDevice.Viewport;
+
+            float scaleX = (float)vp.Width / _mapSize.X;
+            float scaleY = (float)vp.Height / _mapSize.Y;
+
+
+            _camera.Zoom = Math.Min(scaleX, scaleY);
+
+
+            _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
+
+            // Create armies
+            InitializeArmies();
+            
+            // Subscribe to combat events
+            SetupCombatEvents();
+        }
+
+        // ===================
+        // INITIALIZATION
+        // ===================
+        
+        private void InitializeArmies()
+        {
+            Texture2D allyTx = _gameOwnedBy.Content.Load<Texture2D>("wizard_strip3");
+            Texture2D enemyTx = _gameOwnedBy.Content.Load<Texture2D>("Dragon_strip3");
+
+            // Create 5 allies in a column
+            for (int i = 0; i < 5; i++)
+            {
+                Vector2 pos = _allySpawnOrigin + new Vector2(0, i * 60);
+                var ally = new Ally(_gameOwnedBy, allyTx, pos, 3);
+                ally.Name = $"Soldier {i + 1}";
+                _allies.Add(ally);
+            }
+
+            // Create 10 enemies in a triangle formation
+            CreateEnemyFormation(enemyTx, 10);
+        }
+
+        private void CreateEnemyFormation(Texture2D texture, int count)
+        {
+            int currentRow = 0;
+            int enemiesInCurrentRow = 1;
+            int currentSlotInRow = 0;
+            float spacingX = 80f;
+            float spacingY = 80f;
+
+            for (int i = 0; i < count; i++)
+            {
+                float xPos = _enemySpawnOrigin.X + (currentRow * spacingX);
+                float rowHeight = (enemiesInCurrentRow - 1) * spacingY;
+                float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
+
+                var enemy = new Enemy(_gameOwnedBy, texture, new Vector2(xPos, yPos), 3);
+                enemy.Name = $"Dragon {i + 1}";
+                _enemies.Add(enemy);
+
+                currentSlotInRow++;
+                if (currentSlotInRow >= enemiesInCurrentRow)
+                {
+                    currentRow++;
+                    enemiesInCurrentRow++;
+                    currentSlotInRow = 0;
+                }
+            }
+        }
+
+        private void SetupCombatEvents()
+        {
+            // Track kills
+            CombatSystem.OnCombatantKilled += (killer, victim) =>
+            {
+                if (victim.Team == CombatTeam.Enemy)
+                    EnemiesKilled++;
+                else if (victim.Team == CombatTeam.Player && victim != _player)
+                    AlliesLost++;
+            };
+
+            // Could add more events: damage numbers, sounds, particles, etc.
+            CombatSystem.OnDamageDealt += (attacker, target, damage) =>
+            {
+                // Play hit sound, spawn damage number, etc.
+            };
+        }
+
+        // ===================
+        // UPDATE
+        // ===================
+        
+        public void Update(GameTime gameTime)
+        {
+            Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
+
+            if (!_battleStarted)
+            {
+                // Pre-battle: just move player around
+                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+
+                // Press D to start battle
+                if (Keyboard.GetState().IsKeyDown(Keys.D))
+                {
+                    _battleStarted = true;
+                }
+            }
+            else
+            {
+                UpdateBattle(gameTime, vp);
+            }
+        }
+
+        private void UpdateBattle(GameTime gameTime, Viewport vp)
+        {
+            // Zoom in to battle view
+            //_camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
+
+            // Update player
+            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+
+            _levelManager.Update(gameTime, _player);
+
+            // Targeting scan
+            _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;
+            if (scanNow) _targetingTimer = 0;
+
+            // Update allies
+            UpdateAllies(gameTime, scanNow);
+
+            // Update enemies  
+            UpdateEnemies(gameTime, scanNow);
+
+            // Clean up dead entities
+            CleanupDead();
+
+            // Camera follows player
+            _camera.follow(_player.CentrePos, vp);
+        }
+
+        private void UpdateAllies(GameTime gameTime, bool scanForTargets)
+        {
+            foreach (var ally in _allies)
+            {
+                if (!ally.IsActive) continue;
+
+                // Assign targets periodically
+                if (scanForTargets && NeedsNewTarget(ally))
+                {
+                    var target = FindBestTarget(ally, _enemies.Cast<ICombatant>());
+                    if (target != null)
+                    {
+                        CombatSystem.AssignTarget(ally, target);
+                        ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+                }
+
+                ally.Update(gameTime, _levelManager.MapObjects);
+            }
+        }
+
+        private void UpdateEnemies(GameTime gameTime, bool scanForTargets)
+        {
+            foreach (var enemy in _enemies)
+            {
+                if (!enemy.IsActive) continue;
+
+                // Assign targets periodically
+                if (scanForTargets && NeedsNewTarget(enemy))
+                {
+                    // Enemies can target player OR allies
+                    var potentialTargets = new List<ICombatant> { _player };
+                    potentialTargets.AddRange(_allies.Cast<ICombatant>());
+                    
+                    var target = FindBestTarget(enemy, potentialTargets);
+                    if (target != null)
+                    {
+                        CombatSystem.AssignTarget(enemy, target);
+                        enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+                }
+
+                enemy.Update(gameTime, _levelManager.MapObjects);
+            }
+        }
+
+        // ===================
+        // TARGETING HELPERS
+        // ===================
+        
+        private bool NeedsNewTarget(ICombatant combatant)
+        {
+            return combatant.CurrentTarget == null || 
+                   !CombatSystem.IsValidTarget(combatant, combatant.CurrentTarget);
+        }
+
+        private ICombatant FindBestTarget(ICombatant seeker, IEnumerable<ICombatant> candidates)
+        {
+            ICombatant best = null;
+            float closestDistance = float.MaxValue;
+
+            foreach (var candidate in candidates)
+            {
+                // Skip invalid targets
+                if (!CombatSystem.IsValidTarget(seeker, candidate))
+                    continue;
+                    
+                // Skip over-targeted entities
+                if (candidate.AttackerCount >= GameConstants.MaxAttackersPerTarget)
+                    continue;
+
+                float distance = CombatSystem.GetDistance(seeker, candidate);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            return best;
+        }
+
+        // ===================
+        // CLEANUP
+        // ===================
+        
+        private void CleanupDead()
+        {
+            // Remove dead allies
+            _allies.RemoveAll(a => a.LifecycleState == Ally.ALLYSTATE.DEAD);
+            
+            // Remove dead enemies
+            _enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
+        {
+            // 1. DRAW BACKGROUND (Floor) FIRST
+            // This is always at the very bottom.
+            _levelManager.Draw(spriteBatch);
+
+            // 2. PREPARE A SORTABLE LIST OF EVERYTHING ELSE
+            // We put Player, Enemies, Allies, and Trees into one bucket.
+            List<Sprite> renderList = new List<Sprite>();
+
+            // Add Player
+            if (_player.Visible) renderList.Add(_player);
+
+            // Add Allies
+            foreach (var ally in _allies)
+            {
+                if (ally.Visible) renderList.Add(ally);
+            }
+
+            // Add Enemies
+            foreach (var enemy in _enemies)
+            {
+                if (enemy.Visible) renderList.Add(enemy);
+            }
+
+            // Add World Objects (Trees, Rocks) from LevelManager
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                if (obj.Visible) renderList.Add(obj);
+            }
+
+            // 3. SORT BY Y POSITION (Depth Sorting)
+            // Objects with a higher Y (lower on screen) are drawn LAST (on top).
+            // This allows the player to walk "behind" a tree base.
+            renderList.Sort((a, b) => {
+                // We compare the bottom of the sprites (Y + Height) for accuracy
+                float aY = a.position.Y + (a.spriteHeight * (float)a.Scale);
+                float bY = b.position.Y + (b.spriteHeight * (float)b.Scale);
+                return aY.CompareTo(bY);
+            });
+
+            // 4. DRAW EVERYTHING IN ORDER
+            foreach (var sprite in renderList)
+            {
+                sprite.Draw(spriteBatch);
+            }
+            foreach (var obj in _levelManager.MapObjects)
+            {
+                obj.DrawDebug(spriteBatch);
+            }
+        }
+
+        // ===================
+        // PUBLIC ACCESSORS
+        // ===================
+
+        public Player GetPlayer() => _player;
+        public int AllyCount => _allies.Count(a => a.IsAlive);
+        public int EnemyCount => _enemies.Count(e => e.IsAlive);
+        public bool IsBattleOver => _enemies.Count == 0 || !_player.IsAlive;
+    }
+}
+//using GP01Week11Lab12025;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace Pale_Roots_1
+{
+     
+    public class Collider
+    {
+        
+        public int tileX;
+        public int tileY;
+        public Texture2D texture;
+        public bool Visible = false;
+        // Add TileType property for easier exit identification
+        //public TileType CollisionType;
+
+        public Vector2 WorldPosition
+        {
+            get
+            {
+                return new Vector2(tileX * texture.Width,tileY * texture.Height);
+            }
+
+        }
+
+        public Rectangle CollisionField
+        {
+            get
+            {
+                return new Rectangle(WorldPosition.ToPoint(),new Point(texture.Width,texture.Height));
+            }
+
+        }
+
+        public Collider(Texture2D tx, int tlx, int tly //TileType type 
+            )
+            // Add TileType parameter for easier exit identification
+        {
+            texture = tx;
+            tileX = tlx;
+            tileY = tly;
+            //CollisionType = type;
+        }
+
+        public void Draw(SpriteBatch sp)
+        {
+            if (Visible)
+                sp.Draw(texture, CollisionField, Color.White);
+        }
+    }
+}
+using System;
+using Microsoft.Xna.Framework;
+
+namespace Pale_Roots_1
+{
+    // ============================================================================
+    // GAME CONSTANTS - All magic numbers in one place
+    // ============================================================================
+    
+    /// <summary>
+    /// Centralized game constants. No more magic numbers scattered across files.
+    /// </summary>
+    public static class GameConstants
+    {
+        // Add these to your GameConstants class
+        public const float SwordSwingDuration = 250f; // 300ms swing
+        public const float SwordCooldown = 500f;      // Time before you can swing again
+        public const int SwordDamage = 25;
+        public const float SwordRange = 60f;          // How far the sword reaches
+        public const float SwordKnockback = 15f;      // How far enemies get pushed
+        public const float SwordArcWidth = 60f;       // Width of the swing
+
+
+        // COMBAT DISTANCES
+        public const float MeleeAttackRange = 85f;
+        public const float CombatEngageRange = 70f;
+        public const float CombatBreakRange = 100f;
+        public const float DefaultDetectionRadius = 400f;
+        public const float DefaultChaseRadius = 200f;
+
+        // COMBAT STATS
+        public const int DefaultHealth = 100;
+        public const int DefaultMeleeDamage = 15;
+        public const float DefaultAttackCooldown = 1000f;
+        public const float TargetScanInterval = 500f;
+        public const int MaxAttackersPerTarget = 2;
+
+        // MOVEMENT
+        public const float DefaultEnemySpeed = 3.0f;
+        public const float DefaultAllySpeed = 3.0f;
+        public const float DefaultPlayerSpeed = 4.0f;
+        public const float ChargingSpeed = 3.0f;
+
+        // PROJECTILES
+        public const float DefaultProjectileSpeed = 4.0f;
+        public const float DefaultReloadTime = 2000f;
+        public const float ExplosionDuration = 1000f;
+
+        // DEATH & CLEANUP
+        public const int DeathCountdown = 30;
+        public const int WanderRadius = 100;
+        public const float KnockbackFriction = 0.9f;
+
+        // MAP & TILES
+        public const int TileSize = 64;
+        public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
+    }
+
+    // ============================================================================
+    // COMBAT TEAM - Which side is a combatant on
+    // ============================================================================
+    
+    public enum CombatTeam
+    {
+        Player,
+        Enemy,
+        Neutral
+    }
+
+    // ============================================================================
+    // ICOMBATANT - Interface for anything that can fight
+    // ============================================================================
+    
+    /// <summary>
+    /// Interface for any entity that can participate in combat.
+    /// </summary>
+    public interface ICombatant
+    {
+        string Name { get; }
+        CombatTeam Team { get; }
+        int Health { get; set; }
+        int MaxHealth { get; }
+        int AttackDamage { get; }
+        bool IsAlive { get; }
+        ICombatant CurrentTarget { get; set; }
+        int AttackerCount { get; set; }
+        bool IsActive { get; }
+        Vector2 Position { get; }
+        Vector2 Center { get; }
+        void TakeDamage(int amount, ICombatant attacker);
+        void PerformAttack();
+        void Die();
+    }
+
+    // ============================================================================
+    // COMBAT SYSTEM - Centralized damage and targeting
+    // ============================================================================
+    
+    /// <summary>
+    /// Centralized combat system handling all damage calculations and combat events.
+    /// </summary>
+    public static class CombatSystem
+    {
+        // EVENTS
+        public static event Action<ICombatant, ICombatant, int> OnDamageDealt;
+        public static event Action<ICombatant, ICombatant> OnCombatantKilled;
+        public static event Action<ICombatant, ICombatant> OnTargetAcquired;
+
+        // SHARED RANDOM - Use this instead of new Random()
+        private static readonly Random _random = new Random();
+        
+        public static int RandomInt(int min, int max) => _random.Next(min, max);
+        public static float RandomFloat() => (float)_random.NextDouble();
+        public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
+
+        /// <summary>
+        /// Deal damage from attacker to target.
+        /// </summary>
+        public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage)
+        {
+            if (target == null || !target.IsAlive) return 0;
+            if (baseDamage <= 0) return 0;
+            
+            // Calculate final damage with variance
+            float variance = RandomFloat(0.9f, 1.1f);
+            int finalDamage = Math.Max(1, (int)(baseDamage * variance));
+            
+            // Apply damage
+            target.TakeDamage(finalDamage, attacker);
+            
+            // Fire event
+            OnDamageDealt?.Invoke(attacker, target, finalDamage);
+            
+            // Check for kill
+            if (!target.IsAlive)
+            {
+                HandleKill(attacker, target);
+            }
+            
+            return finalDamage;
+        }
+
+        private static void HandleKill(ICombatant killer, ICombatant victim)
+        {
+            if (victim.CurrentTarget != null)
+            {
+                victim.CurrentTarget.AttackerCount--;
+                victim.CurrentTarget = null;
+            }
+            
+            victim.Die();
+            OnCombatantKilled?.Invoke(killer, victim);
+        }
+
+        /// <summary>
+        /// Assign a target to a combatant. Handles attacker count bookkeeping.
+        /// </summary>
+        public static void AssignTarget(ICombatant combatant, ICombatant newTarget)
+        {
+            if (combatant == null) return;
+            
+            // Release old target
+            if (combatant.CurrentTarget != null && combatant.CurrentTarget != newTarget)
+            {
+                combatant.CurrentTarget.AttackerCount--;
+            }
+            
+            // Assign new target
+            combatant.CurrentTarget = newTarget;
+            
+            if (newTarget != null)
+            {
+                newTarget.AttackerCount++;
+                OnTargetAcquired?.Invoke(combatant, newTarget);
+            }
+        }
+
+        /// <summary>
+        /// Clear a combatant's target safely
+        /// </summary>
+        public static void ClearTarget(ICombatant combatant)
+        {
+            if (combatant?.CurrentTarget != null)
+            {
+                combatant.CurrentTarget.AttackerCount--;
+                combatant.CurrentTarget = null;
+            }
+        }
+
+        /// <summary>
+        /// Check if two combatants are enemies
+        /// </summary>
+        public static bool AreEnemies(ICombatant a, ICombatant b)
+        {
+            if (a == null || b == null) return false;
+            return a.Team != b.Team && a.Team != CombatTeam.Neutral && b.Team != CombatTeam.Neutral;
+        }
+
+        /// <summary>
+        /// Check if target is valid (alive, active, and an enemy)
+        /// </summary>
+        public static bool IsValidTarget(ICombatant attacker, ICombatant target)
+        {
+            if (target == null) return false;
+            if (!target.IsAlive) return false;
+            if (!target.IsActive) return false;
+            if (!AreEnemies(attacker, target)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Check if combatant can attack target (in range and valid)
+        /// </summary>
+        public static bool CanAttack(ICombatant attacker, ICombatant target, float range = -1)
+        {
+            if (!IsValidTarget(attacker, target)) return false;
+            
+            if (range < 0) range = GameConstants.MeleeAttackRange;
+            
+            float distance = Vector2.Distance(attacker.Center, target.Center);
+            return distance <= range;
+        }
+
+        /// <summary>
+        /// Get distance between two combatants
+        /// </summary>
+        public static float GetDistance(ICombatant a, ICombatant b)
+        {
+            if (a == null || b == null) return float.MaxValue;
+            return Vector2.Distance(a.Center, b.Center);
+        }
+
+        /// <summary>
+        /// Clear all event subscriptions
+        /// </summary>
+        public static void ClearAllEvents()
+        {
+            OnDamageDealt = null;
+            OnCombatantKilled = null;
+            OnTargetAcquired = null;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Pale_Roots_1
+{
+    public class Healthbar
+    {
+        public int health;
+        private Texture2D TxHealthBar; // hold the texture
+        Rectangle healthRect; // display the Health bar size
+        public Vector2 position; // Position on the screen
+
+        public Rectangle 
+            HealthRect { 
+            get => new Rectangle((int)position.X, (int)position.Y, health, 10);
+            set => healthRect = value; }
+
+        public Healthbar(Vector2 Startposition, int healthValue, Game g)
+        {
+            health = healthValue;
+            position = Startposition;
+            TxHealthBar = new Texture2D(g.GraphicsDevice, 1, 1);
+            TxHealthBar.SetData(new[] { Color.White });
+
+        }
+
+        public void Update()
+        {
+            if (health > 0)
+            {
+                if (Keyboard.GetState().IsKeyDown(Keys.Down)) health--;
+            }
+        }
+
+        public void draw(SpriteBatch spriteBatch)
+        {
+            if (health > 0)
+            {
+                if (health > 60)
+                    spriteBatch.Draw(TxHealthBar, HealthRect, Color.Green);
+                else if (health > 30 && health <= 60)
+                    spriteBatch.Draw(TxHealthBar, HealthRect, Color.Orange);
+                else if (health > 0 && health < 30)
+                    spriteBatch.Draw(TxHealthBar, HealthRect, Color.Red);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public static class  Helper
+    {
+        public static Texture2D SpriteSheet { get; set; }
+
+        public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
+        {
+            { "Big_Rock", new Rectangle(16, 192, 64, 64)},
+            { "Skull_Pile", new Rectangle(15, 433, 80, 60)},
+
+            { "Tree_Dead_Large", new Rectangle(16, 16, 112, 128)},
+
+            { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
+
+            { "Ruins_Column", new Rectangle(8, 16, 87, 96) },
+
+            { "Shrine_Blue", new Rectangle(0, 128, 32, 48) },
+            { "Bird_Skull", new Rectangle(16, 332, 51, 52) },
+            { "Skellington", new Rectangle(64, 320, 159, 119) },
+            { "Bone_In_Floor", new Rectangle(560, 432, 31, 50) },
+            { "Dying_Tree", new Rectangle(415, 496, 69, 93) },
+            { "Hand_In_Floor", new Rectangle(608, 523, 63, 71) },
+            { "Baby_Skellington", new Rectangle(239, 227, 32, 24) },
+
+
+        };
+
+        public static Rectangle GetSourceRect(string key)
+        {
+            if (SourceRects.ContainsKey(key))
+            {
+                return SourceRects[key];
+            }
+            return new Rectangle(0, 0, 32, 32);
+
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input.Touch;
+#if ANDROID
+using Microsoft.Devices.Sensors;
+#endif
+
+namespace Pale_Roots_1
+{
+    public class InputEngine : GameComponent
+    {
+        private static GamePadState previousPadState;
+        private static GamePadState currentPadState;
+
+        private static KeyboardState previousKeyState;
+        private static KeyboardState currentKeyState;
+
+        private static Vector2 previousMousePos;
+        private static Vector2 currentMousePos;
+
+
+        private static MouseState previousMouseState;
+        private static MouseState currentMouseState;
+
+
+#if ANDROID
+        private static Vector2 previousAccelerometerReading;
+        private static Accelerometer _acceleromter;
+        private static Vector2 currentAcceleromoterReading;
+        private static Point touchPoint;
+        private static GestureType currentGestureType;
+
+        private void _acceleromter_CurrentValueChanged(object sender, SensorReadingEventArgs<AccelerometerReading> e)
+        {
+            //need to consider orientation here,if support only landscape might be like this
+            previousAccelerometerReading = CurrentAcceleromoterReading;
+            currentAcceleromoterReading.Y = -(float)e.SensorReading.Acceleration.Y;
+            currentAcceleromoterReading.X = -(float)e.SensorReading.Acceleration.X;
+        }
+#endif
+
+        public InputEngine(Game _game)
+            : base(_game)
+        {
+            currentPadState = GamePad.GetState(PlayerIndex.One);
+            currentKeyState = Keyboard.GetState();
+
+#if ANDROID
+            _acceleromter = new Accelerometer();
+            _acceleromter.CurrentValueChanged += _acceleromter_CurrentValueChanged;
+            _acceleromter.Start();
+            TouchPanel.EnabledGestures =
+                    GestureType.Hold |
+                    GestureType.Tap |
+                    GestureType.DoubleTap |
+                    GestureType.FreeDrag |
+                    GestureType.Flick |
+                    GestureType.Pinch;
+#endif
+
+            _game.Components.Add(this);
+        }
+
+
+        public static void ClearState()
+        {
+            previousMouseState = Mouse.GetState();
+            currentMouseState = Mouse.GetState();
+            previousKeyState = Keyboard.GetState();
+            currentKeyState = Keyboard.GetState();
+#if ANDROID
+            currentGestureType = GestureType.None;
+#endif
+        }
+
+        public override void Update(GameTime gametime)
+        {
+            previousPadState = currentPadState;
+            previousKeyState = currentKeyState;
+
+            currentPadState = GamePad.GetState(PlayerIndex.One);
+            currentKeyState = Keyboard.GetState();
+
+#if WINDOWS
+            previousMouseState = currentMouseState;
+            currentMousePos = new Vector2(Mouse.GetState().X, Mouse.GetState().Y);
+            currentMouseState = Mouse.GetState();
+#endif
+
+            KeysPressedInLastFrame.Clear();
+            CheckForTextInput();
+#if ANDROID
+            HandleTouchInput();
+#endif
+            base.Update(gametime);
+        }
+
+        public List<string> KeysPressedInLastFrame = new List<string>();
+
+        private void CheckForTextInput()
+        {
+            foreach (var key in Enum.GetValues(typeof(Keys)) as Keys[])
+            {
+                if (IsKeyPressed(key))
+                {
+                    KeysPressedInLastFrame.Add(key.ToString());
+                    break;
+                }
+            }
+        }
+
+        public static bool IsButtonPressed(Buttons buttonToCheck)
+        {
+            if (currentPadState.IsButtonUp(buttonToCheck) && previousPadState.IsButtonDown(buttonToCheck))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public static bool IsButtonHeld(Buttons buttonToCheck)
+        {
+            if (currentPadState.IsButtonDown(buttonToCheck))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static bool IsKeyHeld(Keys buttonToCheck)
+        {
+            if (currentKeyState.IsKeyDown(buttonToCheck))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+        }
+
+        public static bool IsKeyPressed(Keys keyToCheck)
+        {
+            if (currentKeyState.IsKeyUp(keyToCheck) && previousKeyState.IsKeyDown(keyToCheck))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static GamePadState CurrentPadState
+        {
+            get { return currentPadState; }
+            set { currentPadState = value; }
+        }
+        public static KeyboardState CurrentKeyState
+        {
+            get { return currentKeyState; }
+        }
+
+        public static MouseState CurrentMouseState
+        {
+            get { return currentMouseState; }
+        }
+
+        public static MouseState PreviousMouseState
+        {
+            get { return previousMouseState; }
+        }
+
+#if ANDROID
+        public static Point TouchPoint
+        {
+            get
+            {
+                return touchPoint;
+            }
+
+            set
+            {
+                touchPoint = value;
+            }
+        }
+
+        public static GestureType CurrentGestureType
+        {
+            get
+            {
+                GestureType ret = currentGestureType;
+                currentGestureType = GestureType.None;
+                return ret;
+            }
+
+            set
+            {
+                currentGestureType = value;
+            }
+        }
+
+        public static Vector2 CurrentAcceleromoterReading
+        {
+            get
+            {
+                return currentAcceleromoterReading;
+            }
+
+            set
+            {
+                currentAcceleromoterReading = value;
+            }
+        }
+
+        private void HandleTouchInput()
+        {
+            //currentGestureType = GestureType.None;
+            TouchCollection touches = TouchPanel.GetState();
+            while (TouchPanel.IsGestureAvailable)
+            {
+                // read the next gesture from the queue
+                GestureSample gesture = TouchPanel.ReadGesture();
+                if (touches.Count > 0 && touches[0].State == TouchLocationState.Pressed)
+                {
+                    // convert the touch position into a Point for hit testing
+                    touchPoint = new Point((int)touches[0].Position.X, (int)touches[0].Position.Y);
+                }
+                // we can use the type of gesture to determine our behavior
+                switch (gesture.GestureType)
+                {
+                    case GestureType.Tap:
+                        currentGestureType = GestureType.DoubleTap;
+                        touchPoint = new Point((int)gesture.Position.X, (int)gesture.Position.Y);
+                        break;
+                    case GestureType.DoubleTap:
+                        touchPoint = new Point((int)gesture.Position.X, (int)gesture.Position.Y);
+                        currentGestureType = GestureType.DoubleTap;
+                        break;
+                    case GestureType.Hold:
+                        break;
+
+                    // on drags, we just want to move the selected sprite with the drag
+                    case GestureType.FreeDrag:
+                        break;
+
+                    // on flicks, we want to update the selected sprite's velocity with
+                    // the flick velocity, which is in pixels per second.
+                    case GestureType.Flick:
+                        break;
+
+                    // on pinches, we want to scale the selected sprite
+                    case GestureType.Pinch:
+                        // get the current and previous locations of the two fingers
+                        Vector2 a = gesture.Position;
+                        Vector2 aOld = gesture.Position - gesture.Delta;
+                        Vector2 b = gesture.Position2;
+                        Vector2 bOld = gesture.Position2 - gesture.Delta2;
+
+                        // figure out the distance between the current and previous locations
+                        float d = Vector2.Distance(a, b);
+                        float dOld = Vector2.Distance(aOld, bOld);
+
+                        // calculate the difference between the two and use that to alter the scale
+                        float scaleChange = (d - dOld) * .01f;
+                        break;
+                }
+            }
+
+        }
+
+#endif
+
+#if WINDOWS
+
+        public static bool IsMouseLeftClick()
+        {
+            if (currentMouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed)
+                return true;
+            else 
+                return false;
+        }
+
+        public static bool IsMouseRightClick()
+        {
+            if (currentMouseState.RightButton == ButtonState.Released && previousMouseState.RightButton == ButtonState.Pressed)
+                return true;
+            else
+                return false;
+        }
+
+        public static bool IsMouseRightHeld()
+        {
+            if (currentMouseState.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Pressed)
+                return true;
+            else
+                return false;
+        }
+
+        public static bool IsMouseLeftHeld()
+        {
+            if (currentMouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Pressed)
+                return true;
+            else
+                return false;
+        }
+
+        public static Vector2 MousePosition
+        {
+            get { return currentMousePos; }
+        }
+#endif
+
+
+
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Audio;
+
+
+namespace Pale_Roots_1
+{
+    public class Projectile : RotatingSprite
+    {
+
+            public enum PROJECTILE_STATE { STILL, FIRING, EXPOLODING };
+            PROJECTILE_STATE projectileState = PROJECTILE_STATE.STILL;
+            protected Game myGame;
+            protected float RocketVelocity = 4.0f;
+            Vector2 textureCenter;
+            Vector2 Target;
+            Sprite explosion;
+            float ExplosionTimer = 0;
+            float ExplosionVisibleLimit = 1000;
+            Vector2 StartPosition;
+        private SoundEffect explosionSound;
+
+
+
+        public PROJECTILE_STATE ProjectileState
+            {
+                get { return projectileState; }
+                set { projectileState = value; }
+            }
+
+            public Sprite Explosion
+            {
+                get { return explosion; }
+                set { explosion = value; }
+            }
+
+            public Projectile(Game g, Texture2D texture, Sprite rocketExplosion, Vector2 userPosition, int framecount) 
+                : base(g,texture,userPosition,framecount)
+            {
+                Target = Vector2.Zero;
+                myGame = g;
+                textureCenter = new Vector2(texture.Width/2,texture.Height/2);
+                explosion =  rocketExplosion;
+                explosion.position -= textureCenter;
+                explosion.Visible = false;
+                StartPosition = position;
+                ProjectileState = PROJECTILE_STATE.STILL;
+
+            explosionSound = myGame.Content.Load<SoundEffect>("explosion");
+
+        }
+            public override void Update(GameTime gametime)
+            {
+                switch (projectileState)
+                {
+                    case PROJECTILE_STATE.STILL:
+                        this.Visible = false;
+                        explosion.Visible = false;
+                        break;
+                    // Using Lerp here could use target - pos and normalise for direction and then apply
+                    // Velocity
+                    case PROJECTILE_STATE.FIRING:
+                        this.Visible = true;                       
+                        position = Vector2.Lerp(position, Target, 0.02f * RocketVelocity);
+                         // rotate towards the Target
+                        this.angleOfRotation = TurnToFace(position,
+                                                Target, angleOfRotation, 1f);
+                    if (Vector2.Distance(position, Target) < 2)
+                        projectileState = PROJECTILE_STATE.EXPOLODING;
+                        break;
+                    case PROJECTILE_STATE.EXPOLODING:
+                        explosion.position = Target;
+                        explosion.Visible = true;
+                    explosionSound.Play();
+                    break;
+                }
+                // if the explosion is visible then just play the animation and count the timer
+                if (explosion.Visible)
+                {
+                    explosion.Update(gametime);
+                    ExplosionTimer += gametime.ElapsedGameTime.Milliseconds;
+                }
+                // if the timer goes off the explosion is finished
+                if (ExplosionTimer > ExplosionVisibleLimit)
+                {
+                    explosion.Visible = false;
+                    ExplosionTimer = 0;
+                projectileState = PROJECTILE_STATE.STILL;
+                }
+
+                base.Update(gametime);
+            }
+            public void fire(Vector2 SiteTarget)
+            {
+            projectileState = PROJECTILE_STATE.FIRING;
+                Target = SiteTarget;
+            }   
+            public override void Draw(SpriteBatch spriteBatch)
+            {
+                base.Draw(spriteBatch);
+                //spriteBatch.Begin();
+                //spriteBatch.Draw(spriteImage, position, SourceRectangle,Color.White);
+                //spriteBatch.End();
+                if (explosion.Visible)
+                    explosion.Draw( spriteBatch);
+                
+
+            }
+
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace Pale_Roots_1
+{
+    static public class Utility
+    {
+        static Random r = new Random();
+
+        public static int NextRandom(int max)
+        {
+            return r.Next(max);
+        }
+
+        public static int NextRandom(int min, int max)
+        {
+            return r.Next(min,max);
+
+        }
+    }
+}
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f34369e0cc74e11fc12bd9849a413c668449f8b")]
+[assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
+[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    /// <summary>
+    /// Ally unit that fights alongside the player.
+    /// Uses the same state machine as Enemy but on the Player team.
+    /// 
+    /// This class replaces the hacky "List of Sprite with AI logic in Engine" approach.
+    /// Now allies manage their own behavior just like enemies do.
+    /// </summary>
+    public class Ally : RotatingSprite, ICombatant
+    {
+        // ===================
+        // ENUMS
+        // ===================
+        
+        public enum ALLYSTATE { ALIVE, DYING, DEAD }
+
+        // ===================
+        // STATE
+        // ===================
+        
+        private ALLYSTATE _lifecycleState = ALLYSTATE.ALIVE;
+        public ALLYSTATE LifecycleState 
+        { 
+            get => _lifecycleState; 
+            set => _lifecycleState = value; 
+        }
+
+        public Enemy.AISTATE CurrentAIState { get; set; } = Enemy.AISTATE.Charging;
+
+        // ===================
+        // ICOMBATANT IMPLEMENTATION
+        // ===================
+        
+        public string Name { get; set; } = "Ally";
+        public CombatTeam Team => CombatTeam.Player;
+        
+        private int _health;
+        public int Health 
+        { 
+            get => _health; 
+            set => _health = Math.Max(0, value); 
+        }
+        
+        public int MaxHealth { get; protected set; }
+        public int AttackDamage { get; protected set; }
+        public bool IsAlive => _health > 0 && _lifecycleState == ALLYSTATE.ALIVE;
+        public bool IsActive => Visible && _lifecycleState != ALLYSTATE.DEAD;
+        
+        private ICombatant _currentTarget;
+        public ICombatant CurrentTarget 
+        { 
+            get => _currentTarget;
+            set => _currentTarget = value;
+        }
+        
+        public int AttackerCount { get; set; }
+        
+        public Vector2 Position => position;
+        // Center is inherited from Sprite
+
+        // ===================
+        // MOVEMENT & COMBAT
+        // ===================
+        
+        protected float Velocity;
+        protected Vector2 startPosition;
+        protected Vector2 wanderTarget;
+        
+        private float _attackCooldown = 0f;
+        private int _deathCountdown;
+
+        // ===================
+        // HEALTH BAR
+        // ===================
+        
+        private static Texture2D _healthBarTexture;
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        
+        public Ally(Game g, Texture2D texture, Vector2 userPosition, int framecount)
+            : base(g, texture, userPosition, framecount)
+        {
+            startPosition = userPosition;
+            Velocity = GameConstants.DefaultAllySpeed;
+            MaxHealth = GameConstants.DefaultHealth;
+            _health = MaxHealth;
+            AttackDamage = GameConstants.DefaultMeleeDamage;
+            _deathCountdown = GameConstants.DeathCountdown;
+            CurrentAIState = Enemy.AISTATE.Charging;
+            
+            // Create shared health bar texture
+            if (_healthBarTexture == null)
+            {
+                _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
+                _healthBarTexture.SetData(new[] { Color.White });
+            }
+        }
+
+        // ===================
+        // UPDATE - Main State Machine
+        // ===================
+        
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
+        {
+            base.Update(gametime);
+
+            switch (_lifecycleState)
+            {
+                case ALLYSTATE.ALIVE:
+                    UpdateAI(gametime, obstacles);
+                    break;
+                    
+                case ALLYSTATE.DYING:
+                    UpdateDying(gametime);
+                    break;
+                    
+                case ALLYSTATE.DEAD:
+                    // Waiting for cleanup
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// AI State Machine - mirrors Enemy but charges opposite direction
+        /// </summary>
+        protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
+        {
+            // Cooldown timer
+            if (_attackCooldown > 0)
+                _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            // Validate target
+            if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
+            {
+                CombatSystem.ClearTarget(this);
+                CurrentAIState = Enemy.AISTATE.Wandering;
+            }
+
+            switch (CurrentAIState)
+            {
+                case Enemy.AISTATE.Charging:
+                    PerformCharge(obstacles);
+                    break;
+                    
+                case Enemy.AISTATE.Chasing:
+                    PerformChase(obstacles);
+                    break;
+                    
+                case Enemy.AISTATE.InCombat:
+                    PerformCombat(gameTime);
+                    break;
+                    
+                case Enemy.AISTATE.Wandering:
+                    PerformWander(obstacles);
+                    break;
+            }
+        }
+
+        // ===================
+        // AI BEHAVIORS
+        // ===================
+        
+        /// <summary>
+        /// Allies charge RIGHT (toward enemy lines)
+        /// </summary>
+        protected virtual void PerformCharge(List<WorldObject> obstacles)
+        {
+            position.X += Velocity;
+
+            Vector2 target = new Vector2(position.X - 1000, position.Y);
+            MoveToward(target, Velocity, obstacles);
+
+        }
+
+        protected virtual void PerformChase(List<WorldObject> obstacles)
+        {
+            if (_currentTarget == null)
+            {
+                CurrentAIState = Enemy.AISTATE.Wandering;
+                return;
+            }
+
+            MoveToward(_currentTarget.Center, Velocity, obstacles);
+
+            float distance = CombatSystem.GetDistance(this, _currentTarget);
+            if (distance < GameConstants.CombatEngageRange)
+            {
+                CurrentAIState = Enemy.AISTATE.InCombat;
+            }
+        }
+
+        protected virtual void PerformCombat(GameTime gameTime)
+        {
+            if (_currentTarget == null || !_currentTarget.IsAlive)
+            {
+                CurrentAIState = Enemy.AISTATE.Wandering;
+                return;
+            }
+
+            SnapToFace(_currentTarget.Center);
+
+            float distance = CombatSystem.GetDistance(this, _currentTarget);
+
+            if (distance < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
+            {
+                PerformAttack();
+            }
+
+            if (distance > GameConstants.CombatBreakRange)
+            {
+                CurrentAIState = Enemy.AISTATE.Chasing;
+            }
+        }
+
+        protected virtual void PerformWander(List<WorldObject> obstacles)
+        {
+            if (wanderTarget == Vector2.Zero || 
+                Vector2.Distance(position, wanderTarget) < 5f)
+            {
+                wanderTarget = startPosition + new Vector2(
+                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
+                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
+                );
+            }
+
+            MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
+        }
+
+        protected virtual void UpdateDying(GameTime gameTime)
+        {
+            _deathCountdown--;
+            
+            if (_deathCountdown <= 0)
+            {
+                _lifecycleState = ALLYSTATE.DEAD;
+                Visible = false;
+            }
+        }
+
+        // ===================
+        // ICOMBATANT METHODS
+        // ===================
+        
+        public virtual void TakeDamage(int amount, ICombatant attacker)
+        {
+            if (!IsAlive) return;
+            
+            Health -= amount;
+            
+            if (Health <= 0)
+            {
+                Die();
+            }
+        }
+
+        public virtual void PerformAttack()
+        {
+            if (_currentTarget == null || _attackCooldown > 0) return;
+            
+            CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
+            _attackCooldown = GameConstants.DefaultAttackCooldown;
+        }
+
+        public virtual void Die()
+        {
+            _lifecycleState = ALLYSTATE.DYING;
+            _deathCountdown = GameConstants.DeathCountdown;
+            CombatSystem.ClearTarget(this);
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+        
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+            
+            if (IsAlive)
+            {
+                DrawHealthBar(spriteBatch);
+            }
+        }
+
+        protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
+        {
+            int barWidth = spriteWidth;
+            int barHeight = 5;
+            int barX = (int)position.X - (barWidth / 2);
+            int barY = (int)position.Y - spriteHeight / 2 - 10;
+
+            // Background
+            spriteBatch.Draw(_healthBarTexture, 
+                new Rectangle(barX, barY, barWidth, barHeight), 
+                Color.Red);
+
+            // Health (blue for allies to distinguish from enemies)
+            float healthPercent = (float)Health / MaxHealth;
+            int currentBarWidth = (int)(barWidth * healthPercent);
+            
+            spriteBatch.Draw(_healthBarTexture, 
+                new Rectangle(barX, barY, currentBarWidth, barHeight), 
+                Color.CornflowerBlue);
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class Player : Sprite, ICombatant
+    {
+        // ===================
+        // ICombatant Properties
+        // ===================
+        public string Name { get; set; } = "Hero";
+        public CombatTeam Team => CombatTeam.Player;
+
+        private int _health;
+        private Vector2 _mouseWorldPosition;
+
+        public int Health
+        {
+            get => _health;
+            set => _health = Math.Max(0, value);
+        }
+
+        public int MaxHealth { get; protected set; }
+        public int AttackDamage { get; protected set; }
+        public bool IsAlive => _health > 0;
+        public bool IsActive => Visible;
+        public ICombatant CurrentTarget { get; set; }
+        public int AttackerCount { get; set; }
+        public Vector2 Position => position;
+        public Vector2 CentrePos => Center;
+
+        // ===================
+        // MOVEMENT & SWORD FIELDS
+        // ===================
+        private float _speed;
+        private Vector2 _velocity;
+
+        // SWORD FIELDS
+        private Texture2D _swordTexture;
+        private bool _isAttacking = false;
+        private float _swingTimer = 0f;
+        private float _cooldownTimer = 0f;
+        private Vector2 _facingDirection = new Vector2(0, 1);
+        private float _swordRotation = 0f;
+
+        // animation stuff
+
+        public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
+        private Direction _currentDirection = Direction.Down;
+
+        private Texture2D _txIdle;
+        private Texture2D _txRun;
+        private Texture2D _txAttack1;
+        private Texture2D _txAttack2; // Optional, if you want combo attacks
+        private Texture2D _txHurt;
+        private Texture2D _txDeath;
+
+        private AnimationManager _animManager;
+        private SpriteEffects _flipEffect = SpriteEffects.None;
+
+        // --- FIX: CENTERED PIVOT ---
+        // (0, -32) moves the pivot from the feet (Center) up to the Chest/Neck.
+        // It is centered on the X axis (0) so it swings evenly left and right.
+        private Vector2 _pivotOffset = new Vector2(0, -32);
+
+        // HEALTH BAR TEXTURE
+        private static Texture2D _healthBarTexture;
+
+        // ===================
+        // CONSTRUCTOR
+        // ===================
+        public Player(Game game, Texture2D texture, Texture2D swordTexture, Vector2 startPosition, int frameCount)
+            : base(game, texture, startPosition, frameCount, 1)
+        {
+            _swordTexture = swordTexture;
+            _speed = GameConstants.DefaultPlayerSpeed;
+            MaxHealth = GameConstants.DefaultHealth;
+            _health = MaxHealth;
+            AttackDamage = GameConstants.DefaultMeleeDamage;
+
+            Scale = 3f; // Adjust as needed based sprite Size
+
+            if (_healthBarTexture == null)
+            {
+                _healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                _healthBarTexture.SetData(new[] { Color.White });
+            }
+
+            _animManager = new AnimationManager();
+
+            // 1. Load the specific strips
+            _txIdle = game.Content.Load<Texture2D>("Player/Idle");
+            _txRun = game.Content.Load<Texture2D>("Player/Run");
+            _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1"); // Note the space in filename!
+            _txHurt = game.Content.Load<Texture2D>("Player/Hurt");
+            _txDeath = game.Content.Load<Texture2D>("Player/Death");
+
+            // 2. Register Animations
+            // Format: Texture, FrameCount, Row(0), Speed(ms per frame), IsLooping
+
+            _animManager.AddAnimation("Idle", new Animation(_txIdle, 8, 0, 100f, true, 1));
+            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 8, 0, 80f, false, 1));
+            _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
+            _animManager.AddAnimation("Death", new Animation(_txDeath, 10, 0, 150f, false, 1));
+
+            // Start default
+            _animManager.Play("Idle");
+        }
+
+        // ===================
+        // UPDATE
+        // ===================
+        public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
+        {
+            if (!IsAlive) return;
+
+            if (_cooldownTimer > 0) _cooldownTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            MouseState mouseState = Mouse.GetState();
+            Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
+            Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
+            _mouseWorldPosition = this.Center + mouseOffset;
+
+            if (!_isAttacking && _cooldownTimer <= 0 &&
+               (Keyboard.GetState().IsKeyDown(Keys.Space) || Mouse.GetState().LeftButton == ButtonState.Pressed))
+            {
+                StartAttack(enemies);
+            }
+
+            if (_isAttacking)
+            {
+                _swingTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                float progress = 1f - (_swingTimer / GameConstants.SwordSwingDuration);
+                _swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress);
+
+                if (_swingTimer <= 0)
+                {
+                    _isAttacking = false;
+                    _cooldownTimer = GameConstants.SwordCooldown;
+                }
+            }
+
+            if (!_isAttacking)
+            {
+                HandleInput(currentLayer);
+            }
+
+            if (_velocity.X < -0.1f)
+            {
+                _flipEffect = SpriteEffects.FlipHorizontally;
+            }
+            else if (_velocity.X > 0.1f)
+            {
+                _flipEffect = SpriteEffects.None;
+            }
+
+            string animKey = "Idle"; // Default
+
+            if (!IsAlive)
+            {
+                animKey = "Death";
+            }
+            else if (_isAttacking)
+            {
+
+                animKey = "Attack1";
+            }
+            else if (_velocity != Vector2.Zero)
+            {
+                animKey = "Run";
+            }
+            // Note: If you add a "Hurt" state later, it would go here.
+
+            // 4. UPDATE THE MANAGER
+            _animManager.Play(animKey);
+            _animManager.Update(gameTime);
+        }
+
+        private void HandleInput(TileLayer currentLayer)
+        {
+            Vector2 inputDirection = Vector2.Zero;
+            KeyboardState state = Keyboard.GetState();
+
+            if (state.IsKeyDown(Keys.W)) inputDirection.Y -= 1;
+            if (state.IsKeyDown(Keys.S)) inputDirection.Y += 1;
+            if (state.IsKeyDown(Keys.A)) inputDirection.X -= 1;
+            if (state.IsKeyDown(Keys.D)) inputDirection.X += 1;
+
+            if (inputDirection != Vector2.Zero)
+            {
+                inputDirection.Normalize();
+                _facingDirection = inputDirection;
+                _velocity = inputDirection * _speed;
+
+                Vector2 proposedPosition = position + _velocity;
+                if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
+                {
+                    position = proposedPosition;
+                }
+                else if (currentLayer == null)
+                {
+                    position = proposedPosition;
+                }
+            }
+            else
+            {
+                _velocity = Vector2.Zero;
+            }
+        }
+
+        private bool CanMoveTo(Vector2 newPos, TileLayer layer)
+        {
+
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int playerW = (int)(spriteWidth * scale * 0.4f);
+            int playerH = (int)(spriteHeight * scale * 0.2f);
+
+            // X: Center - Half Box
+            int playerX = (int)(newPos.X - (playerW / 2));
+
+            // Y: Bottom of sprite - Box Height
+            int playerY = (int)(newPos.Y + (spriteHeight * scale / 2) - playerH);
+
+            Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
+
+            float mapWidth = layer.Tiles.GetLength(1) * 64;
+            float mapHeight = layer.Tiles.GetLength(0) * 64;
+
+            // Check Left/Top
+            if (newPos.X < 0 || newPos.Y < 0) return false;
+
+            // Check Right/Bottom Account for sprite size
+            if (newPos.X + (spriteWidth * Scale) > mapWidth) return false;
+            if (newPos.Y + (spriteHeight * Scale) > mapHeight) return false;
+
+            // Tile Passability Check
+            float feetY = newPos.Y + (spriteHeight * (float)Scale);
+            float centerX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
+
+
+
+
+            return true;
+        }
+
+        // ===================
+        // COMBAT LOGIC
+        // ===================
+        private void StartAttack(List<Enemy> enemies)
+        {
+            _isAttacking = true;
+            _swingTimer = GameConstants.SwordSwingDuration;
+
+            // 1. PIVOT: Center of the Chest
+            Vector2 truePivot = this.Center + _pivotOffset;
+
+            // 2. DIRECTION: Calculated from Chest to Mouse
+            Vector2 directionToMouse = _mouseWorldPosition - truePivot;
+
+            if (directionToMouse != Vector2.Zero)
+            {
+                directionToMouse.Normalize();
+                _facingDirection = directionToMouse;
+            }
+
+            // 3. ARM LENGTH: Push sword 40px away from body (Orbit Radius)
+            float armLength = 0f;
+            Vector2 pivotPoint = truePivot + (_facingDirection * armLength);
+
+            // 4. HITBOX: Centered on the blade
+            float reach = 60f;
+            Vector2 hitBoxCenter = pivotPoint + (_facingDirection * (reach / 2));
+
+            Rectangle swordHitbox = new Rectangle(
+                (int)(hitBoxCenter.X - reach / 2),
+                (int)(hitBoxCenter.Y - reach / 2),
+                (int)reach,
+                (int)reach
+            );
+
+            foreach (var enemy in enemies)
+            {
+                if (!enemy.IsAlive) continue;
+
+                Rectangle enemyRect = new Rectangle((int)enemy.Position.X, (int)enemy.Position.Y, enemy.spriteWidth, enemy.spriteHeight);
+
+                if (swordHitbox.Intersects(enemyRect))
+                {
+                    CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
+
+                    Vector2 knockbackDir = enemy.Position - this.position;
+                    if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
+
+                    if (enemy is Enemy enemyObj)
+                    {
+                        enemyObj.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
+                    }
+                }
+            }
+        }
+
+        // ===================
+        // INTERFACE METHODS
+        // ===================
+        public void TakeDamage(int amount, ICombatant attacker)
+        {
+            if (!IsAlive) return;
+            Health -= amount;
+            if (Health <= 0) Die();
+        }
+
+        public void PerformAttack() { }
+
+        public void Die()
+        {
+            Visible = false;
+            CombatSystem.ClearTarget(this);
+        }
+
+        // ===================
+        // DRAW
+        // ===================
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect);
+
+            if (_isAttacking)
+            {
+                // 1. PIVOT
+                Vector2 truePivot = this.Center + _pivotOffset;
+
+                // 2. ARM LENGTH (Orbit Radius)
+                float armLength = 0f;
+                Vector2 pivotPoint = truePivot + (_facingDirection * armLength);
+
+                // 3. HANDLE ORIGIN (Hilt is at 0)
+                Vector2 swordHandleOrigin = new Vector2(0, _swordTexture.Height / 2);
+
+                // 4. ROTATION
+                float baseAngle = (float)Math.Atan2(_facingDirection.Y, _facingDirection.X);
+                float finalAngle = baseAngle + _swordRotation;
+
+                // 5. DEBUG DOT (Should be on Chest)
+                spriteBatch.Draw(_healthBarTexture,
+                    new Rectangle((int)truePivot.X - 2, (int)truePivot.Y - 2, 4, 4),
+                    Color.Red);
+
+                // 6. DRAW SWORD
+                spriteBatch.Draw(_swordTexture,
+                    pivotPoint,
+                    null,
+                    Color.White,
+                    finalAngle,
+                    swordHandleOrigin,
+                    1.0f,
+                    SpriteEffects.None,
+                    0f);
+            }
+
+            if (IsAlive)
+            {
+                int barWidth = (int)(32 * Scale);
+                int barY = (int)position.Y - 15;
+                spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X, barY, barWidth, 8), Color.DarkRed);
+                float healthPercent = (float)Health / MaxHealth;
+                spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
+            }
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+//using AnimatedSprite;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework;
+
+namespace Pale_Roots_1
+{
+    public class RotatingSprite : Sprite
+    {
+        public float rotationSpeed;
+
+        public RotatingSprite(Game g, Texture2D tx, Vector2 StartPosition, int NoOfFrames)
+            : base(g, tx, StartPosition, NoOfFrames, 1)
+        {
+
+        }
+        public void follow(Sprite sp)
+        {
+            this.angleOfRotation = TurnToFace(position,
+            sp.position, angleOfRotation, rotationSpeed );
+        }
+
+        protected static float TurnToFace(Vector2 position, Vector2 faceThis,
+            float currentAngle, float turnSpeed)
+        {
+            // The difference in the two points is 
+            float x = faceThis.X - position.X;
+            float y = faceThis.Y - position.Y;
+            // ArcTan calculates the angle of rotation 
+            // relative to a point (the gun turret position)
+            // in the positive x plane and 
+            float desiredAngle = (float)Math.Atan2(y, x);
+
+            float difference = WrapAngle(desiredAngle - currentAngle);
+
+            difference = MathHelper.Clamp(difference, -turnSpeed, turnSpeed);
+
+            return WrapAngle(currentAngle + difference);
+        }
+
+
+        public override void Update(GameTime gametime)
+        {
+            base.Update(gametime);
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+        }
+        /// <summary>
+        /// Returns the angle expressed in radians between -Pi and Pi.
+        /// Angle is always positive
+        /// </summary>
+        private static float WrapAngle(float radians)
+        {
+            while (radians < -MathHelper.Pi)
+            {
+                radians += MathHelper.TwoPi;
+            }
+            while (radians > MathHelper.Pi)
+            {
+                radians -= MathHelper.TwoPi;
+            }
+            return radians;
+        }
+        public void MoveToward(Vector2 target, float speed, List<WorldObject> obstacles)
+        {
+            Vector2 direction = target - position;
+
+            if (direction != Vector2.Zero)
+            {
+                direction.Normalize();
+                
+                Vector2 velocity = direction * speed;
+                Vector2 newPos = position + velocity;
+
+                if (!IsColliding(newPos, obstacles))
+                {
+                    position = newPos;
+                }
+                angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
+
+                ClampToMap();
+            }
+        }
+
+        public void SnapToFace(Vector2 target)
+        {
+            float x = target.X - position.X;
+            float y = target.Y - position.Y;
+            angleOfRotation = (float)Math.Atan2(y, x);
+        }
+
+        /// <summary>
+        /// Smoothly rotate to face a position
+        /// </summary>
+        public void Follow(Vector2 targetPosition)
+        {
+            this.angleOfRotation = TurnToFace(
+                position,
+                targetPosition,
+                angleOfRotation,
+                rotationSpeed
+            );
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class Sprite
+    {
+        protected Texture2D spriteImage;
+        protected Game game;
+        protected Vector2 origin;
+        protected float angleOfRotation;
+        protected int spriteDepth = 1;
+
+        // BATTLE FIELDS
+        public int AttackerCount = 0;
+        public Sprite CurrentCombatPartner;
+        public Enemy.AISTATE CurrentAIState = Enemy.AISTATE.Charging;
+        public bool Visible = true;
+        public int Health = 100;
+        public float AttackCooldown = 0f;
+        public float AttackSpeed = 1000f; // 1 second cooldown
+
+        public Vector2 position;
+        public double Scale { get; set; }
+
+        // Animation Fields
+        protected int numberOfFrames = 0;
+        protected int currentFrame = 0;
+        protected int mililsecondsBetweenFrames = 100;
+        protected float timer = 0f;
+        public int spriteWidth = 0;
+        public int spriteHeight = 0;
+        public Rectangle sourceRectangle;
+
+        protected int _sheetStartX = 0;
+        protected int _sheetStartY = 0;
+
+        public Vector2 Center
+        {
+            get { return position; }
+        }
+
+        public Sprite(Game g, Texture2D texture, Vector2 userPosition, int framecount, double scale)
+        {
+            this.game = g;
+            this.spriteImage = texture;
+            this.position = userPosition;
+            this.numberOfFrames = framecount;
+            this.Scale = scale;
+            this.spriteHeight = spriteImage.Height;
+            this.spriteWidth = spriteImage.Width / framecount;
+            this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
+            this.sourceRectangle = new Rectangle(0, 0, spriteWidth, spriteHeight);
+        }
+
+        public virtual void follow(Sprite target) { }
+
+        public virtual void Update(GameTime gametime)
+        {
+            timer += (float)gametime.ElapsedGameTime.TotalMilliseconds;
+            if (timer > mililsecondsBetweenFrames)
+            {
+                currentFrame++;
+                if (currentFrame >= numberOfFrames) currentFrame = 0;
+                timer = 0f;
+            }
+            int frameOffsetX = currentFrame * spriteWidth;
+            sourceRectangle = new Rectangle(_sheetStartX + frameOffsetX, _sheetStartY, spriteWidth, spriteHeight);
+        }
+        public void SetSpriteSheetLocation(Rectangle source)
+        {
+            _sheetStartX = source.X;
+            _sheetStartY = source.Y;
+
+            this.spriteWidth = source.Width;
+            this.spriteHeight = source.Height;
+            this.sourceRectangle = source;
+
+            this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
+        }
+        // In Sprite.cs
+
+        protected void ClampToMap()
+        {
+            float mapW = GameConstants.DefaultMapSize.X;
+            float mapH = GameConstants.DefaultMapSize.Y;
+
+            float halfWidth = (spriteWidth * (float)Scale) / 2f;
+            float halfHeight = (spriteHeight * (float)Scale) / 2f;
+
+            // Clamp X (Keep center within bounds minus half width)
+            if (position.X < halfWidth) position.X = halfWidth;
+            if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+
+            // Clamp Y
+            if (position.Y < halfHeight) position.Y = halfHeight;
+            if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+        }
+
+        protected bool IsColliding(Vector2 newPos, List<WorldObject> objects)
+        {
+            if (objects == null) return false;
+
+            // FEET BOX MATH (CENTERED)
+            float scale = (float)Scale;
+            int w = (int)(spriteWidth * scale * 0.4f); // 40% width
+            int h = (int)(spriteHeight * scale * 0.2f); // 20% height
+
+            // X: NewPos is center. Subtract half box width to get Left.
+            int x = (int)(newPos.X - (w / 2));
+
+            // Y: NewPos is center. Add half sprite height to get Bottom, then subtract box height.
+            int y = (int)(newPos.Y + (spriteHeight * scale / 2) - h);
+
+            Rectangle futureFeetBox = new Rectangle(x, y, w, h);
+
+            foreach (var obj in objects)
+            {
+                if (obj.IsSolid && futureFeetBox.Intersects(obj.CollisionBox))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+
+        public virtual void Draw(SpriteBatch spriteBatch)
+        {
+            if (Visible)
+            {
+                spriteBatch.Draw(spriteImage, position, sourceRectangle,
+                    Color.White, angleOfRotation, origin,
+                    (float)Scale, SpriteEffects.None, spriteDepth);
+            }
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Pale_Roots_1
+{
+    public class Tile
+    {
+        public TileRef tileRef { get; set; }
+        int _tileWidth;
+        int _tileHeight;
+        int _id;
+        public int Id
+        {
+            get { return _id; }
+            set { _id = value; }
+        }
+        string _tileName;
+        bool _passable;
+        public bool Passable
+        {
+            get { return _passable; }
+            set { _passable = value; }
+        }
+        public string TileName
+        {
+            get { return _tileName; }
+            set { _tileName = value; }
+        }
+        int _x;
+        public int X
+        {
+            get { return _x; }
+            set { _x = value; }
+        }
+        int _y;
+        public int Y
+        {
+            get { return _y; }
+            set { _y = value; }
+        }
+        public int TileWidth
+        {
+            get
+            {
+                return _tileWidth;
+            }
+
+            set
+            {
+                _tileWidth = value;
+            }
+        }
+        public int TileHeight
+        {
+            get
+            {
+                return _tileHeight;
+            }
+
+            set
+            {
+                _tileHeight = value;
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Pale_Roots_1
+{
+    public class TileLayer
+    {
+        int SourceTileSize = 16;
+        int DestTileSize = 64;
+        List<TileRef> tileRefs = new List<TileRef>();
+
+        
+        int tileMapHeight;  // row int[row,col]
+        int tileMapWidth; // dim 0 = row, dim 1 = col
+        Tile[,] _tiles;
+        public Tile[,] Tiles
+        {
+            get { return _tiles; }
+            set { _tiles = value; }
+        }
+        public TileLayer(int[,] LayerMap,List<TileRef> MapSheetReferences, int destSize, int sourceSize)
+        {
+
+            DestTileSize = destSize;
+            SourceTileSize = sourceSize;
+
+            tileRefs = MapSheetReferences;
+            tileMapHeight = LayerMap.GetLength(0); // row int[row,col]
+            tileMapWidth = LayerMap.GetLength(1); // dim 0 = row, dim 1 = col
+            Tiles = new Tile[tileMapHeight, tileMapWidth];
+            for (int x = 0; x < tileMapWidth; x++)  // look at columns in row
+                for (int y = 0; y < tileMapHeight; y++) // look at rows
+                {
+                    Tiles[y, x] =
+                        new Tile
+                        {
+                            X = x,
+                            Y = y,
+                            Id = LayerMap[y, x],
+                            Passable = true,
+                            tileRef = tileRefs[LayerMap[y, x]]
+                        };
+                }
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            foreach (var Tile in Tiles)
+            {
+
+                Rectangle destRect = new Rectangle(
+                    Tile.X * DestTileSize,
+                    Tile.Y * DestTileSize,
+                    DestTileSize,
+                    DestTileSize);
+
+
+                Rectangle sourceRect = new Rectangle(
+                    Tile.tileRef._sheetPosX * SourceTileSize,
+                    Tile.tileRef._sheetPosY * SourceTileSize,
+                    SourceTileSize,
+                    SourceTileSize);
+
+                spriteBatch.Draw(Helper.SpriteSheet, destRect, sourceRect, Color.White);
+            }
         }
     }
 }
