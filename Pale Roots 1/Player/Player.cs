@@ -101,13 +101,18 @@ namespace Pale_Roots_1
             // 2. Register Animations
             // Format: Texture, FrameCount, Row(0), Speed(ms per frame), IsLooping
 
-            _animManager.AddAnimation("Idle", new Animation(_txIdle, 8, 0, 100f, true, 1, 125));
-            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
-            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 8, 0, 80f, false, 1, 0));
-            _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
-            _animManager.AddAnimation("Death", new Animation(_txDeath, 10, 0, 150f, false, 1));
+            //_animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 100f, true, 1, 125));
+            //_animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
+            //_animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 80f, false, 1, 0));
+            //_animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
+            //_animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1));
 
-            // Start default
+            _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 100f, true, 1));
+            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 80f, false, 1));
+            _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
+            _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1));
+
             _animManager.Play("Idle");
         }
 
@@ -133,9 +138,22 @@ namespace Pale_Roots_1
 
             if (_isAttacking)
             {
+                ////_animManager.Play("Attack1");
+                //_swingTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                //float progress = 1f - (_swingTimer / GameConstants.SwordSwingDuration);
+                //_swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress);
+
+                //if (_swingTimer <= 0)
+                //{
+                //    _isAttacking = false;
+                //    _cooldownTimer = GameConstants.SwordCooldown;
+                //}
+
                 _swingTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                float progress = 1f - (_swingTimer / GameConstants.SwordSwingDuration);
+                float progress = 1f - (_swingTimer / 800f);
+
                 _swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress);
 
                 if (_swingTimer <= 0)
@@ -255,9 +273,8 @@ namespace Pale_Roots_1
         private void StartAttack(List<Enemy> enemies)
         {
             _isAttacking = true;
-            _swingTimer = GameConstants.SwordSwingDuration;
+            _swingTimer = 800f;
 
-            // 1. PIVOT: Center of the Chest
             Vector2 truePivot = this.Center + _pivotOffset;
 
             // 2. DIRECTION: Calculated from Chest to Mouse
