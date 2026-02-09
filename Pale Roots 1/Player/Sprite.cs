@@ -14,11 +14,11 @@ namespace Pale_Roots_1
         protected int spriteDepth = 1;
 
         // BATTLE FIELDS
-        public int AttackerCount = 0;
+        public int AttackerCount { get; set; } = 0;
         public Sprite CurrentCombatPartner;
         public Enemy.AISTATE CurrentAIState = Enemy.AISTATE.Charging;
         public bool Visible = true;
-        public int Health = 100;
+        public int Health { get; set; } = 100;
         public float AttackCooldown = 0f;
         public float AttackSpeed = 1000f; // 1 second cooldown
 
