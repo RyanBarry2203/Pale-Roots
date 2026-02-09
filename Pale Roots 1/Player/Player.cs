@@ -128,7 +128,7 @@ namespace Pale_Roots_1
             _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, standardWidth));
             _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 100f, false, 1, standardWidth));
 
-            _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 150f, false, 1, standardWidth));
+            _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 125f, false, 1, standardWidth));
             _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1, standardWidth));
 
@@ -147,6 +147,8 @@ namespace Pale_Roots_1
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
+
+
 
             // STATE MACHINE
             switch (CurrentState)
@@ -199,7 +201,7 @@ namespace Pale_Roots_1
         private void StartDash()
         {
             CurrentState = PlayerState.Dash;
-            _dashTimer = 400f;
+            _stateTimer = 500f; 
             _dashDirection = _facingDirection;
             if (_velocity != Vector2.Zero) _dashDirection = Vector2.Normalize(_velocity);
         }
@@ -370,10 +372,15 @@ namespace Pale_Roots_1
         }
         private void PerformSwordHit(List<Enemy> enemies)
         {
-            // 1. Define Hitbox parameters
-            // We use _facingDirection which we updated in StartAttack
-            float reach = 100f; // Increased reach slightly
-            Vector2 hitBoxCenter = this.Center + (_facingDirection * (reach / 2));
+            // 1. CALCULATE CHEST POSITION
+            // 'position' is the Feet.
+            // We want to swing from the Chest, which is roughly 60-80 pixels UP.
+            Vector2 chestPosition = new Vector2(position.X, position.Y - 80);
+
+            // 2. DEFINE HITBOX
+            // We extend the reach OUT from the Chest.
+            float reach = 120f;
+            Vector2 hitBoxCenter = chestPosition + (_facingDirection * (reach / 2));
 
             Rectangle swordHitbox = new Rectangle(
                 (int)(hitBoxCenter.X - reach / 2),
@@ -382,23 +389,24 @@ namespace Pale_Roots_1
                 (int)reach
             );
 
-            // 2. Check Collisions
+            // 3. CHECK COLLISIONS
             foreach (var enemy in enemies)
             {
                 if (!enemy.IsAlive) continue;
 
+                // ENEMY HITBOX (Assuming Enemy Position is also Feet)
+                // We construct a box that covers the Enemy's body (Feet up to Head)
                 Rectangle enemyRect = new Rectangle(
-                    (int)enemy.Position.X,
-                    (int)enemy.Position.Y,
-                    enemy.spriteWidth,
-                    enemy.spriteHeight
+                    (int)enemy.Position.X - 40, // Center X
+                    (int)enemy.Position.Y - 100, // Top of head (Feet - Height)
+                    80, // Width
+                    100 // Height
                 );
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
                     CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
 
-                    // Knockback away from player
                     Vector2 knockbackDir = enemy.Position - this.position;
                     if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
                     enemy.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
@@ -469,18 +477,24 @@ namespace Pale_Roots_1
         // ===================
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // 1. Draw the Player Animation
+            // 1. Draw Player (Anchored at Feet)
             _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect);
 
             // 2. Draw Health Bar
             if (IsAlive)
             {
+                // Draw 120 pixels ABOVE the feet (roughly over the head)
+                int barY = (int)position.Y - 120;
                 int barWidth = (int)(32 * Scale);
-                int barY = (int)position.Y - 15;
-                spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X, barY, barWidth, 8), Color.DarkRed);
+                int barX = (int)position.X - (barWidth / 2); // Centered
+
+                spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
                 float healthPercent = (float)Health / MaxHealth;
-                spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
+                spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
             }
+
+        
+             spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
         }
     }
 }
