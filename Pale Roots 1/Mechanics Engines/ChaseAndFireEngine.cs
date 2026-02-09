@@ -76,7 +76,6 @@ namespace Pale_Roots_1
             _player = new Player(
                 game, 
                 game.Content.Load<Texture2D>("wizard_strip3"), 
-                swordTx,
                 _playerSpawnPos, 
                 3
             );

@@ -44,11 +44,14 @@ namespace Pale_Roots_1
 
                 if (CurrentFrame >= _currentAnimation.FrameCount)
                 {
-                    CurrentFrame = 0;
-                }
-                else
-                {
-                    CurrentFrame = _currentAnimation.FrameCount - 1;
+                    if (_currentAnimation.IsLooping)
+                    {
+                        CurrentFrame = 0;
+                    }
+                    else
+                    {
+                        CurrentFrame = _currentAnimation.FrameCount - 1;
+                    }
                 }
             }
         }
@@ -56,8 +59,6 @@ namespace Pale_Roots_1
         {
             if (_currentAnimation == null) return;
 
-            // USE THE PRE-CALCULATED WIDTH
-            // We trust the Animation class to have done the math (or the manual override) correctly.
             int frameWidth = _currentAnimation.FrameWidth;
             int frameHeight = _currentAnimation.FrameHeight;
 
@@ -68,8 +69,8 @@ namespace Pale_Roots_1
                 frameHeight
             );
 
-            // Cast to int to stop sub-pixel jitter
-            Vector2 origin = new Vector2((int)(frameWidth / 2f), (int)(frameHeight / 2f));
+
+            Vector2 origin = new Vector2(frameWidth / 2f, frameHeight);
 
             spriteBatch.Draw(
                 _currentAnimation.Texture,

@@ -38,14 +38,12 @@ namespace Pale_Roots_1
         private Vector2 _velocity;
 
         // SWORD FIELDS
-        private Texture2D _swordTexture;
         public enum PlayerState
         {
             Idle,
             Run,
             Attack1,
             Attack2,
-            Jump,
             Dash,
             Hurt,
             Dead
@@ -63,7 +61,7 @@ namespace Pale_Roots_1
         //private float _swingTimer = 0f;
         private float _cooldownTimer = 0f;
         private Vector2 _facingDirection = new Vector2(0, 1);
-        private float _swordRotation = 0f;
+
 
         // animation stuff
 
@@ -76,7 +74,6 @@ namespace Pale_Roots_1
         private Texture2D _txAttack2; // Optional, if you want combo attacks
         private Texture2D _txHurt;
         private Texture2D _txDeath;
-        private Texture2D _txJump;
         private Texture2D _txDash;
 
         private AnimationManager _animManager;
@@ -85,7 +82,6 @@ namespace Pale_Roots_1
         // --- FIX: CENTERED PIVOT ---
         // (0, -32) moves the pivot from the feet (Center) up to the Chest/Neck.
         // It is centered on the X axis (0) so it swings evenly left and right.
-        private Vector2 _pivotOffset = new Vector2(0, -32);
 
         // HEALTH BAR TEXTURE
         private static Texture2D _healthBarTexture;
@@ -93,16 +89,14 @@ namespace Pale_Roots_1
         // ===================
         // CONSTRUCTOR
         // ===================
-        public Player(Game game, Texture2D texture, Texture2D swordTexture, Vector2 startPosition, int frameCount)
+        public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount, 1)
         {
-            _swordTexture = swordTexture;
             _speed = GameConstants.DefaultPlayerSpeed;
             MaxHealth = GameConstants.DefaultHealth;
             Health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
-
-            Scale = 3f; // Adjust as needed based sprite Size
+            Scale = 3f;
 
             if (_healthBarTexture == null)
             {
@@ -112,55 +106,29 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // 1. Load the specific strips
+            // 1. LOAD TEXTURES
             _txIdle = game.Content.Load<Texture2D>("Player/Idle");
             _txRun = game.Content.Load<Texture2D>("Player/Run");
             _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1");
             _txAttack2 = game.Content.Load<Texture2D>("Player/Attack 2");
-            _txHurt = game.Content.Load<Texture2D>("Player/Hurt"); 
+            _txHurt = game.Content.Load<Texture2D>("Player/Hurt");
             _txDeath = game.Content.Load<Texture2D>("Player/Death");
-            _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1");
-            _txJump = game.Content.Load<Texture2D>("Player/Jump");
             _txDash = game.Content.Load<Texture2D>("Player/Dash");
 
-            // 2. Register Animations
-            // Format: Texture, FrameCount, Row(0), Speed(ms per frame), IsLooping
+            // 2. REGISTER ANIMATIONS (THE MODULAR FIX)
 
-            //_animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 100f, true, 1, 125));
-            //_animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
-            //_animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 80f, false, 1, 0));
-            //_animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
-            //_animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1));
-
-
-            //_animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 100f, true, 1));
-            //_animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true, 1));
-
-            //_animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 80f, false, 1));
-            //_animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 60f, false));
-
-            //_animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1));
-            //_animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1));
-
-            //_animManager.AddAnimation("Jump", new Animation(_txJump, 2, 0, 150f, false));
-            //_animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 100f, false));
-
+            // We assume the IDLE sheet is the "Correct" size.
+            // Idle has 7 frames.
             int standardWidth = _txIdle.Width / 7;
 
-            _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 100f, true));
-            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 80f, true));
 
-            // Combat
-            // We pass 'standardWidth' as the last argument to force the center point to stay consistent
-            // Arguments: Texture, Frames, Row, Speed, Loop, TotalRows, CustomWidth
-            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 80f, false, 1, standardWidth));
-            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 60f, false, 1, standardWidth));
+            _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 150f, true));
+            _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 120f, true));
 
-            // Actions
-            _animManager.AddAnimation("Jump", new Animation(_txJump, 2, 0, 150f, false, 1, standardWidth));
-            _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 100f, false, 1, standardWidth));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, standardWidth));
+            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 100f, false, 1, standardWidth));
 
-            // Damage
+            _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1, standardWidth));
 
@@ -172,7 +140,6 @@ namespace Pale_Roots_1
         // ===================
         public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
         {
-
             if (_cooldownTimer > 0) _cooldownTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             // Update Mouse Position
@@ -181,12 +148,12 @@ namespace Pale_Roots_1
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
-            //STATE MACHINE
+            // STATE MACHINE
             switch (CurrentState)
             {
                 case PlayerState.Idle:
                 case PlayerState.Run:
-                    HandleInput(currentLayer); 
+                    HandleInput(currentLayer);
                     CheckForCombatInput(enemies);
                     break;
 
@@ -202,21 +169,19 @@ namespace Pale_Roots_1
                     UpdateDash(gameTime, currentLayer);
                     break;
 
-                case PlayerState.Jump:
-                    UpdateJump(gameTime);
-                    break;
-
                 case PlayerState.Hurt:
-                    UpdateHurt(gameTime);
+                    UpdateHurt(gameTime, currentLayer);
                     break;
 
                 case PlayerState.Dead:
-                    // Do nothing, just wait
+                    // Play death animation until end, then stop
+                    // The AnimationManager handles the "Stop at last frame" if looping is false
                     break;
             }
 
             UpdateAnimation(gameTime);
         }
+
         private void CheckForCombatInput(List<Enemy> enemies)
         {
             KeyboardState kState = Keyboard.GetState();
@@ -229,10 +194,6 @@ namespace Pale_Roots_1
             else if (_cooldownTimer <= 0 && kState.IsKeyDown(Keys.LeftShift))
             {
                 StartDash();
-            }
-            else if ( kState.IsKeyDown(Keys.F))
-            {
-                StartJump();
             }
         }
         private void StartDash()
@@ -257,24 +218,12 @@ namespace Pale_Roots_1
                 _velocity = Vector2.Zero;
             }
         }
-        private void StartJump()
-        {
-            CurrentState = PlayerState.Jump;
-            _stateTimer = 300f;
-        }
-        private void UpdateHurt(GameTime gameTime)
-        {
-            _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            if (_stateTimer <= 0)
-            {
-                CurrentState = PlayerState.Idle;
-            }
-        }
-        private void UpdateJump(GameTime gameTime)
+        private void UpdateHurt(GameTime gameTime, TileLayer currentLayer)
         {
             _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            HandleInput(null);
+            HandleInput(currentLayer);
+
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
@@ -359,22 +308,37 @@ namespace Pale_Roots_1
         // ===================
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
+            // 1. LOCK DIRECTION
+            // We calculate this ONCE when the attack starts.
+            Vector2 dirToMouse = _mouseWorldPosition - this.Center;
+
+            // Update the facing direction logic
+            if (dirToMouse.X < 0)
+            {
+                _flipEffect = SpriteEffects.FlipHorizontally;
+                _facingDirection = new Vector2(-1, 0); // Force left
+            }
+            else
+            {
+                _flipEffect = SpriteEffects.None;
+                _facingDirection = new Vector2(1, 0); // Force right
+            }
+
+            // 2. SET STATE & TIMER
             if (attackNum == 1)
             {
                 CurrentState = PlayerState.Attack1;
-                _stateTimer = 800f; // Duration of Attack 1
+                // 10 frames * 100ms = 1000ms
+                _stateTimer = 1000f;
                 _comboBuffered = false;
             }
             else if (attackNum == 2)
             {
                 CurrentState = PlayerState.Attack2;
-                _stateTimer = 600f; // Duration of Attack 2
+                _stateTimer = 1000f;
             }
 
-            // Calculate Sword Rotation logic here (same as your old code)
-            // ...
-
-            // Deal Damage immediately (or you can time this to the frame)
+            // 3. DEAL DAMAGE
             PerformSwordHit(enemies);
         }
         private void UpdateAttack(GameTime gameTime, List<Enemy> enemies, int attackNum)
@@ -382,15 +346,12 @@ namespace Pale_Roots_1
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            // SWORD ANIMATION LERP
-            float progress = 1f - (_stateTimer / 600f);
-            _swordRotation = MathHelper.Lerp(-1.5f, 1.5f, progress);
+            // COMBO CHECK (Buffer input)
+            float progress = 1f - (_stateTimer / (attackNum == 1 ? 800f : 600f));
 
-            // COMBO CHECK
-            // If we are in Attack 1, and player clicks, buffer the combo
             if (attackNum == 1 && (Keyboard.GetState().IsKeyDown(Keys.Space) || Mouse.GetState().LeftButton == ButtonState.Pressed))
             {
-                // Only buffer if we are halfway through the swing
+                // Allow combo input after 50% of animation
                 if (progress > 0.5f) _comboBuffered = true;
             }
 
@@ -409,12 +370,10 @@ namespace Pale_Roots_1
         }
         private void PerformSwordHit(List<Enemy> enemies)
         {
-            // 1. Calculate Pivot and Direction
-            Vector2 truePivot = this.Center + _pivotOffset;
-
-            // 2. Define Hitbox parameters
-            float reach = 60f;
-            Vector2 hitBoxCenter = truePivot + (_facingDirection * (reach / 2));
+            // 1. Define Hitbox parameters
+            // We use _facingDirection which we updated in StartAttack
+            float reach = 100f; // Increased reach slightly
+            Vector2 hitBoxCenter = this.Center + (_facingDirection * (reach / 2));
 
             Rectangle swordHitbox = new Rectangle(
                 (int)(hitBoxCenter.X - reach / 2),
@@ -423,12 +382,11 @@ namespace Pale_Roots_1
                 (int)reach
             );
 
-            // 3. Check Collisions
+            // 2. Check Collisions
             foreach (var enemy in enemies)
             {
                 if (!enemy.IsAlive) continue;
 
-                // Simple bounding box check
                 Rectangle enemyRect = new Rectangle(
                     (int)enemy.Position.X,
                     (int)enemy.Position.Y,
@@ -438,13 +396,11 @@ namespace Pale_Roots_1
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
-                    // Deal Damage
                     CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
 
-                    // Apply Knockback
+                    // Knockback away from player
                     Vector2 knockbackDir = enemy.Position - this.position;
                     if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
-
                     enemy.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
                 }
             }
@@ -458,7 +414,17 @@ namespace Pale_Roots_1
         {
             if (!IsAlive) return;
             Health -= amount;
-            if (Health <= 0) Die();
+
+            if (Health <= 0)
+            {
+                Die();
+            }
+            else
+            {
+                // Trigger Hurt Animation
+                CurrentState = PlayerState.Hurt;
+                _stateTimer = 450f; // 3 frames * 150ms
+            }
         }
 
         public void PerformAttack() { }
@@ -469,35 +435,23 @@ namespace Pale_Roots_1
 
             switch (CurrentState)
             {
-                case PlayerState.Idle:
-                    animKey = "Idle";
-                    break;
-                case PlayerState.Run:
-                    animKey = "Run";
-                    break;
-                case PlayerState.Attack1:
-                    animKey = "Attack1";
-                    break;
-                case PlayerState.Attack2:
-                    animKey = "Attack2";
-                    break;
-                case PlayerState.Jump:
-                    animKey = "Jump";
-                    break;
-                case PlayerState.Dash:
-                    animKey = "Dash";
-                    break;
-                case PlayerState.Hurt:
-                    animKey = "Hurt";
-                    break;
-                case PlayerState.Dead:
-                    animKey = "Death";
-                    break;
+                case PlayerState.Idle: animKey = "Idle"; break;
+                case PlayerState.Run: animKey = "Run"; break;
+                case PlayerState.Attack1: animKey = "Attack1"; break;
+                case PlayerState.Attack2: animKey = "Attack2"; break;
+                case PlayerState.Dash: animKey = "Dash"; break;
+                case PlayerState.Hurt: animKey = "Hurt"; break;
+                case PlayerState.Dead: animKey = "Death"; break;
             }
 
-            // Flip logic
-            if (_velocity.X < -0.1f) _flipEffect = SpriteEffects.FlipHorizontally;
-            else if (_velocity.X > 0.1f) _flipEffect = SpriteEffects.None;
+            // FLIP LOGIC
+            // ONLY flip based on velocity if we are NOT attacking or dead.
+            // This keeps the attack facing the direction we clicked.
+            if (CurrentState == PlayerState.Run || CurrentState == PlayerState.Idle || CurrentState == PlayerState.Dash)
+            {
+                if (_velocity.X < -0.1f) _flipEffect = SpriteEffects.FlipHorizontally;
+                else if (_velocity.X > 0.1f) _flipEffect = SpriteEffects.None;
+            }
 
             _animManager.Play(animKey);
             _animManager.Update(gameTime);
@@ -505,7 +459,8 @@ namespace Pale_Roots_1
 
         public void Die()
         {
-            Visible = false;
+            // Don't set Visible = false yet! We want to see the body fall.
+            CurrentState = PlayerState.Dead;
             CombatSystem.ClearTarget(this);
         }
 
@@ -517,31 +472,7 @@ namespace Pale_Roots_1
             // 1. Draw the Player Animation
             _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect);
 
-            // 2. Draw the Sword ONLY if we are in an Attack State
-            if (CurrentState == PlayerState.Attack1 || CurrentState == PlayerState.Attack2)
-            {
-                Vector2 truePivot = this.Center + _pivotOffset;
-                float armLength = 0f;
-                Vector2 pivotPoint = truePivot + (_facingDirection * armLength);
-                Vector2 swordHandleOrigin = new Vector2(0, _swordTexture.Height / 2);
-
-                // Calculate Angle
-                float baseAngle = (float)Math.Atan2(_facingDirection.Y, _facingDirection.X);
-                float finalAngle = baseAngle + _swordRotation;
-
-                // Draw Sword
-                spriteBatch.Draw(_swordTexture,
-                    pivotPoint,
-                    null,
-                    Color.White,
-                    finalAngle,
-                    swordHandleOrigin,
-                    1.0f,
-                    SpriteEffects.None,
-                    0f);
-            }
-
-            // 3. Draw Health Bar
+            // 2. Draw Health Bar
             if (IsAlive)
             {
                 int barWidth = (int)(32 * Scale);
