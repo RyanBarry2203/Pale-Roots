@@ -85,10 +85,6 @@ namespace Pale_Roots_1
         private AnimationManager _animManager;
         private SpriteEffects _flipEffect = SpriteEffects.None;
 
-        // --- FIX: CENTERED PIVOT ---
-        // (0, -32) moves the pivot from the feet (Center) up to the Chest/Neck.
-        // It is centered on the X axis (0) so it swings evenly left and right.
-
         // HEALTH BAR TEXTURE
         private static Texture2D _healthBarTexture;
 
@@ -197,17 +193,29 @@ namespace Pale_Roots_1
             KeyboardState kState = Keyboard.GetState();
             MouseState mState = Mouse.GetState();
 
-            if (_cooldownTimer <= 0 && (kState.IsKeyDown(Keys.Space) || mState.LeftButton == ButtonState.Pressed))
+            // 1. DASH (Priority)
+            // We check this first so you can dash out of danger instantly
+            if (kState.IsKeyDown(Keys.LeftShift))
+            {
+                StartDash();
+                return; // Don't attack if we are trying to dash
+            }
+
+            // Only allow attack if cooldown is ready
+            if (_cooldownTimer > 0) return;
+
+            // 2. LIGHT ATTACK (Left Click)
+            if (mState.LeftButton == ButtonState.Pressed)
             {
                 StartAttack(enemies, 1);
             }
-            else if (_cooldownTimer <= 0 && kState.IsKeyDown(Keys.LeftShift))
+            // 3. HEAVY ATTACK (Right Click)
+            else if (mState.RightButton == ButtonState.Pressed)
             {
-                StartDash();
+                StartAttack(enemies, 2);
             }
         }
 
-        // IN FILE: Player.cs
 
         private void StartDash()
         {
@@ -252,7 +260,7 @@ namespace Pale_Roots_1
         {
             _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Optional: Apply a little knockback friction here if you want
+
 
             if (_stateTimer <= 0)
             {
@@ -260,12 +268,6 @@ namespace Pale_Roots_1
             }
         }
 
-        // IN FILE: Player.cs
-        // Replace your HandleInput method with this updated version
-
-        // IN FILE: Player.cs
-
-        // CHANGE: Added 'bool updateState' parameter
         private void HandleInput(TileLayer currentLayer, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
@@ -396,34 +398,18 @@ namespace Pale_Roots_1
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            // 1. PERFORM HIT CHECK (Every Frame!)
-            // This ensures the hitbox moves WITH the player.
+            // 1. PERFORM HIT CHECK (Every Frame)
             if (attackNum == 1)
                 PerformSwordHit(enemies, 1.0f, 1.0f);
             else
-                PerformSwordHit(enemies, 2.0f, 1.5f);
+                PerformSwordHit(enemies, 2.0f, 1.5f); // Double damage/knockback
 
-            // 2. COMBO LOGIC
-            float duration = (attackNum == 1 ? 800f : 1200f);
-            float progress = 1f - (_stateTimer / duration);
-
-            if (attackNum == 1 && (Keyboard.GetState().IsKeyDown(Keys.Space) || Mouse.GetState().LeftButton == ButtonState.Pressed))
-            {
-                if (progress > 0.5f) _comboBuffered = true;
-            }
-
+            // 2. END ATTACK
             if (_stateTimer <= 0)
             {
-                if (attackNum == 1 && _comboBuffered)
-                {
-                    StartAttack(enemies, 2);
-                }
-                else
-                {
-                    CurrentState = PlayerState.Idle;
-                    _cooldownTimer = GameConstants.SwordCooldown;
-                    _debugSwordBox = Rectangle.Empty; // Clear debug box when done
-                }
+                CurrentState = PlayerState.Idle;
+                _cooldownTimer = GameConstants.SwordCooldown;
+                _debugSwordBox = Rectangle.Empty; // Hide the red box
             }
         }
 
@@ -491,7 +477,6 @@ namespace Pale_Roots_1
         // ===================
         // INTERFACE METHODS
         // ===================
-        // IN FILE: Player.cs
 
         public void TakeDamage(int amount, ICombatant attacker)
         {
@@ -553,40 +538,48 @@ namespace Pale_Roots_1
         // ===================
         // DRAW
         // ===================
-
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // 1. Draw Sprite
-            _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
+            // --- ALIGNMENT FIX ---
+            // If the sprite is "Above" the dot, we need to increase Y to push it down.
+            // Try these numbers. If it's still floating, increase Y (e.g., to 60 or 80).
+            Vector2 visualOffset = new Vector2(0, 175);
 
-            // 2. Draw Health Bar
+            // Calculate where to draw the IMAGE
+            Vector2 drawPos = position + visualOffset;
+
+            // 1. Draw Sprite at the corrected position
+            _animManager.Draw(spriteBatch, drawPos, (float)Scale, _flipEffect, _currentDirectionIndex);
+
+            // 2. Draw Health Bar (Follows the sprite visually)
             if (IsAlive)
             {
-                int barY = (int)position.Y - 120;
+                int barY = (int)drawPos.Y - 300;
                 int barWidth = (int)(32 * Scale);
-                int barX = (int)position.X - (barWidth / 2);
+                int barX = (int)drawPos.X - (barWidth / 2);
 
                 spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
                 float healthPercent = (float)Health / MaxHealth;
                 spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
             }
 
-            // 3. DEBUG: Draw the Sword Hitbox
-            // Only draw it if we are currently attacking
-            if (CurrentState == PlayerState.Attack1 || CurrentState == PlayerState.Attack2)
-            {
-                // Draw a semi-transparent Red Box
-                spriteBatch.Draw(_healthBarTexture, _debugSwordBox, new Color(255, 0, 0, 100));
-            }
+            // --- DEBUG VISUALS (Draw at LOGIC position) ---
+            // These show where the code THINKS you are.
 
-            // 4. DEBUG: Draw the Player's Hurtbox (Where enemies hit YOU)
-            // Feet up to Head
-            Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 80, 40, 80);
-            // Draw a semi-transparent Blue Box
-            spriteBatch.Draw(_healthBarTexture, myHurtBox, new Color(0, 0, 255, 100));
+            // Sword Hitbox (Red)
+            //if (CurrentState == PlayerState.Attack1 || CurrentState == PlayerState.Attack2)
+            //{
+            //    spriteBatch.Draw(_healthBarTexture, _debugSwordBox, new Color(255, 0, 0, 100));
+            //}
 
-            // 5. Cyan Dot (Feet)
-            spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
+            //// Player Hurtbox (Blue) - Where enemies hit YOU
+            //// We draw this relative to 'position' (The Cyan Dot)
+            //Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 80, 40, 80);
+            //spriteBatch.Draw(_healthBarTexture, myHurtBox, new Color(0, 0, 255, 100));
+
+            //// The Logic Dot (Cyan)
+            //// Your goal: Change 'visualOffset' at the top until the Wizard's feet touch this dot.
+            //spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
         }
     }
 }
