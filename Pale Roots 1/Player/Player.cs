@@ -27,7 +27,6 @@ namespace Pale_Roots_1
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
-        public int AttackerCount { get; set; }
         public Vector2 Position => position;
         public Vector2 CentrePos => Center;
 
@@ -49,10 +48,10 @@ namespace Pale_Roots_1
             Dead
         }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
+        private Vector2 _facingDirection = new Vector2(0, 1);
 
         // Dash Variables
         private float _dashSpeed = 12f;
-        private float _dashTimer = 0f;
         private Vector2 _dashDirection;
 
         private float _stateTimer = 0f;   
@@ -60,13 +59,18 @@ namespace Pale_Roots_1
 
         //private float _swingTimer = 0f;
         private float _cooldownTimer = 0f;
-        private Vector2 _facingDirection = new Vector2(0, 1);
 
 
         // animation stuff
 
         public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
         private Direction _currentDirection = Direction.Down;
+        private int _currentDirectionIndex = 2;
+
+        private float _dashCooldownTimer = 0f;
+        private float _dashCooldownDuration = 800f;
+        private bool _isInvincible = false;
+        private Vector2 _visualOffset = new Vector2(0, 32);
 
         private Texture2D _txIdle;
         private Texture2D _txRun;
@@ -138,33 +142,36 @@ namespace Pale_Roots_1
         // ===================
         // UPDATE
         // ===================
+
         public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
         {
-            if (_cooldownTimer > 0) _cooldownTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Update Mouse Position
+            // 1. Update Timers
+            if (_cooldownTimer > 0) _cooldownTimer -= dt;
+            if (_dashCooldownTimer > 0) _dashCooldownTimer -= dt;
+
+            // 2. Update Mouse Position
             MouseState mouseState = Mouse.GetState();
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
+            // 3. STATE MACHINE
+            // IN FILE: Player.cs inside Update()
 
-
-            // STATE MACHINE
             switch (CurrentState)
             {
                 case PlayerState.Idle:
                 case PlayerState.Run:
-                    HandleInput(currentLayer);
+                    HandleInput(currentLayer, true); // TRUE: Allowed to switch between Run/Idle
                     CheckForCombatInput(enemies);
                     break;
 
                 case PlayerState.Attack1:
-                    UpdateAttack(gameTime, enemies, 1);
-                    break;
-
                 case PlayerState.Attack2:
-                    UpdateAttack(gameTime, enemies, 2);
+                    HandleInput(currentLayer, false); // FALSE: Move, but DO NOT change state. Keep Attacking.
+                    UpdateAttack(gameTime, enemies, (CurrentState == PlayerState.Attack1 ? 1 : 2));
                     break;
 
                 case PlayerState.Dash:
@@ -172,12 +179,11 @@ namespace Pale_Roots_1
                     break;
 
                 case PlayerState.Hurt:
-                    UpdateHurt(gameTime, currentLayer);
+                    HandleInput(currentLayer, false); // FALSE: Move, but keep Hurt animation playing.
+                    UpdateHurt(gameTime);
                     break;
 
                 case PlayerState.Dead:
-                    // Play death animation until end, then stop
-                    // The AnimationManager handles the "Stop at last frame" if looping is false
                     break;
             }
 
@@ -198,33 +204,53 @@ namespace Pale_Roots_1
                 StartDash();
             }
         }
+
+        // IN FILE: Player.cs
+
         private void StartDash()
         {
+
+            if (_dashCooldownTimer > 0) return;
+
             CurrentState = PlayerState.Dash;
-            _stateTimer = 500f; 
-            _dashDirection = _facingDirection;
-            if (_velocity != Vector2.Zero) _dashDirection = Vector2.Normalize(_velocity);
+
+            _dashSpeed = 20f;
+            _stateTimer = 150f;
+
+            _dashCooldownTimer = _dashCooldownDuration; 
+            _isInvincible = true; 
+
+            // Determine direction
+            if (_velocity != Vector2.Zero)
+                _dashDirection = Vector2.Normalize(_velocity);
+            else
+            {
+                // Dash in facing direction if standing still
+                if (_currentDirectionIndex == 2) _dashDirection = new Vector2(-1, 0);
+                else _dashDirection = new Vector2(1, 0);
+            }
         }
+
         private void UpdateDash(GameTime gameTime, TileLayer layer)
         {
-            float dt  = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            _dashTimer -= dt;
+            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            _stateTimer -= dt;
 
-            Vector2 dashStep = _dashDirection * _dashSpeed;
+            // Move
+            position += _dashDirection * _dashSpeed;
 
-            position += dashStep;
-
-            if (_dashTimer <= 0)
+            if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
                 _velocity = Vector2.Zero;
+                _isInvincible = false; // GOD MODE OFF
             }
         }
-        private void UpdateHurt(GameTime gameTime, TileLayer currentLayer)
+        private void UpdateHurt(GameTime gameTime)
         {
             _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            HandleInput(currentLayer);
+            // Optional: Apply a little knockback friction here if you want
 
             if (_stateTimer <= 0)
             {
@@ -232,7 +258,13 @@ namespace Pale_Roots_1
             }
         }
 
-        private void HandleInput(TileLayer currentLayer)
+        // IN FILE: Player.cs
+        // Replace your HandleInput method with this updated version
+
+        // IN FILE: Player.cs
+
+        // CHANGE: Added 'bool updateState' parameter
+        private void HandleInput(TileLayer currentLayer, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
             KeyboardState state = Keyboard.GetState();
@@ -247,6 +279,9 @@ namespace Pale_Roots_1
                 inputDirection.Normalize();
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
+
+                // Sync direction index
+                _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
 
                 Vector2 proposedPosition = position + _velocity;
                 if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
@@ -263,10 +298,27 @@ namespace Pale_Roots_1
                 _velocity = Vector2.Zero;
             }
 
-            if (_velocity != Vector2.Zero)
-                CurrentState = PlayerState.Run;
+            // CRITICAL FIX: Only change the state if we are allowed to!
+            // This prevents the Attack animation from being overwritten by Run/Idle.
+            if (updateState)
+            {
+                if (_velocity != Vector2.Zero)
+                    CurrentState = PlayerState.Run;
+                else
+                    CurrentState = PlayerState.Idle;
+            }
+        }
+
+        private int GetDirectionFromVector(Vector2 dir)
+        {
+            if (Math.Abs(dir.X) > Math.Abs(dir.Y))
+            {
+                return (dir.X > 0) ? 3 : 2;
+            }
             else
-                CurrentState = PlayerState.Idle;
+            {
+                return (dir.Y > 0) ? 0 : 1;
+            }
         }
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
@@ -308,39 +360,34 @@ namespace Pale_Roots_1
         // ===================
         // COMBAT LOGIC
         // ===================
+        // IN FILE: Player.cs
+
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
-            // 1. LOCK DIRECTION
-            // We calculate this ONCE when the attack starts.
+            // 1. Direction Logic
             Vector2 dirToMouse = _mouseWorldPosition - this.Center;
+            dirToMouse.Normalize();
+            _currentDirectionIndex = GetDirectionFromVector(dirToMouse);
 
-            // Update the facing direction logic
-            if (dirToMouse.X < 0)
-            {
-                _flipEffect = SpriteEffects.FlipHorizontally;
-                _facingDirection = new Vector2(-1, 0); // Force left
-            }
-            else
-            {
-                _flipEffect = SpriteEffects.None;
-                _facingDirection = new Vector2(1, 0); // Force right
-            }
+            if (_currentDirectionIndex == 2) _flipEffect = SpriteEffects.FlipHorizontally;
+            else _flipEffect = SpriteEffects.None;
 
-            // 2. SET STATE & TIMER
+            // 2. Set State & Timer
+            // We calculate exact duration: Frames * Speed
             if (attackNum == 1)
             {
                 CurrentState = PlayerState.Attack1;
-                // 10 frames * 100ms = 1000ms
-                _stateTimer = 1000f;
+                // 10 frames * 100ms = 1000ms total duration
+                _stateTimer = 10 * 100f;
                 _comboBuffered = false;
             }
             else if (attackNum == 2)
             {
                 CurrentState = PlayerState.Attack2;
-                _stateTimer = 1000f;
+                _stateTimer = 10 * 100f;
             }
 
-            // 3. DEAL DAMAGE
+            // 3. Deal Damage
             PerformSwordHit(enemies);
         }
         private void UpdateAttack(GameTime gameTime, List<Enemy> enemies, int attackNum)
@@ -370,46 +417,56 @@ namespace Pale_Roots_1
                 }
             }
         }
+
+        // IN FILE: Player.cs
+
         private void PerformSwordHit(List<Enemy> enemies)
         {
-            // 1. CALCULATE CHEST POSITION
-            // 'position' is the Feet.
-            // We want to swing from the Chest, which is roughly 60-80 pixels UP.
-            Vector2 chestPosition = new Vector2(position.X, position.Y - 80);
+            // 1. Calculate Chest Position relative to Feet (Cyan Dot)a
+            // We move UP (-Y) from the dot.
+            float spritePixelHeight = spriteHeight * (float)Scale;
 
-            // 2. DEFINE HITBOX
-            // We extend the reach OUT from the Chest.
-            float reach = 120f;
-            Vector2 hitBoxCenter = chestPosition + (_facingDirection * (reach / 2));
+            // Chest is roughly 60% up the body
+            Vector2 chestPosition = new Vector2(position.X, position.Y - (spritePixelHeight * 0.5f));
+
+            // 2. Attack Direction
+            Vector2 attackDir = Vector2.Zero;
+            if (_currentDirectionIndex == 0) attackDir = new Vector2(0, 1);  // Down
+            if (_currentDirectionIndex == 1) attackDir = new Vector2(0, -1); // Up
+            if (_currentDirectionIndex == 2) attackDir = new Vector2(-1, 0); // Left
+            if (_currentDirectionIndex == 3) attackDir = new Vector2(1, 0);  // Right
+
+            // 3. Create Hitbox (Offset from Chest)
+            float reach = 80f;
+            Vector2 hitCenter = chestPosition + (attackDir * reach);
 
             Rectangle swordHitbox = new Rectangle(
-                (int)(hitBoxCenter.X - reach / 2),
-                (int)(hitBoxCenter.Y - reach / 2),
-                (int)reach,
-                (int)reach
+                (int)(hitCenter.X - 40),
+                (int)(hitCenter.Y - 40),
+                80, 80
             );
 
-            // 3. CHECK COLLISIONS
+            // 4. Check Collisions
             foreach (var enemy in enemies)
             {
                 if (!enemy.IsAlive) continue;
 
-                // ENEMY HITBOX (Assuming Enemy Position is also Feet)
-                // We construct a box that covers the Enemy's body (Feet up to Head)
+                // Enemy Hitbox: From Feet (Position) UP to Head
+                // Assuming Enemy Position is also Feet
                 Rectangle enemyRect = new Rectangle(
-                    (int)enemy.Position.X - 40, // Center X
-                    (int)enemy.Position.Y - 100, // Top of head (Feet - Height)
-                    80, // Width
-                    100 // Height
+                    (int)enemy.Position.X - 30,
+                    (int)enemy.Position.Y - 80, // Top of box (80px up)
+                    60, // Width
+                    80  // Height
                 );
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
                     CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
 
-                    Vector2 knockbackDir = enemy.Position - this.position;
-                    if (knockbackDir != Vector2.Zero) knockbackDir.Normalize();
-                    enemy.ApplyKnockback(knockbackDir * GameConstants.SwordKnockback);
+                    Vector2 kb = enemy.Position - this.position;
+                    if (kb != Vector2.Zero) kb.Normalize();
+                    enemy.ApplyKnockback(kb * GameConstants.SwordKnockback);
                 }
             }
         }
@@ -418,9 +475,15 @@ namespace Pale_Roots_1
         // ===================
         // INTERFACE METHODS
         // ===================
+        // IN FILE: Player.cs
+
         public void TakeDamage(int amount, ICombatant attacker)
         {
+            // 1. Check I-Frames
+            if (_isInvincible) return; // Can't touch this
+
             if (!IsAlive) return;
+
             Health -= amount;
 
             if (Health <= 0)
@@ -429,9 +492,8 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Trigger Hurt Animation
                 CurrentState = PlayerState.Hurt;
-                _stateTimer = 450f; // 3 frames * 150ms
+                _stateTimer = 300f; // Short hurt animation (Snappy!)
             }
         }
 
@@ -475,26 +537,31 @@ namespace Pale_Roots_1
         // ===================
         // DRAW
         // ===================
+        // IN FILE: Player.cs
+
+        // IN FILE: Player.cs
+
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // 1. Draw Player (Anchored at Feet)
-            _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect);
+            // Draw directly at position (The Cyan Dot)
+            // The AnimationManager handles the Origin (Feet), so the sprite stands ON the dot.
+            _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
 
-            // 2. Draw Health Bar
+            // Draw Health Bar above head
             if (IsAlive)
             {
-                // Draw 120 pixels ABOVE the feet (roughly over the head)
+                // 120 pixels UP from the feet
                 int barY = (int)position.Y - 120;
                 int barWidth = (int)(32 * Scale);
-                int barX = (int)position.X - (barWidth / 2); // Centered
+                int barX = (int)position.X - (barWidth / 2);
 
                 spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
                 float healthPercent = (float)Health / MaxHealth;
                 spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
             }
 
-        
-             spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
+            // Debug Dot (Feet)
+            spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
         }
     }
 }

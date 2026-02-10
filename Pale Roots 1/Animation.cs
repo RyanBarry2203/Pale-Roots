@@ -15,7 +15,9 @@ namespace Pale_Roots_1
         public int FrameWidth { get; private set; }
         public int FrameHeight { get; private set; }
 
-        public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1, int customWidth = 0)
+        public bool IsGrid { get; set; }
+
+        public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1, int customWidth = 0, bool isGrid = false)
         {
             Texture = texture;
             FrameCount = frameCount;
@@ -23,21 +25,14 @@ namespace Pale_Roots_1
             FrameSpeed = frameSpeed;
             IsLooping = isLooping;
             TotalRows = totalRows;
+            IsGrid = isGrid; // NEW: Stores if this is a directional sheet
 
-            // THE LOGIC:
-            // If we pass a custom width (like 125), use it.
-            // If we pass 0, calculate it automatically (Texture / Count).
             if (customWidth > 0)
-            {
-                // Manual Override for messy sheets
                 FrameWidth = customWidth;
-            }
             else
-            {
-                // Automatic Calculation for clean sheets
                 FrameWidth = texture.Width / frameCount;
-            }
 
+            // If it's a grid, the height is the full texture divided by rows
             FrameHeight = texture.Height / totalRows;
         }
     }

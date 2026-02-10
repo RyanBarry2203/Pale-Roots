@@ -55,21 +55,31 @@ namespace Pale_Roots_1
                 }
             }
         }
-        public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect)
+        public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect, int direction = 0)
         {
             if (_currentAnimation == null) return;
 
             int frameWidth = _currentAnimation.FrameWidth;
             int frameHeight = _currentAnimation.FrameHeight;
+            int currentRow = _currentAnimation.SheetRow;
+
+            // POLYMORPHIC LOGIC:
+            // If it's a Grid (Enemy/Ally), we ignore the 'effect' flip and change the Y row instead.
+            // Assuming standard sheets: 0:Down, 1:Left, 2:Right, 3:Up (Adjust based on your asset)
+            if (_currentAnimation.IsGrid)
+            {
+                currentRow = direction;
+                effect = SpriteEffects.None; // Grid handles direction, so don't flip
+            }
 
             Rectangle source = new Rectangle(
                 CurrentFrame * frameWidth,
-                _currentAnimation.SheetRow * frameHeight,
+                currentRow * frameHeight,
                 frameWidth,
                 frameHeight
             );
 
-
+            // Origin at Bottom Center (Feet)
             Vector2 origin = new Vector2(frameWidth / 2f, frameHeight);
 
             spriteBatch.Draw(
