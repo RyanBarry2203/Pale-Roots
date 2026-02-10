@@ -60,6 +60,8 @@ namespace Pale_Roots_1
         //private float _swingTimer = 0f;
         private float _cooldownTimer = 0f;
 
+        private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
+
 
         // animation stuff
 
@@ -360,7 +362,6 @@ namespace Pale_Roots_1
         // ===================
         // COMBAT LOGIC
         // ===================
-        // IN FILE: Player.cs
 
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
@@ -373,34 +374,41 @@ namespace Pale_Roots_1
             else _flipEffect = SpriteEffects.None;
 
             // 2. Set State & Timer
-            // We calculate exact duration: Frames * Speed
-            if (attackNum == 1)
-            {
-                CurrentState = PlayerState.Attack1;
-                // 10 frames * 100ms = 1000ms total duration
-                _stateTimer = 10 * 100f;
-                _comboBuffered = false;
-            }
-            else if (attackNum == 2)
-            {
-                CurrentState = PlayerState.Attack2;
-                _stateTimer = 10 * 100f;
-            }
+            string animName = (attackNum == 1) ? "Attack1" : "Attack2";
+            float frameSpeed = (attackNum == 1) ? 80f : 120f;
+            float duration = 10 * frameSpeed;
 
-            // 3. Deal Damage
-            PerformSwordHit(enemies);
+            CurrentState = (attackNum == 1) ? PlayerState.Attack1 : PlayerState.Attack2;
+            _stateTimer = duration;
+            _comboBuffered = false;
+
+            // 3. RESET THE HIT LIST
+            // New swing, so we can hit everyone again
+            _enemiesHitThisAttack.Clear();
+
+            // NOTE: We removed PerformSwordHit() from here! 
+            // We will call it in Update instead.
         }
+
+
         private void UpdateAttack(GameTime gameTime, List<Enemy> enemies, int attackNum)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            // COMBO CHECK (Buffer input)
-            float progress = 1f - (_stateTimer / (attackNum == 1 ? 800f : 600f));
+            // 1. PERFORM HIT CHECK (Every Frame!)
+            // This ensures the hitbox moves WITH the player.
+            if (attackNum == 1)
+                PerformSwordHit(enemies, 1.0f, 1.0f);
+            else
+                PerformSwordHit(enemies, 2.0f, 1.5f);
+
+            // 2. COMBO LOGIC
+            float duration = (attackNum == 1 ? 800f : 1200f);
+            float progress = 1f - (_stateTimer / duration);
 
             if (attackNum == 1 && (Keyboard.GetState().IsKeyDown(Keys.Space) || Mouse.GetState().LeftButton == ButtonState.Pressed))
             {
-                // Allow combo input after 50% of animation
                 if (progress > 0.5f) _comboBuffered = true;
             }
 
@@ -408,26 +416,23 @@ namespace Pale_Roots_1
             {
                 if (attackNum == 1 && _comboBuffered)
                 {
-                    StartAttack(enemies, 2); // Chain into Attack 2
+                    StartAttack(enemies, 2);
                 }
                 else
                 {
                     CurrentState = PlayerState.Idle;
                     _cooldownTimer = GameConstants.SwordCooldown;
+                    _debugSwordBox = Rectangle.Empty; // Clear debug box when done
                 }
             }
         }
 
-        // IN FILE: Player.cs
+        private Rectangle _debugSwordBox;
 
-        private void PerformSwordHit(List<Enemy> enemies)
+        private void PerformSwordHit(List<Enemy> enemies, float damageMult, float knockbackMult)
         {
-            // 1. Calculate Chest Position relative to Feet (Cyan Dot)a
-            // We move UP (-Y) from the dot.
-            float spritePixelHeight = spriteHeight * (float)Scale;
-
-            // Chest is roughly 60% up the body
-            Vector2 chestPosition = new Vector2(position.X, position.Y - (spritePixelHeight * 0.5f));
+            // 1. Calculate Chest Position (Dynamic! Updates every frame)
+            Vector2 chestPosition = new Vector2(position.X, position.Y - 50);
 
             // 2. Attack Direction
             Vector2 attackDir = Vector2.Zero;
@@ -436,37 +441,48 @@ namespace Pale_Roots_1
             if (_currentDirectionIndex == 2) attackDir = new Vector2(-1, 0); // Left
             if (_currentDirectionIndex == 3) attackDir = new Vector2(1, 0);  // Right
 
-            // 3. Create Hitbox (Offset from Chest)
-            float reach = 80f;
+            // 3. Create Hitbox
+            float reach = 80f * knockbackMult;
             Vector2 hitCenter = chestPosition + (attackDir * reach);
+            int boxSize = (int)(80 * knockbackMult);
 
             Rectangle swordHitbox = new Rectangle(
-                (int)(hitCenter.X - 40),
-                (int)(hitCenter.Y - 40),
-                80, 80
+                (int)(hitCenter.X - boxSize / 2),
+                (int)(hitCenter.Y - boxSize / 2),
+                boxSize,
+                boxSize
             );
+
+            // Update Debug Box so it follows us visually
+            _debugSwordBox = swordHitbox;
 
             // 4. Check Collisions
             foreach (var enemy in enemies)
             {
                 if (!enemy.IsAlive) continue;
 
-                // Enemy Hitbox: From Feet (Position) UP to Head
-                // Assuming Enemy Position is also Feet
+                // FILTER: If we already hit this guy this swing, skip him!
+                if (_enemiesHitThisAttack.Contains(enemy)) continue;
+
                 Rectangle enemyRect = new Rectangle(
                     (int)enemy.Position.X - 30,
-                    (int)enemy.Position.Y - 80, // Top of box (80px up)
-                    60, // Width
-                    80  // Height
+                    (int)enemy.Position.Y - 80,
+                    60,
+                    80
                 );
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
-                    CombatSystem.DealDamage(this, enemy, GameConstants.SwordDamage);
+                    // HIT CONFIRMED
+                    int finalDamage = (int)(GameConstants.SwordDamage * damageMult);
+                    CombatSystem.DealDamage(this, enemy, finalDamage);
 
                     Vector2 kb = enemy.Position - this.position;
                     if (kb != Vector2.Zero) kb.Normalize();
-                    enemy.ApplyKnockback(kb * GameConstants.SwordKnockback);
+                    enemy.ApplyKnockback(kb * GameConstants.SwordKnockback * knockbackMult);
+
+                    // Add to list so we don't hit him again this animation
+                    _enemiesHitThisAttack.Add(enemy);
                 }
             }
         }
@@ -537,20 +553,15 @@ namespace Pale_Roots_1
         // ===================
         // DRAW
         // ===================
-        // IN FILE: Player.cs
-
-        // IN FILE: Player.cs
 
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // Draw directly at position (The Cyan Dot)
-            // The AnimationManager handles the Origin (Feet), so the sprite stands ON the dot.
+            // 1. Draw Sprite
             _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
 
-            // Draw Health Bar above head
+            // 2. Draw Health Bar
             if (IsAlive)
             {
-                // 120 pixels UP from the feet
                 int barY = (int)position.Y - 120;
                 int barWidth = (int)(32 * Scale);
                 int barX = (int)position.X - (barWidth / 2);
@@ -560,7 +571,21 @@ namespace Pale_Roots_1
                 spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
             }
 
-            // Debug Dot (Feet)
+            // 3. DEBUG: Draw the Sword Hitbox
+            // Only draw it if we are currently attacking
+            if (CurrentState == PlayerState.Attack1 || CurrentState == PlayerState.Attack2)
+            {
+                // Draw a semi-transparent Red Box
+                spriteBatch.Draw(_healthBarTexture, _debugSwordBox, new Color(255, 0, 0, 100));
+            }
+
+            // 4. DEBUG: Draw the Player's Hurtbox (Where enemies hit YOU)
+            // Feet up to Head
+            Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 80, 40, 80);
+            // Draw a semi-transparent Blue Box
+            spriteBatch.Draw(_healthBarTexture, myHurtBox, new Color(0, 0, 255, 100));
+
+            // 5. Cyan Dot (Feet)
             spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
         }
     }
