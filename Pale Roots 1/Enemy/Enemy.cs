@@ -50,35 +50,47 @@ namespace Pale_Roots_1
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
-        // NEW CONSTRUCTOR
+        // ==================================================================================
+        // CONSTRUCTOR 1: NEW (For Animated Orcs)
+        // ==================================================================================
         public Enemy(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Idle"], userPosition, framecount)
         {
             SetupCommonStats(userPosition);
 
-            // FIX: Reduced Scale to prevent collision jams
-            Scale = 2.5f;
+            // SCALE: 3.0f is a balance. 
+            // 4.0f makes the hitbox too big for 64px tiles. 
+            // 2.0f might be too small visually.
+            Scale = 3.0f;
 
             _animManager = new AnimationManager();
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 120f, true, 4, 0, true));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 100f, false, 4, 0, true));
-            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 100f, false, 4, 0, true));
-            _animManager.AddAnimation("Death", new Animation(textures["Death"], 4, 0, 150f, false, 4, 0, true));
+
+            // ORC SHEET CONFIGURATION
+            // isGrid = true (It has 4 rows)
+            // totalRows = 4
+            // Speed = 200f (Slower, so you can see the animation)
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 4, 0, true));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 4, 0, true));
+            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 4, 0, true));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 4, 0, 200f, false, 4, 0, true));
 
             _animManager.Play("Idle");
             SetupHealthBar(g);
         }
 
-        // LEGACY CONSTRUCTOR
+        // ==================================================================================
+        // CONSTRUCTOR 2: LEGACY (For Sentry, etc.)
+        // ==================================================================================
         public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
             SetupCommonStats(userPosition);
-            Scale = 2.5f;
+            Scale = 3.0f;
 
             _animManager = new AnimationManager();
-            var legacyAnim = new Animation(texture, framecount, 0, 150f, true, 1, 0, false);
+            var legacyAnim = new Animation(texture, framecount, 0, 200f, true, 1, 0, false);
+
             _animManager.AddAnimation("Idle", legacyAnim);
             _animManager.AddAnimation("Walk", legacyAnim);
             _animManager.AddAnimation("Attack", legacyAnim);
@@ -122,9 +134,19 @@ namespace Pale_Roots_1
             UpdateDirection();
 
             string animKey = "Idle";
-            if (_lifecycleState == ENEMYSTATE.DYING) animKey = "Death";
-            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 800) animKey = "Attack";
-            else if (Velocity > 0.1f || CurrentAIState == AISTATE.Charging) animKey = "Walk";
+
+            if (_lifecycleState == ENEMYSTATE.DYING)
+            {
+                animKey = "Death";
+            }
+            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 800)
+            {
+                animKey = "Attack";
+            }
+            else if (Velocity > 0.1f || CurrentAIState == AISTATE.Chasing || CurrentAIState == AISTATE.Charging)
+            {
+                animKey = "Walk";
+            }
 
             _animManager.Play(animKey);
             _animManager.Update(gametime);
@@ -135,12 +157,16 @@ namespace Pale_Roots_1
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
-            if (_lifecycleState == ENEMYSTATE.ALIVE) UpdateAI(gametime, obstacles);
+            if (_lifecycleState == ENEMYSTATE.ALIVE)
+            {
+                UpdateAI(gametime, obstacles);
+            }
         }
 
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
-            if (_attackCooldown > 0) _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            if (_attackCooldown > 0)
+                _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
@@ -174,7 +200,9 @@ namespace Pale_Roots_1
             if (_currentTarget == null) { CurrentAIState = AISTATE.Wandering; return; }
             MoveToward(_currentTarget.Center, Velocity, obstacle);
             if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.CombatEngageRange)
+            {
                 CurrentAIState = AISTATE.InCombat;
+            }
         }
 
         protected virtual void PerformCombat(GameTime gameTime)
@@ -182,9 +210,13 @@ namespace Pale_Roots_1
             if (_currentTarget == null || !_currentTarget.IsAlive) { CurrentAIState = AISTATE.Wandering; return; }
             SnapToFace(_currentTarget.Center);
             if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
+            {
                 PerformAttack();
+            }
             if (CombatSystem.GetDistance(this, _currentTarget) > GameConstants.CombatBreakRange)
+            {
                 CurrentAIState = AISTATE.Chasing;
+            }
         }
 
         protected virtual void PerformWander(List<WorldObject> obstacles)
@@ -202,7 +234,11 @@ namespace Pale_Roots_1
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
-            if (_deathCountdown <= 0) { _lifecycleState = ENEMYSTATE.DEAD; Visible = false; }
+            if (_deathCountdown <= 0)
+            {
+                _lifecycleState = ENEMYSTATE.DEAD;
+                Visible = false;
+            }
         }
 
         public virtual void TakeDamage(int amount, ICombatant attacker)
@@ -229,31 +265,44 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
-            // ORC SHEET MAPPING: 0:Down, 1:Up, 2:Right, 3:Left
+            // ORC SHEET MAPPING (Based on visual inspection of orc1_run_full.png)
+            // Row 0: Down
+            // Row 1: Up
+            // Row 2: Left
+            // Row 3: Right
+
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
                 {
-                    _currentDirectionIndex = (diff.X > 0) ? 2 : 3; // Right : Left
+                    // Horizontal
+                    _currentDirectionIndex = (diff.X > 0) ? 3 : 2; // 3=Right, 2=Left
                 }
                 else
                 {
-                    _currentDirectionIndex = (diff.Y > 0) ? 0 : 1; // Down : Up
+                    // Vertical
+                    _currentDirectionIndex = (diff.Y > 0) ? 0 : 1; // 0=Down, 1=Up
                 }
             }
             else if (Velocity > 0)
             {
-                _currentDirectionIndex = 3; // Default Left when charging
+                // Charging Left (towards player)
+                _currentDirectionIndex = 2;
             }
         }
 
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
+            {
                 _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
+            }
+
             if (_drawHealthBar && IsAlive)
+            {
                 DrawHealthBar(spriteBatch);
+            }
         }
 
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
@@ -262,10 +311,15 @@ namespace Pale_Roots_1
             int barHeight = 5;
             int barX = (int)position.X - (barWidth / 2);
             int barY = (int)position.Y - spriteHeight / 2 - 10;
+
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
+
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
-            spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), Color.CornflowerBlue);
+
+            Color healthColor = healthPercent > 0.6f ? Color.Green : healthPercent > 0.3f ? Color.Orange : Color.Red;
+
+            spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), healthColor);
         }
     }
 }

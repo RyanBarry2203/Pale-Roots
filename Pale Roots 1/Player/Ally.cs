@@ -59,15 +59,19 @@ namespace Pale_Roots_1
             _deathCountdown = GameConstants.DeathCountdown;
             CurrentAIState = Enemy.AISTATE.Charging;
 
-            // FIX: Reduced Scale so they don't get stuck on each other
-            Scale = 2.5f;
+            // SCALE: 3.0f
+            Scale = 3.0f;
 
             _animManager = new AnimationManager();
 
-            // FIX: Ensure totalRows = 1 for Strips
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 1, 0, false));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 120f, true, 1, 0, false));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 100f, false, 1, 0, false));
+            // ALLY SHEET CONFIGURATION
+            // These are STRIPS (Single Row).
+            // isGrid = false
+            // totalRows = 1
+            // Speed = 200f (Slower)
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 1, 0, false));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 1, 0, false));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 1, 0, false));
 
             _animManager.Play("Walk");
 
@@ -84,7 +88,6 @@ namespace Pale_Roots_1
             UpdateDirection();
 
             string animKey = "Idle";
-            // Simple state check for animation
             if (CurrentAIState == Enemy.AISTATE.InCombat && _attackCooldown > 800)
                 animKey = "Attack";
             else if (Velocity > 0.1f || CurrentAIState == Enemy.AISTATE.Charging)
@@ -99,7 +102,10 @@ namespace Pale_Roots_1
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
-            if (_lifecycleState == ALLYSTATE.ALIVE) UpdateAI(gametime, obstacles);
+            if (_lifecycleState == ALLYSTATE.ALIVE)
+            {
+                UpdateAI(gametime, obstacles);
+            }
         }
 
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
@@ -188,20 +194,22 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
-            // FIX: ALWAYS USE ROW 0. 
-            // This prevents the "facing wrong direction" bug because strips don't have rows 1, 2, or 3.
+            // ALLY SHEET MAPPING:
+            // These are strips. They only have Row 0.
+            // They face RIGHT by default.
+
             _currentDirectionIndex = 0;
             _flipEffect = SpriteEffects.None;
 
-            // Only flip if moving Left
             if (CurrentTarget != null)
             {
+                // If target is to the LEFT, flip.
                 if (CurrentTarget.Position.X < this.Position.X)
                     _flipEffect = SpriteEffects.FlipHorizontally;
             }
-            else
+            else if (Velocity > 0)
             {
-                // Default charging Right (No flip)
+                // Charging Right (Default) -> No Flip
             }
         }
 
