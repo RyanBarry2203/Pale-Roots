@@ -417,7 +417,7 @@ namespace Pale_Roots_1
                             pos.X += CombatSystem.RandomInt(-20, 20);
                             pos.Y += CombatSystem.RandomInt(-20, 20);
 
-                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet);
+                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet, false);
                         }
                     }
                 }
@@ -427,16 +427,18 @@ namespace Pale_Roots_1
         }
         private void PlaceLandMarks()
         {
+            // Animated objects are fine as they were
             Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
             Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
-            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet);
-            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet);
+
+            // CHANGE: Columns and Rocks are solid (true)
+            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet, true);
+            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet, true);
 
             Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
-            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet);
-
+            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet, true);
 
             Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
             int radius = 150;
@@ -446,31 +448,32 @@ namespace Pale_Roots_1
             {
                 float angle = i * (MathHelper.TwoPi / skullCount);
                 Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
-                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet);
-            }
 
+                
+                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet, false);
+            }
 
             for (int i = 0; i < 15; i++)
             {
-
                 int rx = CombatSystem.RandomInt(10, 50);
-                int ry = CombatSystem.RandomInt(5, 29); 
+                int ry = CombatSystem.RandomInt(5, 29);
                 Vector2 pos = new Vector2(rx * 64, ry * 64);
 
                 if (CombatSystem.RandomInt(0, 100) > 50)
-                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
+                    
+                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet, true);
                 else
-                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet);
+                    
+                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
             }
         }
-        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
         {
             Rectangle data = Helper.GetSourceRect(assetName);
 
-            var obj = new WorldObject(_game, sheet, position, 1, true);
+            var obj = new WorldObject(_game, sheet, position, 1, isSolid);
 
             obj.SetSpriteSheetLocation(data);
-
             MapObjects.Add(obj);
         }
         private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
@@ -822,6 +825,7 @@ namespace Pale_Roots_1
         private Vector2 _knockBackVelocity;
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
+        private Vector2 _previousPosition;
 
         private ENEMYSTATE _lifecycleState = ENEMYSTATE.ALIVE;
         public ENEMYSTATE LifecycleState
@@ -1101,21 +1105,27 @@ namespace Pale_Roots_1
         // Determine animation row/direction based on target or velocity
         private void UpdateDirection()
         {
+            // 1. If we have a target, face them (Combat/Chase)
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
-                {
                     _currentDirectionIndex = (diff.X > 0) ? 3 : 2; // 3=Right, 2=Left
-                }
                 else
-                {
                     _currentDirectionIndex = (diff.Y > 0) ? 0 : 1; // 0=Down, 1=Up
-                }
             }
-            else if (Velocity > 0)
+            else
             {
-                _currentDirectionIndex = 2; // default facing when charging/idle movement
+                Vector2 movement = position - _previousPosition;
+
+                // Only update if we moved enough to matter
+                if (movement.Length() > 0.5f)
+                {
+                    if (Math.Abs(movement.X) > Math.Abs(movement.Y))
+                        _currentDirectionIndex = (movement.X > 0) ? 3 : 2; // Right vs Left
+                    else
+                        _currentDirectionIndex = (movement.Y > 0) ? 0 : 1; // Down vs Up
+                }
             }
         }
 
@@ -1791,16 +1801,24 @@ namespace Pale_Roots_1
 
         private void SetupCombatEvents()
         {
-            // Track kills
+            // Track kills AND Spawn Reinforcements
             CombatSystem.OnCombatantKilled += (killer, victim) =>
             {
                 if (victim.Team == CombatTeam.Enemy)
+                {
                     EnemiesKilled++;
+                    // Enemy dies -> 2 new Enemies appear
+                    SpawnReinforcements(CombatTeam.Enemy, 2);
+                }
                 else if (victim.Team == CombatTeam.Player && victim != _player)
+                {
                     AlliesLost++;
+                    // Ally dies -> 2 new Allies appear
+                    SpawnReinforcements(CombatTeam.Player, 2);
+                }
             };
 
-            // Could add more events: damage numbers, sounds, particles, etc.
+            // Keep the rest of your event logic...
             CombatSystem.OnDamageDealt += (attacker, target, damage) =>
             {
                 // Play hit sound, spawn damage number, etc.
@@ -1810,7 +1828,7 @@ namespace Pale_Roots_1
         // ===================
         // UPDATE
         // ===================
-        
+
         public void Update(GameTime gameTime)
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
@@ -1955,6 +1973,50 @@ namespace Pale_Roots_1
             _enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
         }
 
+        private void SpawnReinforcements(CombatTeam team, int count)
+        {
+            Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
+            float spawnRadius = 1800f; // Edge of the map (Trees)
+
+            for (int i = 0; i < count; i++)
+            {
+                // 1. Pick random spot on edge
+                float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
+                Vector2 spawnPos = center + new Vector2(
+                    (float)Math.Cos(angle) * spawnRadius,
+                    (float)Math.Sin(angle) * spawnRadius
+                );
+
+                if (team == CombatTeam.Enemy)
+                {
+                    var newEnemy = new Enemy(_gameOwnedBy, _orcTextures, spawnPos, 4);
+                    newEnemy.Name = "Reinforcement Orc";
+
+                    // Force them to hunt the player immediately
+                    CombatSystem.AssignTarget(newEnemy, _player);
+                    newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
+
+                    _enemies.Add(newEnemy);
+                }
+                else if (team == CombatTeam.Player)
+                {
+                    var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
+                    newAlly.Name = "Reinforcement Soldier";
+
+                    // Allies need to find a target, or they will wander. 
+                    // Let's make them hunt the nearest enemy if possible.
+                    var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
+                    if (bestTarget != null)
+                    {
+                        CombatSystem.AssignTarget(newAlly, bestTarget);
+                        newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+
+                    _allies.Add(newAlly);
+                }
+            }
+        }
+
         // ===================
         // DRAW
         // ===================
@@ -2005,10 +2067,10 @@ namespace Pale_Roots_1
             {
                 sprite.Draw(spriteBatch);
             }
-            foreach (var obj in _levelManager.MapObjects)
-            {
-                obj.DrawDebug(spriteBatch);
-            }
+            //foreach (var obj in _levelManager.MapObjects)
+            //{
+            //    obj.DrawDebug(spriteBatch);
+            //}
         }
 
         // ===================
@@ -2858,7 +2920,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+428c3ca0562c7d9e1afb68db7bccbd0c8ce722bf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+30f15dceb96bfe1a022317c69dec3dcb42e797c8")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -3561,7 +3623,7 @@ namespace Pale_Roots_1
             _debugSwordBox = swordHitbox;
 
             // 4. Check Collisions
-            foreach (var enemy in enemies)
+            foreach (var enemy in enemies.ToArray())
             {
                 if (!enemy.IsAlive) continue;
 
