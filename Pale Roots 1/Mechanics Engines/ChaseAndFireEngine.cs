@@ -44,10 +44,13 @@ namespace Pale_Roots_1
         private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
         private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
+        private Dictionary<string, Texture2D> _orcTextures = new Dictionary<string, Texture2D>();
+        private Dictionary<string, Texture2D> _allyTextures = new Dictionary<string, Texture2D>();
+
         // ===================
         // TARGETING
         // ===================
-        
+
         private float _targetingTimer = 0f;
 
         // ===================
@@ -107,23 +110,37 @@ namespace Pale_Roots_1
         
         private void InitializeArmies()
         {
-            Texture2D allyTx = _gameOwnedBy.Content.Load<Texture2D>("wizard_strip3");
-            Texture2D enemyTx = _gameOwnedBy.Content.Load<Texture2D>("Dragon_strip3");
+            //Texture2D allyTx = _gameOwnedBy.Content.Load<Texture2D>("wizard_strip3");
+            //Texture2D enemyTx = _gameOwnedBy.Content.Load<Texture2D>("Dragon_strip3");
+
+            // --- LOAD ORC TEXTURES ---
+            // --- LOAD ORC TEXTURES ---
+            // We use "orc1" because that is what is in your Solution Explorer
+            _orcTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_idle_full");
+            _orcTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_run_full");
+            _orcTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_attack_full");
+            _orcTextures["Hurt"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_hurt_full");
+            _orcTextures["Death"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_death_full");
+
+            // --- LOAD ALLY TEXTURES ---
+            _allyTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Walk");
+            _allyTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Slash");
+            _allyTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Idle");
 
             // Create 5 allies in a column
             for (int i = 0; i < 5; i++)
             {
-                Vector2 pos = _allySpawnOrigin + new Vector2(0, i * 60);
-                var ally = new Ally(_gameOwnedBy, allyTx, pos, 3);
+                Vector2 pos = _allySpawnOrigin + new Vector2(0, i * 100);
+                var ally = new Ally(_gameOwnedBy, _allyTextures, pos, 4);
                 ally.Name = $"Soldier {i + 1}";
                 _allies.Add(ally);
             }
 
             // Create 10 enemies in a triangle formation
-            CreateEnemyFormation(enemyTx, 10);
+            CreateEnemyFormation(10);
         }
 
-        private void CreateEnemyFormation(Texture2D texture, int count)
+        private void CreateEnemyFormation(int count)
         {
             int currentRow = 0;
             int enemiesInCurrentRow = 1;
@@ -137,7 +154,7 @@ namespace Pale_Roots_1
                 float rowHeight = (enemiesInCurrentRow - 1) * spacingY;
                 float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
 
-                var enemy = new Enemy(_gameOwnedBy, texture, new Vector2(xPos, yPos), 3);
+                var enemy = new Enemy(_gameOwnedBy, _orcTextures, new Vector2(xPos, yPos), 4);
                 enemy.Name = $"Dragon {i + 1}";
                 _enemies.Add(enemy);
 

@@ -5,98 +5,72 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    /// <summary>
-    /// Ally unit that fights alongside the player.
-    /// Uses the same state machine as Enemy but on the Player team.
-    /// 
-    /// This class replaces the hacky "List of Sprite with AI logic in Engine" approach.
-    /// Now allies manage their own behavior just like enemies do.
-    /// </summary>
     public class Ally : RotatingSprite, ICombatant
     {
-        // ===================
-        // ENUMS
-        // ===================
-        
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
-        // ===================
-        // STATE
-        // ===================
-        
+        private AnimationManager _animManager;
+        private int _currentDirectionIndex = 0;
+        private SpriteEffects _flipEffect = SpriteEffects.None;
+        private static Texture2D _healthBarTexture;
+        private bool _drawHealthBar = true;
+
         private ALLYSTATE _lifecycleState = ALLYSTATE.ALIVE;
-        public ALLYSTATE LifecycleState 
-        { 
-            get => _lifecycleState; 
-            set => _lifecycleState = value; 
+        public ALLYSTATE LifecycleState
+        {
+            get => _lifecycleState;
+            set => _lifecycleState = value;
         }
 
-        public Enemy.AISTATE CurrentAIState { get; set; } = Enemy.AISTATE.Charging;
-
-        // ===================
-        // ICOMBATANT IMPLEMENTATION
-        // ===================
-        
         public string Name { get; set; } = "Ally";
         public CombatTeam Team => CombatTeam.Player;
-        
-        private int _health;
-        public int Health 
-        { 
-            get => _health; 
-            set => _health = Math.Max(0, value); 
-        }
-        
+
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
-        public bool IsAlive => _health > 0 && _lifecycleState == ALLYSTATE.ALIVE;
+        public bool IsAlive => Health > 0 && _lifecycleState == ALLYSTATE.ALIVE;
         public bool IsActive => Visible && _lifecycleState != ALLYSTATE.DEAD;
-        
-        private ICombatant _currentTarget;
-        public ICombatant CurrentTarget 
-        { 
-            get => _currentTarget;
-            set => _currentTarget = value;
-        }
-        
-        public int AttackerCount { get; set; }
-        
-        public Vector2 Position => position;
-        // Center is inherited from Sprite
 
-        // ===================
-        // MOVEMENT & COMBAT
-        // ===================
-        
+        private ICombatant _currentTarget;
+        public ICombatant CurrentTarget
+        {
+            get => _currentTarget;
+            set
+            {
+                _currentTarget = value;
+                CurrentCombatPartner = value as Sprite;
+            }
+        }
+
+        public Vector2 Position => position;
         protected float Velocity;
         protected Vector2 startPosition;
         protected Vector2 wanderTarget;
-        
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
-        // ===================
-        // HEALTH BAR
-        // ===================
-        
-        private static Texture2D _healthBarTexture;
-
-        // ===================
-        // CONSTRUCTOR
-        // ===================
-        
-        public Ally(Game g, Texture2D texture, Vector2 userPosition, int framecount)
-            : base(g, texture, userPosition, framecount)
+        public Ally(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
+            : base(g, textures["Walk"], userPosition, framecount)
         {
             startPosition = userPosition;
             Velocity = GameConstants.DefaultAllySpeed;
             MaxHealth = GameConstants.DefaultHealth;
-            _health = MaxHealth;
+            Health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
             _deathCountdown = GameConstants.DeathCountdown;
             CurrentAIState = Enemy.AISTATE.Charging;
-            
-            // Create shared health bar texture
+
+            // FIX: Reduced Scale so they don't get stuck on each other
+            Scale = 2.5f;
+
+            _animManager = new AnimationManager();
+
+            // FIX: Ensure totalRows = 1 for Strips
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 1, 0, false));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 120f, true, 1, 0, false));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 100f, false, 1, 0, false));
+
+            _animManager.Play("Walk");
+
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
@@ -104,40 +78,34 @@ namespace Pale_Roots_1
             }
         }
 
-        // ===================
-        // UPDATE - Main State Machine
-        // ===================
-        
-        public void Update(GameTime gametime, List<WorldObject> obstacles)
+        public override void Update(GameTime gametime)
         {
             base.Update(gametime);
+            UpdateDirection();
 
-            switch (_lifecycleState)
-            {
-                case ALLYSTATE.ALIVE:
-                    UpdateAI(gametime, obstacles);
-                    break;
-                    
-                case ALLYSTATE.DYING:
-                    UpdateDying(gametime);
-                    break;
-                    
-                case ALLYSTATE.DEAD:
-                    // Waiting for cleanup
-                    break;
-            }
+            string animKey = "Idle";
+            // Simple state check for animation
+            if (CurrentAIState == Enemy.AISTATE.InCombat && _attackCooldown > 800)
+                animKey = "Attack";
+            else if (Velocity > 0.1f || CurrentAIState == Enemy.AISTATE.Charging)
+                animKey = "Walk";
+
+            _animManager.Play(animKey);
+            _animManager.Update(gametime);
+
+            if (_lifecycleState == ALLYSTATE.DYING) UpdateDying(gametime);
         }
 
-        /// <summary>
-        /// AI State Machine - mirrors Enemy but charges opposite direction
-        /// </summary>
+        public void Update(GameTime gametime, List<WorldObject> obstacles)
+        {
+            this.Update(gametime);
+            if (_lifecycleState == ALLYSTATE.ALIVE) UpdateAI(gametime, obstacles);
+        }
+
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Cooldown timer
-            if (_attackCooldown > 0)
-                _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            if (_attackCooldown > 0) _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Validate target
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
                 CombatSystem.ClearTarget(this);
@@ -146,125 +114,67 @@ namespace Pale_Roots_1
 
             switch (CurrentAIState)
             {
-                case Enemy.AISTATE.Charging:
-                    PerformCharge(obstacles);
-                    break;
-                    
-                case Enemy.AISTATE.Chasing:
-                    PerformChase(obstacles);
-                    break;
-                    
-                case Enemy.AISTATE.InCombat:
-                    PerformCombat(gameTime);
-                    break;
-                    
-                case Enemy.AISTATE.Wandering:
-                    PerformWander(obstacles);
-                    break;
+                case Enemy.AISTATE.Charging: PerformCharge(obstacles); break;
+                case Enemy.AISTATE.Chasing: PerformChase(obstacles); break;
+                case Enemy.AISTATE.InCombat: PerformCombat(gameTime); break;
+                case Enemy.AISTATE.Wandering: PerformWander(obstacles); break;
             }
         }
 
-        // ===================
-        // AI BEHAVIORS
-        // ===================
-        
-        /// <summary>
-        /// Allies charge RIGHT (toward enemy lines)
-        /// </summary>
         protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
-
             Vector2 target = new Vector2(position.X - 1000, position.Y);
             MoveToward(target, Velocity, obstacles);
-
         }
 
         protected virtual void PerformChase(List<WorldObject> obstacles)
         {
-            if (_currentTarget == null)
-            {
-                CurrentAIState = Enemy.AISTATE.Wandering;
-                return;
-            }
-
+            if (_currentTarget == null) { CurrentAIState = Enemy.AISTATE.Wandering; return; }
             MoveToward(_currentTarget.Center, Velocity, obstacles);
-
-            float distance = CombatSystem.GetDistance(this, _currentTarget);
-            if (distance < GameConstants.CombatEngageRange)
-            {
+            if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.CombatEngageRange)
                 CurrentAIState = Enemy.AISTATE.InCombat;
-            }
         }
 
         protected virtual void PerformCombat(GameTime gameTime)
         {
-            if (_currentTarget == null || !_currentTarget.IsAlive)
-            {
-                CurrentAIState = Enemy.AISTATE.Wandering;
-                return;
-            }
-
+            if (_currentTarget == null || !_currentTarget.IsAlive) { CurrentAIState = Enemy.AISTATE.Wandering; return; }
             SnapToFace(_currentTarget.Center);
-
-            float distance = CombatSystem.GetDistance(this, _currentTarget);
-
-            if (distance < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
-            {
+            if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
                 PerformAttack();
-            }
-
-            if (distance > GameConstants.CombatBreakRange)
-            {
+            if (CombatSystem.GetDistance(this, _currentTarget) > GameConstants.CombatBreakRange)
                 CurrentAIState = Enemy.AISTATE.Chasing;
-            }
         }
 
         protected virtual void PerformWander(List<WorldObject> obstacles)
         {
-            if (wanderTarget == Vector2.Zero || 
-                Vector2.Distance(position, wanderTarget) < 5f)
+            if (wanderTarget == Vector2.Zero || Vector2.Distance(position, wanderTarget) < 5f)
             {
                 wanderTarget = startPosition + new Vector2(
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
                 );
             }
-
             MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
         }
 
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
-            
-            if (_deathCountdown <= 0)
-            {
-                _lifecycleState = ALLYSTATE.DEAD;
-                Visible = false;
-            }
+            if (_deathCountdown <= 0) { _lifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
 
-        // ===================
-        // ICOMBATANT METHODS
-        // ===================
-        
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
-            
             Health -= amount;
-            
-            if (Health <= 0)
-            {
-                Die();
-            }
+            if (Health <= 0) Die();
         }
 
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || _attackCooldown > 0) return;
-            
+            _animManager.Play("Attack");
             CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
             _attackCooldown = GameConstants.DefaultAttackCooldown;
         }
@@ -276,18 +186,31 @@ namespace Pale_Roots_1
             CombatSystem.ClearTarget(this);
         }
 
-        // ===================
-        // DRAW
-        // ===================
-        
+        private void UpdateDirection()
+        {
+            // FIX: ALWAYS USE ROW 0. 
+            // This prevents the "facing wrong direction" bug because strips don't have rows 1, 2, or 3.
+            _currentDirectionIndex = 0;
+            _flipEffect = SpriteEffects.None;
+
+            // Only flip if moving Left
+            if (CurrentTarget != null)
+            {
+                if (CurrentTarget.Position.X < this.Position.X)
+                    _flipEffect = SpriteEffects.FlipHorizontally;
+            }
+            else
+            {
+                // Default charging Right (No flip)
+            }
+        }
+
         public override void Draw(SpriteBatch spriteBatch)
         {
-            base.Draw(spriteBatch);
-            
-            if (IsAlive)
-            {
+            if (Visible)
+                _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
+            if (_drawHealthBar && IsAlive)
                 DrawHealthBar(spriteBatch);
-            }
         }
 
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
@@ -296,19 +219,10 @@ namespace Pale_Roots_1
             int barHeight = 5;
             int barX = (int)position.X - (barWidth / 2);
             int barY = (int)position.Y - spriteHeight / 2 - 10;
-
-            // Background
-            spriteBatch.Draw(_healthBarTexture, 
-                new Rectangle(barX, barY, barWidth, barHeight), 
-                Color.Red);
-
-            // Health (blue for allies to distinguish from enemies)
+            spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
-            
-            spriteBatch.Draw(_healthBarTexture, 
-                new Rectangle(barX, barY, currentBarWidth, barHeight), 
-                Color.CornflowerBlue);
+            spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), Color.CornflowerBlue);
         }
     }
 }
