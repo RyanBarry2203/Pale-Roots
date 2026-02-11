@@ -170,16 +170,24 @@ namespace Pale_Roots_1
 
         private void SetupCombatEvents()
         {
-            // Track kills
+            // Track kills AND Spawn Reinforcements
             CombatSystem.OnCombatantKilled += (killer, victim) =>
             {
                 if (victim.Team == CombatTeam.Enemy)
+                {
                     EnemiesKilled++;
+                    // Enemy dies -> 2 new Enemies appear
+                    SpawnReinforcements(CombatTeam.Enemy, 2);
+                }
                 else if (victim.Team == CombatTeam.Player && victim != _player)
+                {
                     AlliesLost++;
+                    // Ally dies -> 2 new Allies appear
+                    SpawnReinforcements(CombatTeam.Player, 2);
+                }
             };
 
-            // Could add more events: damage numbers, sounds, particles, etc.
+            // Keep the rest of your event logic...
             CombatSystem.OnDamageDealt += (attacker, target, damage) =>
             {
                 // Play hit sound, spawn damage number, etc.
@@ -189,7 +197,7 @@ namespace Pale_Roots_1
         // ===================
         // UPDATE
         // ===================
-        
+
         public void Update(GameTime gameTime)
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
@@ -334,6 +342,50 @@ namespace Pale_Roots_1
             _enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
         }
 
+        private void SpawnReinforcements(CombatTeam team, int count)
+        {
+            Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
+            float spawnRadius = 1800f; // Edge of the map (Trees)
+
+            for (int i = 0; i < count; i++)
+            {
+                // 1. Pick random spot on edge
+                float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
+                Vector2 spawnPos = center + new Vector2(
+                    (float)Math.Cos(angle) * spawnRadius,
+                    (float)Math.Sin(angle) * spawnRadius
+                );
+
+                if (team == CombatTeam.Enemy)
+                {
+                    var newEnemy = new Enemy(_gameOwnedBy, _orcTextures, spawnPos, 4);
+                    newEnemy.Name = "Reinforcement Orc";
+
+                    // Force them to hunt the player immediately
+                    CombatSystem.AssignTarget(newEnemy, _player);
+                    newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
+
+                    _enemies.Add(newEnemy);
+                }
+                else if (team == CombatTeam.Player)
+                {
+                    var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
+                    newAlly.Name = "Reinforcement Soldier";
+
+                    // Allies need to find a target, or they will wander. 
+                    // Let's make them hunt the nearest enemy if possible.
+                    var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
+                    if (bestTarget != null)
+                    {
+                        CombatSystem.AssignTarget(newAlly, bestTarget);
+                        newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
+                    }
+
+                    _allies.Add(newAlly);
+                }
+            }
+        }
+
         // ===================
         // DRAW
         // ===================
@@ -384,10 +436,10 @@ namespace Pale_Roots_1
             {
                 sprite.Draw(spriteBatch);
             }
-            foreach (var obj in _levelManager.MapObjects)
-            {
-                obj.DrawDebug(spriteBatch);
-            }
+            //foreach (var obj in _levelManager.MapObjects)
+            //{
+            //    obj.DrawDebug(spriteBatch);
+            //}
         }
 
         // ===================

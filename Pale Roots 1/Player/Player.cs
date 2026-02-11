@@ -443,7 +443,7 @@ namespace Pale_Roots_1
             _debugSwordBox = swordHitbox;
 
             // 4. Check Collisions
-            foreach (var enemy in enemies)
+            foreach (var enemy in enemies.ToArray())
             {
                 if (!enemy.IsAlive) continue;
 

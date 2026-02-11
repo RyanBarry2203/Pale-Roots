@@ -523,46 +523,47 @@ using var game = new Pale_Roots_1.Game1();
 game.Run();
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-//using SharpDX.Direct2D1;
 using System;
 
 namespace Pale_Roots_1
 {
+    // WorldObject is a Sprite used for static and animated map objects (trees, rocks, ruins).
+    // Responsibilities:
+    // - Maintain collision footprint that tightly fits visible non-transparent pixels near the sprite's feet.
+    // - Provide a CollisionBox used by other actors for obstacle detection.
+    // - Render itself and optionally a debug collision box.
+    // Interactions:
+    // - CollisionBox is used by RotatingSprite.IsColliding and Player/Enemy movement logic to block movement.
+    // - Uses Helper.GetSourceRect to map asset keys to sheet locations when created by LevelManager.
     public class WorldObject : Sprite
     {
         public bool IsSolid { get; set; }
         private static Texture2D _debugTexture;
 
-        public float BoxWidthPercentage { get; set; } = 0.5f; 
+        // Percentages used when defaulting to simpler bounding box calculations.
+        public float BoxWidthPercentage { get; set; } = 0.5f;
         public float BoxHeightPercentage { get; set; } = 0.2f;
 
         private int _pixelOffsetX;
         private int _pixelWidth;
 
+        // Construct a map object; frameCount allows animated variants.
         public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
             : base(g, texture, pos, frameCount, 1.0)
         {
             IsSolid = isSolid;
-            mililsecondsBetweenFrames = 200; // Slow animation for trees
-
-            // DEFAULT SCALE:
-            // If the sprite feels too small, change this to 2.0f. 
-            // In your screenshot, they were massive, so let's stick to 1.5f for now.
-            Scale = 3.0f;
+            mililsecondsBetweenFrames = 200; // slower default for environmental animations
+            Scale = 3.0f; // chosen scale to match tile grid; adjustable by level creation code
         }
 
-        // TIGHTER HITBOX
-        // This calculates the collision box at the FEET of the object only.
+        // Collision box focuses on the feet area rather than the whole sprite to allow better depth/passability.
         public Rectangle CollisionBox
         {
             get
             {
                 float scale = (float)Scale;
 
-
                 int finalHeight = (int)(spriteHeight * scale * 0.2f);
-
-
                 int finalWidth = (int)(_pixelWidth * scale);
 
                 float leftEdge = position.X - (spriteWidth * scale / 2);
@@ -573,19 +574,18 @@ namespace Pale_Roots_1
                 return new Rectangle(x, y, finalWidth, finalHeight);
             }
         }
+
+        // Analyze the sprite's bottom area to determine a tight pixel footprint for collision.
+        // Stores pixel offsets so CollisionBox can be computed quickly later.
         private void CalculatePixelTightBox()
         {
-
             Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
             spriteImage.GetData(rawData);
 
-
             Rectangle src = sourceRectangle;
 
-
             int startY = src.Y + (int)(src.Height * 0.8f);
-            int endY = src.Y + src.Height;             
-
+            int endY = src.Y + src.Height;
 
             int minX = src.Width;
             int maxX = 0;
@@ -595,15 +595,10 @@ namespace Pale_Roots_1
             {
                 for (int x = src.X; x < src.X + src.Width; x++)
                 {
-                    // Get exact pixel index
                     int index = y * spriteImage.Width + x;
-
-                    // Check Alpha (Is it not transparent?)
                     if (rawData[index].A > 200)
                     {
-                        // Convert global X to local X (0 to Width)
                         int localX = x - src.X;
-
                         if (localX < minX) minX = localX;
                         if (localX > maxX) maxX = localX;
                         foundPixels = true;
@@ -611,7 +606,6 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 5. Save the results
             if (foundPixels)
             {
                 _pixelOffsetX = minX;
@@ -619,16 +613,20 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Fallback: If the bottom is empty, just use the center 50%
+                // fallback if bottom has no opaque pixels
                 _pixelOffsetX = (int)(src.Width * 0.25f);
                 _pixelWidth = (int)(src.Width * 0.5f);
             }
         }
+
+        // Override to compute tight collision box whenever the source rectangle is set.
         public new void SetSpritesheetLocation(Rectangle source)
         {
             base.SetSpriteSheetLocation(source);
             CalculatePixelTightBox();
         }
+
+        // Draw red rectangle lines for debug; creates a shared 1x1 texture as needed.
         public void DrawDebug(SpriteBatch spriteBatch)
         {
             if (_debugTexture == null)
@@ -638,15 +636,11 @@ namespace Pale_Roots_1
             }
 
             Rectangle box = CollisionBox;
-
             int thickness = 2;
 
             spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
-            // Bottom
             spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
-            // Left
             spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
-            // Right
             spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
         }
     }
@@ -807,6 +801,16 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // Enemy: a game actor that can navigate, target, fight and die.
+    // Responsibilities:
+    // - Holds combat stats and lifecycle state.
+    // - Manages animation via AnimationManager.
+    // - Contains AI states and transitions for Charging, Chasing, InCombat, Wandering and Hurt.
+    // Interactions:
+    // - Uses CombatSystem for damage, target validation and bookkeeping.
+    // - Uses RotatingSprite.MoveToward and SnapToFace for movement/rotation.
+    // - Consults WorldObject obstacles when pathing.
+    // - Exposes ICombatant-compatible members so ChaseAndFireEngine and CombatSystem can operate on it.
     public class Enemy : RotatingSprite, ICombatant
     {
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
@@ -826,9 +830,9 @@ namespace Pale_Roots_1
             set => _lifecycleState = value;
         }
 
+        // ICombatant surface
         public string Name { get; set; } = "Enemy";
         public CombatTeam Team => CombatTeam.Enemy;
-
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
@@ -841,10 +845,11 @@ namespace Pale_Roots_1
             set
             {
                 _currentTarget = value;
-                CurrentCombatPartner = value as Sprite;
+                CurrentCombatPartner = value as Sprite; // keep Sprite reference for visual syncing if needed
             }
         }
 
+        // Position and movement
         public Vector2 Position => position;
         protected float Velocity;
         protected Vector2 startPosition;
@@ -852,25 +857,20 @@ namespace Pale_Roots_1
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
-        // ==================================================================================
-        // CONSTRUCTOR 1: NEW (For Animated Orcs)
-        // ==================================================================================
+        // Constructor for modern animated enemies that supply a map of textures
         public Enemy(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Idle"], userPosition, framecount)
         {
             SetupCommonStats(userPosition);
 
-            // SCALE: 3.0f is a balance. 
-            // 4.0f makes the hitbox too big for 64px tiles. 
-            // 2.0f might be too small visually.
-            Scale = 3.0f;
+            Scale = 3.0f; // visual scale chosen to match tile sizing
 
             _animManager = new AnimationManager();
 
-
+            // Register directional animations (grid sheets assumed)
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true)); 
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true)); 
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
 
@@ -878,9 +878,7 @@ namespace Pale_Roots_1
             SetupHealthBar(g);
         }
 
-        // ==================================================================================
-        // CONSTRUCTOR 2: LEGACY (For Sentry, etc.)
-        // ==================================================================================
+        // Backwards-compatible constructor for legacy single-sheet enemies
         public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
@@ -900,6 +898,7 @@ namespace Pale_Roots_1
             SetupHealthBar(g);
         }
 
+        // Shared initialization for both constructors
         private void SetupCommonStats(Vector2 pos)
         {
             startPosition = pos;
@@ -911,6 +910,7 @@ namespace Pale_Roots_1
             CurrentAIState = AISTATE.Charging;
         }
 
+        // Create a 1x1 white texture once for health bars
         private void SetupHealthBar(Game g)
         {
             if (_healthBarTexture == null)
@@ -920,8 +920,10 @@ namespace Pale_Roots_1
             }
         }
 
+        // High-level update: physics, animations, and dying transitions
         public virtual void Update(GameTime gametime)
         {
+            // Apply any residual knockback and damp it
             if (_knockBackVelocity != Vector2.Zero)
             {
                 position += _knockBackVelocity;
@@ -932,11 +934,16 @@ namespace Pale_Roots_1
             base.Update(gametime);
             UpdateDirection();
 
+            // Choose animation based on lifecycle and AI state
             string animKey = "Idle";
 
             if (_lifecycleState == ENEMYSTATE.DYING)
             {
                 animKey = "Death";
+            }
+            else if (CurrentAIState == AISTATE.Hurt)
+            {
+                animKey = "Hurt";
             }
             else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 200)
             {
@@ -946,17 +953,14 @@ namespace Pale_Roots_1
             {
                 animKey = "Walk";
             }
-            else if (CurrentAIState == AISTATE.Hurt)
-            {
-                animKey = "Hurt";
-            }
 
-                _animManager.Play(animKey);
+            _animManager.Play(animKey);
             _animManager.Update(gametime);
 
             if (_lifecycleState == ENEMYSTATE.DYING) UpdateDying(gametime);
         }
 
+        // Update that includes obstacle-aware AI behavior
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -966,6 +970,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Core AI tick: cooldowns, target validation, and state dispatch
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             if (_attackCooldown > 0)
@@ -975,6 +980,13 @@ namespace Pale_Roots_1
             {
                 CombatSystem.ClearTarget(this);
                 CurrentAIState = AISTATE.Wandering;
+            }
+            if (CurrentAIState == AISTATE.Hurt)
+            {
+                if (_attackCooldown <= 0)
+                {
+                    CurrentAIState = AISTATE.Chasing;
+                }
             }
 
             switch (CurrentAIState)
@@ -986,6 +998,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Default charge behavior: move left and path toward a distant point
         protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X -= Velocity;
@@ -993,11 +1006,13 @@ namespace Pale_Roots_1
             MoveToward(target, Velocity, obstacles);
         }
 
+        // External call to apply knockback impulse from player or effects
         public void ApplyKnockback(Vector2 force)
         {
             _knockBackVelocity += force;
         }
 
+        // Move to the current target; switch to InCombat when close
         protected virtual void PerformChase(List<WorldObject> obstacle)
         {
             if (_currentTarget == null) { CurrentAIState = AISTATE.Wandering; return; }
@@ -1008,6 +1023,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Combat loop: face target and perform melee if in range and off cooldown
         protected virtual void PerformCombat(GameTime gameTime)
         {
             if (_currentTarget == null || !_currentTarget.IsAlive) { CurrentAIState = AISTATE.Wandering; return; }
@@ -1022,6 +1038,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Wandering behavior: pick a random point around start and move toward it
         protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             if (wanderTarget == Vector2.Zero || Vector2.Distance(position, wanderTarget) < 5f)
@@ -1034,6 +1051,7 @@ namespace Pale_Roots_1
             MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
         }
 
+        // When dying, countdown and then mark as dead and hide
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
@@ -1044,6 +1062,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Apply damage and trigger Hurt/Death transitions. Uses CombatSystem to propagate effects.
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
@@ -1057,11 +1076,12 @@ namespace Pale_Roots_1
             else
             {
                 CurrentAIState = AISTATE.Hurt;
-                _attackCooldown = 500f; // Stunned for 0.5 seconds
+                _attackCooldown = 500f; // brief stun
                 _animManager.Play("Hurt");
             }
         }
 
+        // Trigger attack animation and use central CombatSystem to resolve damage
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || _attackCooldown > 0) return;
@@ -1070,42 +1090,36 @@ namespace Pale_Roots_1
             _attackCooldown = GameConstants.DefaultAttackCooldown;
         }
 
-        public virtual void Die()
+        // Mark entity as dying and clear its target bookkeeping
+                    public virtual void Die()
         {
             _lifecycleState = ENEMYSTATE.DYING;
-            _deathCountdown = GameConstants.DeathCountdown;
+            _deathCountdown = 80;
             CombatSystem.ClearTarget(this);
         }
 
+        // Determine animation row/direction based on target or velocity
         private void UpdateDirection()
         {
-            // ORC SHEET MAPPING (Based on visual inspection of orc1_run_full.png)
-            // Row 0: Down
-            // Row 1: Up
-            // Row 2: Left
-            // Row 3: Right
-
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
                 {
-                    // Horizontal
                     _currentDirectionIndex = (diff.X > 0) ? 3 : 2; // 3=Right, 2=Left
                 }
                 else
                 {
-                    // Vertical
                     _currentDirectionIndex = (diff.Y > 0) ? 0 : 1; // 0=Down, 1=Up
                 }
             }
             else if (Velocity > 0)
             {
-                // Charging Left (towards player)
-                _currentDirectionIndex = 2;
+                _currentDirectionIndex = 2; // default facing when charging/idle movement
             }
         }
 
+        // Draw animation then optional health bar; AnimationManager receives direction index to select row
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
@@ -1119,6 +1133,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Render a compact health bar above the enemy. Uses a shared 1x1 texture.
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
         {
             int barWidth = spriteWidth;
@@ -2067,63 +2082,49 @@ using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
-    // ============================================================================
-    // GAME CONSTANTS - All magic numbers in one place
-    // ============================================================================
-    
-    /// <summary>
-    /// Centralized game constants. No more magic numbers scattered across files.
-    /// </summary>
+    // CoreSystems contains global constants, interface and the CombatSystem which coordinates combat.
+    // Purpose and interactions:
+    // - GameConstants centralizes magic numbers used by many modules (Player, Enemy, Projectiles, Camera, etc.).
+    // - ICombatant is the shared contract for any actor that can fight; systems rely on this to handle damage, targeting and queries.
+    // - CombatSystem is the authoritative place for damage resolution, random utilities and target bookkeeping; it emits events that UI or audio/particle systems can subscribe to.
     public static class GameConstants
     {
-        // Add these to your GameConstants class
-        public const float SwordSwingDuration = 250f; // 300ms swing
-        public const float SwordCooldown = 500f;      // Time before you can swing again
+        public const float SwordSwingDuration = 250f;
+        public const float SwordCooldown = 500f;
         public const int SwordDamage = 25;
-        public const float SwordRange = 60f;          // How far the sword reaches
-        public const float SwordKnockback = 15f;      // How far enemies get pushed
-        public const float SwordArcWidth = 60f;       // Width of the swing
+        public const float SwordRange = 60f;
+        public const float SwordKnockback = 15f;
+        public const float SwordArcWidth = 60f;
 
-
-        // COMBAT DISTANCES
         public const float MeleeAttackRange = 85f;
         public const float CombatEngageRange = 70f;
         public const float CombatBreakRange = 100f;
         public const float DefaultDetectionRadius = 400f;
         public const float DefaultChaseRadius = 200f;
 
-        // COMBAT STATS
         public const int DefaultHealth = 100;
         public const int DefaultMeleeDamage = 15;
         public const float DefaultAttackCooldown = 1000f;
         public const float TargetScanInterval = 500f;
         public const int MaxAttackersPerTarget = 2;
 
-        // MOVEMENT
         public const float DefaultEnemySpeed = 3.0f;
         public const float DefaultAllySpeed = 3.0f;
         public const float DefaultPlayerSpeed = 4.0f;
         public const float ChargingSpeed = 3.0f;
 
-        // PROJECTILES
         public const float DefaultProjectileSpeed = 4.0f;
         public const float DefaultReloadTime = 2000f;
         public const float ExplosionDuration = 1000f;
 
-        // DEATH & CLEANUP
         public const int DeathCountdown = 30;
         public const int WanderRadius = 300;
         public const float KnockbackFriction = 0.9f;
 
-        // MAP & TILES
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
     }
 
-    // ============================================================================
-    // COMBAT TEAM - Which side is a combatant on
-    // ============================================================================
-    
     public enum CombatTeam
     {
         Player,
@@ -2131,13 +2132,7 @@ namespace Pale_Roots_1
         Neutral
     }
 
-    // ============================================================================
-    // ICOMBATANT - Interface for anything that can fight
-    // ============================================================================
-    
-    /// <summary>
-    /// Interface for any entity that can participate in combat.
-    /// </summary>
+    // Shared contract used by Player, Enemy, Ally and any other combat-capable actor.
     public interface ICombatant
     {
         string Name { get; }
@@ -2156,54 +2151,44 @@ namespace Pale_Roots_1
         void Die();
     }
 
-    // ============================================================================
-    // COMBAT SYSTEM - Centralized damage and targeting
-    // ============================================================================
-    
-    /// <summary>
-    /// Centralized combat system handling all damage calculations and combat events.
-    /// </summary>
+    // Central combat coordination: damage, target assignment, validation and events.
+    // Systems that need to apply damage or query validity call into CombatSystem so bookkeeping (attacker counts, events) stays consistent.
     public static class CombatSystem
     {
-        // EVENTS
+        // Events for external systems (UI, sounds, scoring) to react to combat outcomes.
         public static event Action<ICombatant, ICombatant, int> OnDamageDealt;
         public static event Action<ICombatant, ICombatant> OnCombatantKilled;
         public static event Action<ICombatant, ICombatant> OnTargetAcquired;
 
-        // SHARED RANDOM - Use this instead of new Random()
+        // Single shared RNG used across the game to avoid many Random instances with identical seeds.
         private static readonly Random _random = new Random();
-        
+
         public static int RandomInt(int min, int max) => _random.Next(min, max);
         public static float RandomFloat() => (float)_random.NextDouble();
         public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
-        /// <summary>
-        /// Deal damage from attacker to target.
-        /// </summary>
+        // Apply damage with a small variance, notify listeners and perform kill handling.
         public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage)
         {
             if (target == null || !target.IsAlive) return 0;
             if (baseDamage <= 0) return 0;
-            
-            // Calculate final damage with variance
+
             float variance = RandomFloat(0.9f, 1.1f);
             int finalDamage = Math.Max(1, (int)(baseDamage * variance));
-            
-            // Apply damage
+
             target.TakeDamage(finalDamage, attacker);
-            
-            // Fire event
+
             OnDamageDealt?.Invoke(attacker, target, finalDamage);
-            
-            // Check for kill
+
             if (!target.IsAlive)
             {
                 HandleKill(attacker, target);
             }
-            
+
             return finalDamage;
         }
 
+        // Clean up references and fire kill event. This avoids dangling attacker counts.
         private static void HandleKill(ICombatant killer, ICombatant victim)
         {
             if (victim.CurrentTarget != null)
@@ -2211,27 +2196,23 @@ namespace Pale_Roots_1
                 victim.CurrentTarget.AttackerCount--;
                 victim.CurrentTarget = null;
             }
-            
+
             victim.Die();
             OnCombatantKilled?.Invoke(killer, victim);
         }
 
-        /// <summary>
-        /// Assign a target to a combatant. Handles attacker count bookkeeping.
-        /// </summary>
+        // Assign a target and maintain AttackerCount on the target. Emits OnTargetAcquired for systems to react.
         public static void AssignTarget(ICombatant combatant, ICombatant newTarget)
         {
             if (combatant == null) return;
-            
-            // Release old target
+
             if (combatant.CurrentTarget != null && combatant.CurrentTarget != newTarget)
             {
                 combatant.CurrentTarget.AttackerCount--;
             }
-            
-            // Assign new target
+
             combatant.CurrentTarget = newTarget;
-            
+
             if (newTarget != null)
             {
                 newTarget.AttackerCount++;
@@ -2239,9 +2220,7 @@ namespace Pale_Roots_1
             }
         }
 
-        /// <summary>
-        /// Clear a combatant's target safely
-        /// </summary>
+        // Clears a combatant's target and adjusts attacker bookkeeping.
         public static void ClearTarget(ICombatant combatant)
         {
             if (combatant?.CurrentTarget != null)
@@ -2251,18 +2230,14 @@ namespace Pale_Roots_1
             }
         }
 
-        /// <summary>
-        /// Check if two combatants are enemies
-        /// </summary>
+        // Helper to determine if two combatants are on opposing teams (ignores Neutral).
         public static bool AreEnemies(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return false;
             return a.Team != b.Team && a.Team != CombatTeam.Neutral && b.Team != CombatTeam.Neutral;
         }
 
-        /// <summary>
-        /// Check if target is valid (alive, active, and an enemy)
-        /// </summary>
+        // Validates whether a target can be attacked (alive, active, and an enemy).
         public static bool IsValidTarget(ICombatant attacker, ICombatant target)
         {
             if (target == null) return false;
@@ -2272,31 +2247,25 @@ namespace Pale_Roots_1
             return true;
         }
 
-        /// <summary>
-        /// Check if combatant can attack target (in range and valid)
-        /// </summary>
+        // Range check using centers of combatants. Default uses MeleeAttackRange.
         public static bool CanAttack(ICombatant attacker, ICombatant target, float range = -1)
         {
             if (!IsValidTarget(attacker, target)) return false;
-            
+
             if (range < 0) range = GameConstants.MeleeAttackRange;
-            
+
             float distance = Vector2.Distance(attacker.Center, target.Center);
             return distance <= range;
         }
 
-        /// <summary>
-        /// Get distance between two combatants
-        /// </summary>
+        // Utility to return distance between entities for targeting decisions.
         public static float GetDistance(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return float.MaxValue;
             return Vector2.Distance(a.Center, b.Center);
         }
 
-        /// <summary>
-        /// Clear all event subscriptions
-        /// </summary>
+        // Reset event subscriptions (useful during scene teardown or tests).
         public static void ClearAllEvents()
         {
             OnDamageDealt = null;
@@ -2889,7 +2858,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+96ef593c17d7296f5a1cdc85d9cc736fa53b50db")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+428c3ca0562c7d9e1afb68db7bccbd0c8ce722bf")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -2905,6 +2874,15 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // Ally: a friendly combatant that mirrors Enemy behavior but fights for the player.
+    // Responsibilities:
+    // - Implements ICombatant so CombatSystem and ChaseAndFireEngine can treat it like any actor.
+    // - Holds animations via AnimationManager and transitions states (wander, chase, combat).
+    // - Movement and combat decision logic is intentionally similar to Enemy for reuse.
+    // Interactions:
+    // - Receives target assignments from ChaseAndFireEngine via CombatSystem.AssignTarget.
+    // - Uses CombatSystem to deal and take damage; ClearTarget called when a target is invalid.
+    // - Uses RotatingSprite movement/integration for obstacle-aware pathing.
     public class Ally : RotatingSprite, ICombatant
     {
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
@@ -2948,6 +2926,7 @@ namespace Pale_Roots_1
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
+        // Ally constructor uses texture dictionary for animations, similar to Enemy
         public Ally(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Walk"], userPosition, framecount)
         {
@@ -2959,9 +2938,7 @@ namespace Pale_Roots_1
             _deathCountdown = GameConstants.DeathCountdown;
             CurrentAIState = Enemy.AISTATE.Charging;
 
-            // SCALE: 3.0f
             Scale = 3.0f;
-
             _animManager = new AnimationManager();
 
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
@@ -2977,6 +2954,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // High-level update: animation selection and death handling
         public override void Update(GameTime gametime)
         {
             base.Update(gametime);
@@ -2994,6 +2972,7 @@ namespace Pale_Roots_1
             if (_lifecycleState == ALLYSTATE.DYING) UpdateDying(gametime);
         }
 
+        // Update with obstacle list to enable pathing checks; uses shared AI loop pattern
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -3003,6 +2982,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // AI tick shares structure with Enemy: cooldowns, validation, and state dispatch
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             if (_attackCooldown > 0) _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -3022,6 +3002,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Move forward while charging; different direction compared to Enemy
         protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
@@ -3065,6 +3046,7 @@ namespace Pale_Roots_1
             if (_deathCountdown <= 0) { _lifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
 
+        // Simple damage handling; transitions to dead state when health depletes
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
@@ -3072,6 +3054,7 @@ namespace Pale_Roots_1
             if (Health <= 0) Die();
         }
 
+        // Trigger melee attack using CombatSystem to resolve damage and cooldown bookkeeping
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || _attackCooldown > 0) return;
@@ -3087,35 +3070,31 @@ namespace Pale_Roots_1
             CombatSystem.ClearTarget(this);
         }
 
+        // Determine facing for animation; flipEffect is managed for visual mirroring
         private void UpdateDirection()
         {
-
-
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
-
 
                 _flipEffect = SpriteEffects.None;
 
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
                 {
- 
                     _currentDirectionIndex = (diff.X < 0) ? 0 : 1;
                 }
                 else
                 {
-
                     _currentDirectionIndex = (diff.Y < 0) ? 2 : 3;
                 }
             }
-
             else if (Velocity > 0.1f)
             {
-                
+                // keep current direction when moving
             }
         }
 
+        // Draw uses the AnimationManager with the chosen direction and draws a small health bar above the ally
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
@@ -3723,62 +3702,56 @@ namespace Pale_Roots_1
     }
 }
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-//using AnimatedSprite;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
+    // RotatingSprite extends Sprite with rotation helpers and movement that respects obstacles.
+    // Responsibilities:
+    // - Provide smooth rotation toward a point (TurnToFace, Follow).
+    // - MoveToward attempts X and Y moves separately and checks collisions via Sprite.IsColliding.
+    // - Reuse WrapAngle to normalize rotation values.
+    // Interactions:
+    // - Used by Enemy, Sentry and Projectile to aim/rotate toward targets.
     public class RotatingSprite : Sprite
     {
         public float rotationSpeed;
 
-        public RotatingSprite(Game g, Texture2D tx, Vector2 StartPosition, int NoOfFrames)
+        public RotatingSprite(Game g, Microsoft.Xna.Framework.Graphics.Texture2D tx, Vector2 StartPosition, int NoOfFrames)
             : base(g, tx, StartPosition, NoOfFrames, 1)
         {
-
         }
+
+        // Convenience: make this sprite rotate to face another sprite instance.
         public void follow(Sprite sp)
         {
-            this.angleOfRotation = TurnToFace(position,
-            sp.position, angleOfRotation, rotationSpeed );
+            this.angleOfRotation = TurnToFace(position, sp.position, angleOfRotation, rotationSpeed);
         }
 
-        protected static float TurnToFace(Vector2 position, Vector2 faceThis,
-            float currentAngle, float turnSpeed)
+        // Compute a bounded rotation toward a target; clamps rotation change by turnSpeed per call.
+        protected static float TurnToFace(Vector2 position, Vector2 faceThis, float currentAngle, float turnSpeed)
         {
-            // The difference in the two points is 
             float x = faceThis.X - position.X;
             float y = faceThis.Y - position.Y;
-            // ArcTan calculates the angle of rotation 
-            // relative to a point (the gun turret position)
-            // in the positive x plane and 
             float desiredAngle = (float)Math.Atan2(y, x);
 
             float difference = WrapAngle(desiredAngle - currentAngle);
-
             difference = MathHelper.Clamp(difference, -turnSpeed, turnSpeed);
 
             return WrapAngle(currentAngle + difference);
         }
-
 
         public override void Update(GameTime gametime)
         {
             base.Update(gametime);
         }
 
-        public override void Draw(SpriteBatch spriteBatch)
+        public override void Draw(Microsoft.Xna.Framework.Graphics.SpriteBatch spriteBatch)
         {
             base.Draw(spriteBatch);
         }
-        /// <summary>
-        /// Returns the angle expressed in radians between -Pi and Pi.
-        /// Angle is always positive
-        /// </summary>
+
+        // Normalize angle into range [-Pi, Pi]
         private static float WrapAngle(float radians)
         {
             while (radians < -MathHelper.Pi)
@@ -3791,7 +3764,10 @@ namespace Pale_Roots_1
             }
             return radians;
         }
-        public void MoveToward(Vector2 target, float speed, List<WorldObject> obstacles)
+
+        // Move toward a target while checking collisions against the provided obstacle list.
+        // Movement resolves X and Y separately to allow sliding along obstacles.
+        public void MoveToward(Vector2 target, float speed, System.Collections.Generic.List<WorldObject> obstacles)
         {
             Vector2 direction = target - position;
 
@@ -3800,28 +3776,28 @@ namespace Pale_Roots_1
                 direction.Normalize();
                 Vector2 velocity = direction * speed;
 
-
-                // 1. Try moving X
+                // Attempt X movement
                 Vector2 futurePosX = new Vector2(position.X + velocity.X, position.Y);
                 if (!IsColliding(futurePosX, obstacles))
                 {
                     position.X = futurePosX.X;
                 }
 
-                // 2. Try moving Y
+                // Attempt Y movement
                 Vector2 futurePosY = new Vector2(position.X, position.Y + velocity.Y);
                 if (!IsColliding(futurePosY, obstacles))
                 {
                     position.Y = futurePosY.Y;
                 }
 
-                // Update Rotation
+                // Update rotation to face movement direction
                 angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
 
                 ClampToMap();
             }
         }
 
+        // Immediately set rotation to face a point without smoothing
         public void SnapToFace(Vector2 target)
         {
             float x = target.X - position.X;
@@ -3829,17 +3805,10 @@ namespace Pale_Roots_1
             angleOfRotation = (float)Math.Atan2(y, x);
         }
 
-        /// <summary>
-        /// Smoothly rotate to face a position
-        /// </summary>
+        // Smooth follow wrapper using TurnToFace
         public void Follow(Vector2 targetPosition)
         {
-            this.angleOfRotation = TurnToFace(
-                position,
-                targetPosition,
-                angleOfRotation,
-                rotationSpeed
-            );
+            this.angleOfRotation = TurnToFace(position, targetPosition, angleOfRotation, rotationSpeed);
         }
     }
 }

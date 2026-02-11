@@ -3,63 +3,49 @@ using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
-    // ============================================================================
-    // GAME CONSTANTS - All magic numbers in one place
-    // ============================================================================
-    
-    /// <summary>
-    /// Centralized game constants. No more magic numbers scattered across files.
-    /// </summary>
+    // CoreSystems contains global constants, interface and the CombatSystem which coordinates combat.
+    // Purpose and interactions:
+    // - GameConstants centralizes magic numbers used by many modules (Player, Enemy, Projectiles, Camera, etc.).
+    // - ICombatant is the shared contract for any actor that can fight; systems rely on this to handle damage, targeting and queries.
+    // - CombatSystem is the authoritative place for damage resolution, random utilities and target bookkeeping; it emits events that UI or audio/particle systems can subscribe to.
     public static class GameConstants
     {
-        // Add these to your GameConstants class
-        public const float SwordSwingDuration = 250f; // 300ms swing
-        public const float SwordCooldown = 500f;      // Time before you can swing again
+        public const float SwordSwingDuration = 250f;
+        public const float SwordCooldown = 500f;
         public const int SwordDamage = 25;
-        public const float SwordRange = 60f;          // How far the sword reaches
-        public const float SwordKnockback = 15f;      // How far enemies get pushed
-        public const float SwordArcWidth = 60f;       // Width of the swing
+        public const float SwordRange = 60f;
+        public const float SwordKnockback = 15f;
+        public const float SwordArcWidth = 60f;
 
-
-        // COMBAT DISTANCES
         public const float MeleeAttackRange = 85f;
         public const float CombatEngageRange = 70f;
         public const float CombatBreakRange = 100f;
         public const float DefaultDetectionRadius = 400f;
         public const float DefaultChaseRadius = 200f;
 
-        // COMBAT STATS
         public const int DefaultHealth = 100;
         public const int DefaultMeleeDamage = 15;
         public const float DefaultAttackCooldown = 1000f;
         public const float TargetScanInterval = 500f;
         public const int MaxAttackersPerTarget = 2;
 
-        // MOVEMENT
         public const float DefaultEnemySpeed = 3.0f;
         public const float DefaultAllySpeed = 3.0f;
         public const float DefaultPlayerSpeed = 4.0f;
         public const float ChargingSpeed = 3.0f;
 
-        // PROJECTILES
         public const float DefaultProjectileSpeed = 4.0f;
         public const float DefaultReloadTime = 2000f;
         public const float ExplosionDuration = 1000f;
 
-        // DEATH & CLEANUP
         public const int DeathCountdown = 30;
         public const int WanderRadius = 300;
         public const float KnockbackFriction = 0.9f;
 
-        // MAP & TILES
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
     }
 
-    // ============================================================================
-    // COMBAT TEAM - Which side is a combatant on
-    // ============================================================================
-    
     public enum CombatTeam
     {
         Player,
@@ -67,13 +53,7 @@ namespace Pale_Roots_1
         Neutral
     }
 
-    // ============================================================================
-    // ICOMBATANT - Interface for anything that can fight
-    // ============================================================================
-    
-    /// <summary>
-    /// Interface for any entity that can participate in combat.
-    /// </summary>
+    // Shared contract used by Player, Enemy, Ally and any other combat-capable actor.
     public interface ICombatant
     {
         string Name { get; }
@@ -92,54 +72,44 @@ namespace Pale_Roots_1
         void Die();
     }
 
-    // ============================================================================
-    // COMBAT SYSTEM - Centralized damage and targeting
-    // ============================================================================
-    
-    /// <summary>
-    /// Centralized combat system handling all damage calculations and combat events.
-    /// </summary>
+    // Central combat coordination: damage, target assignment, validation and events.
+    // Systems that need to apply damage or query validity call into CombatSystem so bookkeeping (attacker counts, events) stays consistent.
     public static class CombatSystem
     {
-        // EVENTS
+        // Events for external systems (UI, sounds, scoring) to react to combat outcomes.
         public static event Action<ICombatant, ICombatant, int> OnDamageDealt;
         public static event Action<ICombatant, ICombatant> OnCombatantKilled;
         public static event Action<ICombatant, ICombatant> OnTargetAcquired;
 
-        // SHARED RANDOM - Use this instead of new Random()
+        // Single shared RNG used across the game to avoid many Random instances with identical seeds.
         private static readonly Random _random = new Random();
-        
+
         public static int RandomInt(int min, int max) => _random.Next(min, max);
         public static float RandomFloat() => (float)_random.NextDouble();
         public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
-        /// <summary>
-        /// Deal damage from attacker to target.
-        /// </summary>
+        // Apply damage with a small variance, notify listeners and perform kill handling.
         public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage)
         {
             if (target == null || !target.IsAlive) return 0;
             if (baseDamage <= 0) return 0;
-            
-            // Calculate final damage with variance
+
             float variance = RandomFloat(0.9f, 1.1f);
             int finalDamage = Math.Max(1, (int)(baseDamage * variance));
-            
-            // Apply damage
+
             target.TakeDamage(finalDamage, attacker);
-            
-            // Fire event
+
             OnDamageDealt?.Invoke(attacker, target, finalDamage);
-            
-            // Check for kill
+
             if (!target.IsAlive)
             {
                 HandleKill(attacker, target);
             }
-            
+
             return finalDamage;
         }
 
+        // Clean up references and fire kill event. This avoids dangling attacker counts.
         private static void HandleKill(ICombatant killer, ICombatant victim)
         {
             if (victim.CurrentTarget != null)
@@ -147,27 +117,23 @@ namespace Pale_Roots_1
                 victim.CurrentTarget.AttackerCount--;
                 victim.CurrentTarget = null;
             }
-            
+
             victim.Die();
             OnCombatantKilled?.Invoke(killer, victim);
         }
 
-        /// <summary>
-        /// Assign a target to a combatant. Handles attacker count bookkeeping.
-        /// </summary>
+        // Assign a target and maintain AttackerCount on the target. Emits OnTargetAcquired for systems to react.
         public static void AssignTarget(ICombatant combatant, ICombatant newTarget)
         {
             if (combatant == null) return;
-            
-            // Release old target
+
             if (combatant.CurrentTarget != null && combatant.CurrentTarget != newTarget)
             {
                 combatant.CurrentTarget.AttackerCount--;
             }
-            
-            // Assign new target
+
             combatant.CurrentTarget = newTarget;
-            
+
             if (newTarget != null)
             {
                 newTarget.AttackerCount++;
@@ -175,9 +141,7 @@ namespace Pale_Roots_1
             }
         }
 
-        /// <summary>
-        /// Clear a combatant's target safely
-        /// </summary>
+        // Clears a combatant's target and adjusts attacker bookkeeping.
         public static void ClearTarget(ICombatant combatant)
         {
             if (combatant?.CurrentTarget != null)
@@ -187,18 +151,14 @@ namespace Pale_Roots_1
             }
         }
 
-        /// <summary>
-        /// Check if two combatants are enemies
-        /// </summary>
+        // Helper to determine if two combatants are on opposing teams (ignores Neutral).
         public static bool AreEnemies(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return false;
             return a.Team != b.Team && a.Team != CombatTeam.Neutral && b.Team != CombatTeam.Neutral;
         }
 
-        /// <summary>
-        /// Check if target is valid (alive, active, and an enemy)
-        /// </summary>
+        // Validates whether a target can be attacked (alive, active, and an enemy).
         public static bool IsValidTarget(ICombatant attacker, ICombatant target)
         {
             if (target == null) return false;
@@ -208,31 +168,25 @@ namespace Pale_Roots_1
             return true;
         }
 
-        /// <summary>
-        /// Check if combatant can attack target (in range and valid)
-        /// </summary>
+        // Range check using centers of combatants. Default uses MeleeAttackRange.
         public static bool CanAttack(ICombatant attacker, ICombatant target, float range = -1)
         {
             if (!IsValidTarget(attacker, target)) return false;
-            
+
             if (range < 0) range = GameConstants.MeleeAttackRange;
-            
+
             float distance = Vector2.Distance(attacker.Center, target.Center);
             return distance <= range;
         }
 
-        /// <summary>
-        /// Get distance between two combatants
-        /// </summary>
+        // Utility to return distance between entities for targeting decisions.
         public static float GetDistance(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return float.MaxValue;
             return Vector2.Distance(a.Center, b.Center);
         }
 
-        /// <summary>
-        /// Clear all event subscriptions
-        /// </summary>
+        // Reset event subscriptions (useful during scene teardown or tests).
         public static void ClearAllEvents()
         {
             OnDamageDealt = null;

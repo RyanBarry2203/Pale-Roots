@@ -113,7 +113,7 @@ namespace Pale_Roots_1
                             pos.X += CombatSystem.RandomInt(-20, 20);
                             pos.Y += CombatSystem.RandomInt(-20, 20);
 
-                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet);
+                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet, false);
                         }
                     }
                 }
@@ -123,16 +123,18 @@ namespace Pale_Roots_1
         }
         private void PlaceLandMarks()
         {
+            // Animated objects are fine as they were
             Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
             Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
-            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet);
-            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet);
+
+            // CHANGE: Columns and Rocks are solid (true)
+            CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet, true);
+            CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet, true);
 
             Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
-            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet);
-
+            CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet, true);
 
             Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
             int radius = 150;
@@ -142,31 +144,32 @@ namespace Pale_Roots_1
             {
                 float angle = i * (MathHelper.TwoPi / skullCount);
                 Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
-                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet);
-            }
 
+                
+                CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet, false);
+            }
 
             for (int i = 0; i < 15; i++)
             {
-
                 int rx = CombatSystem.RandomInt(10, 50);
-                int ry = CombatSystem.RandomInt(5, 29); 
+                int ry = CombatSystem.RandomInt(5, 29);
                 Vector2 pos = new Vector2(rx * 64, ry * 64);
 
                 if (CombatSystem.RandomInt(0, 100) > 50)
-                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet);
+                    
+                    CreateStaticObject("Big_Rock", pos, _staticObjectSheet, true);
                 else
-                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet);
+                    
+                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
             }
         }
-        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet)
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
         {
             Rectangle data = Helper.GetSourceRect(assetName);
 
-            var obj = new WorldObject(_game, sheet, position, 1, true);
+            var obj = new WorldObject(_game, sheet, position, 1, isSolid);
 
             obj.SetSpriteSheetLocation(data);
-
             MapObjects.Add(obj);
         }
         private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)

@@ -5,6 +5,15 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // Ally: a friendly combatant that mirrors Enemy behavior but fights for the player.
+    // Responsibilities:
+    // - Implements ICombatant so CombatSystem and ChaseAndFireEngine can treat it like any actor.
+    // - Holds animations via AnimationManager and transitions states (wander, chase, combat).
+    // - Movement and combat decision logic is intentionally similar to Enemy for reuse.
+    // Interactions:
+    // - Receives target assignments from ChaseAndFireEngine via CombatSystem.AssignTarget.
+    // - Uses CombatSystem to deal and take damage; ClearTarget called when a target is invalid.
+    // - Uses RotatingSprite movement/integration for obstacle-aware pathing.
     public class Ally : RotatingSprite, ICombatant
     {
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
@@ -48,6 +57,7 @@ namespace Pale_Roots_1
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
+        // Ally constructor uses texture dictionary for animations, similar to Enemy
         public Ally(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Walk"], userPosition, framecount)
         {
@@ -59,9 +69,7 @@ namespace Pale_Roots_1
             _deathCountdown = GameConstants.DeathCountdown;
             CurrentAIState = Enemy.AISTATE.Charging;
 
-            // SCALE: 3.0f
             Scale = 3.0f;
-
             _animManager = new AnimationManager();
 
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
@@ -77,6 +85,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // High-level update: animation selection and death handling
         public override void Update(GameTime gametime)
         {
             base.Update(gametime);
@@ -94,6 +103,7 @@ namespace Pale_Roots_1
             if (_lifecycleState == ALLYSTATE.DYING) UpdateDying(gametime);
         }
 
+        // Update with obstacle list to enable pathing checks; uses shared AI loop pattern
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -103,6 +113,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // AI tick shares structure with Enemy: cooldowns, validation, and state dispatch
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             if (_attackCooldown > 0) _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -122,6 +133,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Move forward while charging; different direction compared to Enemy
         protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
@@ -165,6 +177,7 @@ namespace Pale_Roots_1
             if (_deathCountdown <= 0) { _lifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
 
+        // Simple damage handling; transitions to dead state when health depletes
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
@@ -172,6 +185,7 @@ namespace Pale_Roots_1
             if (Health <= 0) Die();
         }
 
+        // Trigger melee attack using CombatSystem to resolve damage and cooldown bookkeeping
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || _attackCooldown > 0) return;
@@ -187,35 +201,31 @@ namespace Pale_Roots_1
             CombatSystem.ClearTarget(this);
         }
 
+        // Determine facing for animation; flipEffect is managed for visual mirroring
         private void UpdateDirection()
         {
-
-
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
-
 
                 _flipEffect = SpriteEffects.None;
 
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
                 {
- 
                     _currentDirectionIndex = (diff.X < 0) ? 0 : 1;
                 }
                 else
                 {
-
                     _currentDirectionIndex = (diff.Y < 0) ? 2 : 3;
                 }
             }
-
             else if (Velocity > 0.1f)
             {
-                
+                // keep current direction when moving
             }
         }
 
+        // Draw uses the AnimationManager with the chosen direction and draws a small health bar above the ally
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
