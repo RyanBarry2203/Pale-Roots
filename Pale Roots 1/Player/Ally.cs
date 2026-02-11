@@ -10,7 +10,7 @@ namespace Pale_Roots_1
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
         private AnimationManager _animManager;
-        private int _currentDirectionIndex = 0;
+        private int _currentDirectionIndex = 1;
         private SpriteEffects _flipEffect = SpriteEffects.None;
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
@@ -64,16 +64,11 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // ALLY SHEET CONFIGURATION
-            // These are STRIPS (Single Row).
-            // isGrid = false
-            // totalRows = 1
-            // Speed = 200f (Slower)
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 1, 0, false));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 1, 0, false));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 1, 0, false));
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 125f, true, 4, 0, true));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 6, 0, 175f, false, 4, 0, true));
 
-            _animManager.Play("Walk");
+            _animManager.Play("Idle");
 
             if (_healthBarTexture == null)
             {
@@ -194,22 +189,30 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
-            // ALLY SHEET MAPPING:
-            // These are strips. They only have Row 0.
-            // They face RIGHT by default.
 
-            _currentDirectionIndex = 0;
-            _flipEffect = SpriteEffects.None;
 
             if (CurrentTarget != null)
             {
-                // If target is to the LEFT, flip.
-                if (CurrentTarget.Position.X < this.Position.X)
-                    _flipEffect = SpriteEffects.FlipHorizontally;
+                Vector2 diff = CurrentTarget.Position - this.Position;
+
+
+                _flipEffect = SpriteEffects.None;
+
+                if (Math.Abs(diff.X) > Math.Abs(diff.Y))
+                {
+ 
+                    _currentDirectionIndex = (diff.X < 0) ? 0 : 1;
+                }
+                else
+                {
+
+                    _currentDirectionIndex = (diff.Y < 0) ? 2 : 3;
+                }
             }
-            else if (Velocity > 0)
+
+            else if (Velocity > 0.1f)
             {
-                // Charging Right (Default) -> No Flip
+                
             }
         }
 

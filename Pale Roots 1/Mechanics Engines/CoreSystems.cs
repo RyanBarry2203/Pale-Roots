@@ -48,7 +48,7 @@ namespace Pale_Roots_1
 
         // DEATH & CLEANUP
         public const int DeathCountdown = 30;
-        public const int WanderRadius = 100;
+        public const int WanderRadius = 300;
         public const float KnockbackFriction = 0.9f;
 
         // MAP & TILES

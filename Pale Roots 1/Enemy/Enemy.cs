@@ -11,7 +11,7 @@ namespace Pale_Roots_1
         public enum AISTATE { Charging, Chasing, InCombat, Wandering }
 
         private AnimationManager _animManager;
-        private int _currentDirectionIndex = 0;
+        private int _currentDirectionIndex = 2;
         private SpriteEffects _flipEffect = SpriteEffects.None;
         private Vector2 _knockBackVelocity;
         private static Texture2D _healthBarTexture;
@@ -65,15 +65,12 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // ORC SHEET CONFIGURATION
-            // isGrid = true (It has 4 rows)
-            // totalRows = 4
-            // Speed = 200f (Slower, so you can see the animation)
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 4, 0, true));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 4, 0, true));
-            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 4, 0, true));
-            _animManager.AddAnimation("Death", new Animation(textures["Death"], 4, 0, 200f, false, 4, 0, true));
+
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true)); 
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 155f, false, 4, 0, true)); 
+            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
 
             _animManager.Play("Idle");
             SetupHealthBar(g);

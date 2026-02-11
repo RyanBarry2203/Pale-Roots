@@ -73,15 +73,22 @@ namespace Pale_Roots_1
 
             if (direction != Vector2.Zero)
             {
-                direction.Normalize();
-                
-                Vector2 velocity = direction * speed;
-                Vector2 newPos = position + velocity;
 
-                if (!IsColliding(newPos, obstacles))
+                direction.Normalize();
+                Vector2 velocity = direction * speed;
+
+                Vector2 potentialPosX = new Vector2(position.X + velocity.X, position.Y);
+                if (!IsColliding(potentialPosX, obstacles))
                 {
-                    position = newPos;
+                    position.X = potentialPosX.X;
                 }
+
+                Vector2 potentialPosY = new Vector2(position.X, position.Y + velocity.Y);
+                if (!IsColliding(potentialPosY, obstacles))
+                {
+                    position.Y = potentialPosY.Y;
+                }
+
                 angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
 
                 ClampToMap();

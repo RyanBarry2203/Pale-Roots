@@ -36,16 +36,15 @@ namespace Pale_Roots_1
             {
                 float scale = (float)Scale;
 
-                int finalWidth = (int)(_pixelWidth * scale);
 
                 int finalHeight = (int)(spriteHeight * scale * 0.2f);
 
-                // Start at Center.
-                // Move Left by half the total sprite width (to get to left edge).
-                // Move Right by the pixel offset.
-                int x = (int)(position.X - (spriteWidth * scale / 2) + (_pixelOffsetX * scale));
 
-                //Calculate Y Position (Bottom aligned)
+                int finalWidth = (int)(_pixelWidth * scale);
+
+                float leftEdge = position.X - (spriteWidth * scale / 2);
+                int x = (int)(leftEdge + (_pixelOffsetX * scale));
+
                 int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
 
                 return new Rectangle(x, y, finalWidth, finalHeight);
@@ -57,27 +56,30 @@ namespace Pale_Roots_1
             Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
             spriteImage.GetData(rawData);
 
+
             Rectangle src = sourceRectangle;
 
+
             int startY = src.Y + (int)(src.Height * 0.8f);
-            int endY = src.Y + src.Height;
+            int endY = src.Y + src.Height;             
 
-            int minX = src.Width; // Start high
-            int maxX = 0;         // Start low
+
+            int minX = src.Width;
+            int maxX = 0;
             bool foundPixels = false;
-
 
             for (int y = startY; y < endY; y++)
             {
                 for (int x = src.X; x < src.X + src.Width; x++)
                 {
-                    // Calculate index in the 1D array
+                    // Get exact pixel index
                     int index = y * spriteImage.Width + x;
 
-                    // Check Alpha (Transparency). If it's not see-through...
+                    // Check Alpha (Is it not transparent?)
                     if (rawData[index].A > 20)
                     {
-                        int localX = x - src.X; // X relative to the frame (0 to 64)
+                        // Convert global X to local X (0 to Width)
+                        int localX = x - src.X;
 
                         if (localX < minX) minX = localX;
                         if (localX > maxX) maxX = localX;
@@ -86,7 +88,7 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 5. Store the results
+            // 5. Save the results
             if (foundPixels)
             {
                 _pixelOffsetX = minX;
@@ -94,9 +96,9 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Fallback if the image is empty for some reason
-                _pixelOffsetX = 0;
-                _pixelWidth = src.Width;
+                // Fallback: If the bottom is empty, just use the center 50%
+                _pixelOffsetX = (int)(src.Width * 0.25f);
+                _pixelWidth = (int)(src.Width * 0.5f);
             }
         }
         public new void SetSpritesheetLocation(Rectangle source)
