@@ -8,7 +8,7 @@ namespace Pale_Roots_1
     public class Enemy : RotatingSprite, ICombatant
     {
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
-        public enum AISTATE { Charging, Chasing, InCombat, Wandering }
+        public enum AISTATE { Charging, Chasing, InCombat, Wandering, Hurt }
 
         private AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
@@ -68,7 +68,7 @@ namespace Pale_Roots_1
 
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true)); 
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 155f, false, 4, 0, true)); 
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true)); 
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
 
@@ -136,7 +136,11 @@ namespace Pale_Roots_1
             {
                 animKey = "Death";
             }
-            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 800)
+            else if (CurrentAIState == AISTATE.Hurt)
+            {
+                animKey = "Hurt";
+            }
+            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 200)
             {
                 animKey = "Attack";
             }
@@ -145,7 +149,8 @@ namespace Pale_Roots_1
                 animKey = "Walk";
             }
 
-            _animManager.Play(animKey);
+
+                _animManager.Play(animKey);
             _animManager.Update(gametime);
 
             if (_lifecycleState == ENEMYSTATE.DYING) UpdateDying(gametime);
@@ -169,6 +174,14 @@ namespace Pale_Roots_1
             {
                 CombatSystem.ClearTarget(this);
                 CurrentAIState = AISTATE.Wandering;
+            }
+            if (CurrentAIState == AISTATE.Hurt)
+            {
+                if (_attackCooldown <= 0)
+                {
+                    CurrentAIState = AISTATE.Chasing;
+                }
+                
             }
 
             switch (CurrentAIState)
@@ -241,8 +254,19 @@ namespace Pale_Roots_1
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
+
             Health -= amount;
-            if (Health <= 0) Die();
+
+            if (Health <= 0)
+            {
+                Die();
+            }
+            else
+            {
+                CurrentAIState = AISTATE.Hurt;
+                _attackCooldown = 500f; // Stunned for 0.5 seconds
+                _animManager.Play("Hurt");
+            }
         }
 
         public virtual void PerformAttack()
@@ -256,17 +280,15 @@ namespace Pale_Roots_1
         public virtual void Die()
         {
             _lifecycleState = ENEMYSTATE.DYING;
-            _deathCountdown = GameConstants.DeathCountdown;
+
+            _deathCountdown = 80;
+
             CombatSystem.ClearTarget(this);
         }
 
         private void UpdateDirection()
         {
-            // ORC SHEET MAPPING (Based on visual inspection of orc1_run_full.png)
-            // Row 0: Down
-            // Row 1: Up
-            // Row 2: Left
-            // Row 3: Right
+
 
             if (CurrentTarget != null)
             {

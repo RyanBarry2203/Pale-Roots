@@ -559,16 +559,15 @@ namespace Pale_Roots_1
             {
                 float scale = (float)Scale;
 
-                int finalWidth = (int)(_pixelWidth * scale);
 
                 int finalHeight = (int)(spriteHeight * scale * 0.2f);
 
-                // Start at Center.
-                // Move Left by half the total sprite width (to get to left edge).
-                // Move Right by the pixel offset.
-                int x = (int)(position.X - (spriteWidth * scale / 2) + (_pixelOffsetX * scale));
 
-                //Calculate Y Position (Bottom aligned)
+                int finalWidth = (int)(_pixelWidth * scale);
+
+                float leftEdge = position.X - (spriteWidth * scale / 2);
+                int x = (int)(leftEdge + (_pixelOffsetX * scale));
+
                 int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
 
                 return new Rectangle(x, y, finalWidth, finalHeight);
@@ -580,27 +579,30 @@ namespace Pale_Roots_1
             Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
             spriteImage.GetData(rawData);
 
+
             Rectangle src = sourceRectangle;
 
+
             int startY = src.Y + (int)(src.Height * 0.8f);
-            int endY = src.Y + src.Height;
+            int endY = src.Y + src.Height;             
 
-            int minX = src.Width; // Start high
-            int maxX = 0;         // Start low
+
+            int minX = src.Width;
+            int maxX = 0;
             bool foundPixels = false;
-
 
             for (int y = startY; y < endY; y++)
             {
                 for (int x = src.X; x < src.X + src.Width; x++)
                 {
-                    // Calculate index in the 1D array
+                    // Get exact pixel index
                     int index = y * spriteImage.Width + x;
 
-                    // Check Alpha (Transparency). If it's not see-through...
-                    if (rawData[index].A > 20)
+                    // Check Alpha (Is it not transparent?)
+                    if (rawData[index].A > 200)
                     {
-                        int localX = x - src.X; // X relative to the frame (0 to 64)
+                        // Convert global X to local X (0 to Width)
+                        int localX = x - src.X;
 
                         if (localX < minX) minX = localX;
                         if (localX > maxX) maxX = localX;
@@ -609,7 +611,7 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 5. Store the results
+            // 5. Save the results
             if (foundPixels)
             {
                 _pixelOffsetX = minX;
@@ -617,9 +619,9 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Fallback if the image is empty for some reason
-                _pixelOffsetX = 0;
-                _pixelWidth = src.Width;
+                // Fallback: If the bottom is empty, just use the center 50%
+                _pixelOffsetX = (int)(src.Width * 0.25f);
+                _pixelWidth = (int)(src.Width * 0.5f);
             }
         }
         public new void SetSpritesheetLocation(Rectangle source)
@@ -808,10 +810,10 @@ namespace Pale_Roots_1
     public class Enemy : RotatingSprite, ICombatant
     {
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
-        public enum AISTATE { Charging, Chasing, InCombat, Wandering }
+        public enum AISTATE { Charging, Chasing, InCombat, Wandering, Hurt }
 
         private AnimationManager _animManager;
-        private int _currentDirectionIndex = 0;
+        private int _currentDirectionIndex = 2;
         private SpriteEffects _flipEffect = SpriteEffects.None;
         private Vector2 _knockBackVelocity;
         private static Texture2D _healthBarTexture;
@@ -865,15 +867,12 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // ORC SHEET CONFIGURATION
-            // isGrid = true (It has 4 rows)
-            // totalRows = 4
-            // Speed = 200f (Slower, so you can see the animation)
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 4, 0, true));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 4, 0, true));
-            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 4, 0, true));
-            _animManager.AddAnimation("Death", new Animation(textures["Death"], 4, 0, 200f, false, 4, 0, true));
+
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true)); 
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true)); 
+            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
 
             _animManager.Play("Idle");
             SetupHealthBar(g);
@@ -939,7 +938,7 @@ namespace Pale_Roots_1
             {
                 animKey = "Death";
             }
-            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 800)
+            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 200)
             {
                 animKey = "Attack";
             }
@@ -947,8 +946,12 @@ namespace Pale_Roots_1
             {
                 animKey = "Walk";
             }
+            else if (CurrentAIState == AISTATE.Hurt)
+            {
+                animKey = "Hurt";
+            }
 
-            _animManager.Play(animKey);
+                _animManager.Play(animKey);
             _animManager.Update(gametime);
 
             if (_lifecycleState == ENEMYSTATE.DYING) UpdateDying(gametime);
@@ -1044,8 +1047,19 @@ namespace Pale_Roots_1
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
+
             Health -= amount;
-            if (Health <= 0) Die();
+
+            if (Health <= 0)
+            {
+                Die();
+            }
+            else
+            {
+                CurrentAIState = AISTATE.Hurt;
+                _attackCooldown = 500f; // Stunned for 0.5 seconds
+                _animManager.Play("Hurt");
+            }
         }
 
         public virtual void PerformAttack()
@@ -2098,7 +2112,7 @@ namespace Pale_Roots_1
 
         // DEATH & CLEANUP
         public const int DeathCountdown = 30;
-        public const int WanderRadius = 100;
+        public const int WanderRadius = 300;
         public const float KnockbackFriction = 0.9f;
 
         // MAP & TILES
@@ -2875,7 +2889,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+455e9fa934811d4178ae08aa063c8cba0a3fb2fe")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+96ef593c17d7296f5a1cdc85d9cc736fa53b50db")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -2896,7 +2910,7 @@ namespace Pale_Roots_1
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
         private AnimationManager _animManager;
-        private int _currentDirectionIndex = 0;
+        private int _currentDirectionIndex = 1;
         private SpriteEffects _flipEffect = SpriteEffects.None;
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
@@ -2950,16 +2964,11 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // ALLY SHEET CONFIGURATION
-            // These are STRIPS (Single Row).
-            // isGrid = false
-            // totalRows = 1
-            // Speed = 200f (Slower)
-            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 1, 0, false));
-            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 150f, true, 1, 0, false));
-            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 4, 0, 200f, false, 1, 0, false));
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 125f, true, 4, 0, true));
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 6, 0, 175f, false, 4, 0, true));
 
-            _animManager.Play("Walk");
+            _animManager.Play("Idle");
 
             if (_healthBarTexture == null)
             {
@@ -3080,22 +3089,30 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
-            // ALLY SHEET MAPPING:
-            // These are strips. They only have Row 0.
-            // They face RIGHT by default.
 
-            _currentDirectionIndex = 0;
-            _flipEffect = SpriteEffects.None;
 
             if (CurrentTarget != null)
             {
-                // If target is to the LEFT, flip.
-                if (CurrentTarget.Position.X < this.Position.X)
-                    _flipEffect = SpriteEffects.FlipHorizontally;
+                Vector2 diff = CurrentTarget.Position - this.Position;
+
+
+                _flipEffect = SpriteEffects.None;
+
+                if (Math.Abs(diff.X) > Math.Abs(diff.Y))
+                {
+ 
+                    _currentDirectionIndex = (diff.X < 0) ? 0 : 1;
+                }
+                else
+                {
+
+                    _currentDirectionIndex = (diff.Y < 0) ? 2 : 3;
+                }
             }
-            else if (Velocity > 0)
+
+            else if (Velocity > 0.1f)
             {
-                // Charging Right (Default) -> No Flip
+                
             }
         }
 
@@ -3781,14 +3798,24 @@ namespace Pale_Roots_1
             if (direction != Vector2.Zero)
             {
                 direction.Normalize();
-                
                 Vector2 velocity = direction * speed;
-                Vector2 newPos = position + velocity;
 
-                if (!IsColliding(newPos, obstacles))
+
+                // 1. Try moving X
+                Vector2 futurePosX = new Vector2(position.X + velocity.X, position.Y);
+                if (!IsColliding(futurePosX, obstacles))
                 {
-                    position = newPos;
+                    position.X = futurePosX.X;
                 }
+
+                // 2. Try moving Y
+                Vector2 futurePosY = new Vector2(position.X, position.Y + velocity.Y);
+                if (!IsColliding(futurePosY, obstacles))
+                {
+                    position.Y = futurePosY.Y;
+                }
+
+                // Update Rotation
                 angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
 
                 ClampToMap();

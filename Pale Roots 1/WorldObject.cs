@@ -22,14 +22,11 @@ namespace Pale_Roots_1
             IsSolid = isSolid;
             mililsecondsBetweenFrames = 200; // Slow animation for trees
 
-            // DEFAULT SCALE:
-            // If the sprite feels too small, change this to 2.0f. 
-            // In your screenshot, they were massive, so let's stick to 1.5f for now.
+
             Scale = 3.0f;
         }
 
-        // TIGHTER HITBOX
-        // This calculates the collision box at the FEET of the object only.
+
         public Rectangle CollisionBox
         {
             get
@@ -37,13 +34,13 @@ namespace Pale_Roots_1
                 float scale = (float)Scale;
 
 
+                int finalWidth = (int)(_pixelWidth * scale * 0.8f);
+
                 int finalHeight = (int)(spriteHeight * scale * 0.2f);
 
 
-                int finalWidth = (int)(_pixelWidth * scale);
-
                 float leftEdge = position.X - (spriteWidth * scale / 2);
-                int x = (int)(leftEdge + (_pixelOffsetX * scale));
+                int x = (int)(leftEdge + (_pixelOffsetX * scale) + (finalWidth * 0.1f));
 
                 int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
 
@@ -76,7 +73,7 @@ namespace Pale_Roots_1
                     int index = y * spriteImage.Width + x;
 
                     // Check Alpha (Is it not transparent?)
-                    if (rawData[index].A > 20)
+                    if (rawData[index].A > 200)
                     {
                         // Convert global X to local X (0 to Width)
                         int localX = x - src.X;
