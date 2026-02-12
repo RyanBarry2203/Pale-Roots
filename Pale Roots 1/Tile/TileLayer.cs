@@ -36,14 +36,26 @@ namespace Pale_Roots_1
             for (int x = 0; x < tileMapWidth; x++)  // look at columns in row
                 for (int y = 0; y < tileMapHeight; y++) // look at rows
                 {
+                    // Choose a random palette entry for this tile if a palette was provided.
+                    // Fallback to the LayerMap value if palette is empty.
+                    int chosenIndex = 0;
+                    if (tileRefs != null && tileRefs.Count > 0)
+                    {
+                        chosenIndex = CombatSystem.RandomInt(0, tileRefs.Count);
+                    }
+                    else
+                    {
+                        chosenIndex = LayerMap[y, x];
+                    }
+
                     Tiles[y, x] =
                         new Tile
                         {
                             X = x,
                             Y = y,
-                            Id = LayerMap[y, x],
+                            Id = chosenIndex,
                             Passable = true,
-                            tileRef = tileRefs[LayerMap[y, x]]
+                            tileRef = (tileRefs != null && tileRefs.Count > 0) ? tileRefs[chosenIndex] : tileRefs[LayerMap[y, x]]
                         };
                 }
         }

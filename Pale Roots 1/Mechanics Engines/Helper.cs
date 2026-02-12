@@ -33,6 +33,22 @@ namespace Pale_Roots_1
 
             { "Smaller_Ruin", new Rectangle(108, 40, 87, 73) },
             { "Ribcage", new Rectangle(317, 221, 61, 39) },
+            { "Medium_Dying_Tree", new Rectangle(83, 511, 71, 75) },
+            { "Brambles_Large", new Rectangle(12, 590, 117, 84) },
+            { "Brambles_Medium", new Rectangle(144, 611, 99, 60) },
+            { "Brambles_Small", new Rectangle(256, 619, 63, 55) },
+            { "Brambles_Tiny", new Rectangle(335, 639, 40, 28) },
+            { "Brambles_Very_Tiny", new Rectangle(384, 643, 16, 23) },
+
+            { "Grave_3", new Rectangle(80, 722, 31, 24) },
+            { "Small_Dying_Tree", new Rectangle(544, 539, 50, 55) },
+            { "Hand_In_Floor_Medium", new Rectangle(271, 531, 48, 55) },
+            { "Hand_In_Floor_Small", new Rectangle(320, 531, 31, 55) },
+            { "Hand_In_Floor_Tiny", new Rectangle(352, 542, 33, 48) },
+
+
+
+
 
 
         };

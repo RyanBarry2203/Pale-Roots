@@ -28,7 +28,7 @@ namespace Pale_Roots_1
 
         public void LoadLevel(int index)
         {
-            _groundSheet = _game.Content.Load<Texture2D>("tiles");
+            _groundSheet = _game.Content.Load<Texture2D>("MainLev2.0");
 
             _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
             _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
@@ -55,18 +55,22 @@ namespace Pale_Roots_1
             }
 
             List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(1, 3, 0));
-            CurrentLevel = new TileLayer(map, palette, 64, 64);
+            palette.Add(new TileRef(13, 41, 0));
+            palette.Add(new TileRef(14, 41, 0));
+            palette.Add(new TileRef(15, 41, 0));
+            palette.Add(new TileRef(16, 41, 0));
+            palette.Add(new TileRef(17, 41, 0));
+            palette.Add(new TileRef(14, 42, 0));
+            palette.Add(new TileRef(15, 43, 0));
+            palette.Add(new TileRef(16, 44, 0));
+            palette.Add(new TileRef(17, 45, 0));
+            palette.Add(new TileRef(13, 46, 0));
+            CurrentLevel = new TileLayer(map, palette, 64, 32);
 
-            // 3. GENERATE RECTANGULAR TREE BORDER
+
 
             float centerX = width / 2f;
             float centerY = height / 2f;
-
-            // DEFINING THE SAFE ZONE
-            // We want the clearing to match the screen shape (Wide).
-            // Width is 60. Let's keep 12 tiles of trees on sides -> Radius X = 18.
-            // Height is 34. Let's keep 5 tiles of trees on top/bottom -> Radius Y = 12.
 
             float safeRadiusX = 25f; // Wide
             float safeRadiusY = 13f; // Short
