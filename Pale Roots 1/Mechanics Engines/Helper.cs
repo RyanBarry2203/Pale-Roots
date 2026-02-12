@@ -28,6 +28,12 @@ namespace Pale_Roots_1
             { "Hand_In_Floor", new Rectangle(608, 523, 63, 71) },
             { "Baby_Skellington", new Rectangle(239, 227, 32, 24) },
 
+            { "Grave_1", new Rectangle(271, 683, 32, 40) },
+            { "Grave_2", new Rectangle(703, 684, 33, 33) },
+
+            { "Smaller_Ruin", new Rectangle(108, 40, 87, 73) },
+            { "Ribcage", new Rectangle(317, 221, 61, 39) },
+
 
         };
 
