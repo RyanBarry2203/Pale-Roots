@@ -574,7 +574,7 @@ namespace Pale_Roots_1
 
             //// Player Hurtbox (Blue) - Where enemies hit YOU
             //// We draw this relative to 'position' (The Cyan Dot)
-            //Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 80, 40, 80);
+            //Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 70, 40, 80);
             //spriteBatch.Draw(_healthBarTexture, myHurtBox, new Color(0, 0, 255, 100));
 
             //// The Logic Dot (Cyan)
