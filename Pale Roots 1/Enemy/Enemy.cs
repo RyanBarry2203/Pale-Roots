@@ -39,7 +39,7 @@ namespace Pale_Roots_1
         public string Name { get; set; } = "Enemy";
         public CombatTeam Team => CombatTeam.Enemy;
         public int MaxHealth { get; protected set; }
-        public int AttackDamage { get; protected set; }
+        public int AttackDamage { get; set; }
         public bool IsAlive => Health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
         public bool IsActive => Visible && _lifecycleState != ENEMYSTATE.DEAD;
 
@@ -107,6 +107,7 @@ namespace Pale_Roots_1
         private void SetupCommonStats(Vector2 pos)
         {
             startPosition = pos;
+            _previousPosition = pos;
             Velocity = GameConstants.DefaultEnemySpeed;
             MaxHealth = GameConstants.DefaultHealth;
             Health = MaxHealth;
@@ -163,6 +164,8 @@ namespace Pale_Roots_1
             _animManager.Update(gametime);
 
             if (_lifecycleState == ENEMYSTATE.DYING) UpdateDying(gametime);
+
+            _previousPosition = position;
         }
 
         // Update that includes obstacle-aware AI behavior

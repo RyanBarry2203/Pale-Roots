@@ -44,7 +44,7 @@ namespace Pale_Roots_1
         private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
         private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
-        private Dictionary<string, Texture2D> _orcTextures = new Dictionary<string, Texture2D>();
+        private List<Dictionary<string, Texture2D>> _allOrcTypes = new List<Dictionary<string, Texture2D>>();
         private Dictionary<string, Texture2D> _allyTextures = new Dictionary<string, Texture2D>();
 
         // ===================
@@ -110,17 +110,25 @@ namespace Pale_Roots_1
         
         private void InitializeArmies()
         {
-            //Texture2D allyTx = _gameOwnedBy.Content.Load<Texture2D>("wizard_strip3");
-            //Texture2D enemyTx = _gameOwnedBy.Content.Load<Texture2D>("Dragon_strip3");
 
-            // --- LOAD ORC TEXTURES ---
-            // --- LOAD ORC TEXTURES ---
-            // We use "orc1" because that is what is in your Solution Explorer
-            _orcTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_idle_full");
-            _orcTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_run_full");
-            _orcTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_attack_full");
-            _orcTextures["Hurt"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_hurt_full");
-            _orcTextures["Death"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_death_full");
+            //_orcTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_idle_full");
+            //_orcTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_run_full");
+            //_orcTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_attack_full");
+            //_orcTextures["Hurt"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_hurt_full");
+            //_orcTextures["Death"] = _gameOwnedBy.Content.Load<Texture2D>("RealEnemyFolder/orc1_death_full");
+
+            for (int i = 1; i <= 3; i++)
+            {
+                Dictionary<string, Texture2D> newOrcDict = new Dictionary<string, Texture2D>();
+
+                newOrcDict["Idle"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_idle_full");
+                newOrcDict["Walk"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_run_full");
+                newOrcDict["Attack"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_attack_full");
+                newOrcDict["Hurt"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_hurt_full");
+                newOrcDict["Death"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_death_full");
+
+                _allOrcTypes.Add(newOrcDict);
+            }
 
             // --- LOAD ALLY TEXTURES ---
             _allyTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Walk");
@@ -154,8 +162,37 @@ namespace Pale_Roots_1
                 float rowHeight = (enemiesInCurrentRow - 1) * spacingY;
                 float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
 
-                var enemy = new Enemy(_gameOwnedBy, _orcTextures, new Vector2(xPos, yPos), 4);
-                enemy.Name = $"Dragon {i + 1}";
+                int typeIndex = 0;
+
+                if (i == 0)
+                {
+                    typeIndex = 2; 
+                }
+                else
+                {
+                    typeIndex = CombatSystem.RandomInt(0, 2);
+                }
+
+
+                var enemy = new Enemy(_gameOwnedBy, _allOrcTypes[typeIndex], new Vector2(xPos, yPos), 4);
+
+                if (typeIndex == 0) 
+                {
+                    enemy.Name = $"Orc Grunt {i}";
+                    enemy.AttackDamage = 10;
+                }
+                else if (typeIndex == 1) 
+                {
+                    enemy.Name = $"Orc Warrior {i}";
+                    enemy.AttackDamage = 20;
+                }
+                else 
+                {
+                    enemy.Name = $"Orc Captain {i}";
+                    enemy.AttackDamage = 35;
+                    enemy.Scale = 3.5f; 
+                }
+
                 _enemies.Add(enemy);
 
                 currentSlotInRow++;
@@ -358,10 +395,20 @@ namespace Pale_Roots_1
 
                 if (team == CombatTeam.Enemy)
                 {
-                    var newEnemy = new Enemy(_gameOwnedBy, _orcTextures, spawnPos, 4);
-                    newEnemy.Name = "Reinforcement Orc";
+                    int roll = CombatSystem.RandomInt(0, 100);
+                    int typeIndex = 0;
 
-                    // Force them to hunt the player immediately
+                    if (roll >= 90) typeIndex = 2;     
+                    else if (roll >= 60) typeIndex = 1; 
+                    else typeIndex = 0;                
+
+                    var newEnemy = new Enemy(_gameOwnedBy, _allOrcTypes[typeIndex], spawnPos, 4);
+
+                    // Apply Stats
+                    if (typeIndex == 0) { newEnemy.Name = "Reinforcement Grunt"; newEnemy.AttackDamage = 10; }
+                    if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
+                    if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
+
                     CombatSystem.AssignTarget(newEnemy, _player);
                     newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
 

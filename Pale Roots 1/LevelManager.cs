@@ -20,6 +20,33 @@ namespace Pale_Roots_1
         private Texture2D _animatedObjectSheet;
         private Texture2D _staticObjectSheet;
 
+        private string[] _treeTypes = {
+            "Dying_Tree",
+            "Medium_Dying_Tree",
+            "Small_Dying_Tree",
+            "Tree_Dead_Large" 
+        };
+
+        private string[] _brambleTypes = {
+            "Brambles_Large",
+            "Brambles_Medium",
+            "Brambles_Small",
+            "Brambles_Tiny",
+            "Brambles_Very_Tiny"
+        };
+
+        private string[] _floorDetails = {
+            "Bone_In_Floor",
+            "Hand_In_Floor",
+            "Hand_In_Floor_Medium",
+            "Hand_In_Floor_Small",
+            "Hand_In_Floor_Tiny",
+            "Ribcage",
+            "Bird_Skull"
+        };
+
+        private string[] _graveTypes = { "Grave_1", "Grave_2", "Grave_3" };
+
         public LevelManager(Game game)
         {
             _game = game;
@@ -54,6 +81,7 @@ namespace Pale_Roots_1
                 }
             }
 
+            // i know i should have used a loop okay but it was faster to just brute force it than use brain rescources to figure out the maths for the palette indexing. Sue me.
             List<TileRef> palette = new List<TileRef>();
             palette.Add(new TileRef(13, 41, 0));
             palette.Add(new TileRef(14, 41, 0));
@@ -133,12 +161,21 @@ namespace Pale_Roots_1
                         if (CombatSystem.RandomFloat() < chance)
                         {
                             Vector2 pos = new Vector2(x * 64, y * 64);
-
-                            // Jitter
                             pos.X += CombatSystem.RandomInt(-20, 20);
                             pos.Y += CombatSystem.RandomInt(-20, 20);
 
-                            CreateStaticObject("Dying_Tree", pos, _staticObjectSheet, false);
+
+                            if (CombatSystem.RandomInt(0, 100) < 90)
+                            {
+                                // Pick a random tree from our new array
+                                string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
+                                CreateStaticObject(randomTree, pos, _staticObjectSheet, true);
+                            }
+                            else
+                            {
+ 
+                                CreateStaticObject("Brambles_Large", pos, _staticObjectSheet, true);
+                            }
                         }
                     }
                 }
