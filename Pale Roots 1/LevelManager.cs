@@ -282,17 +282,17 @@ namespace Pale_Roots_1
 
             // Skeleton King (Right, slightly Up)
             Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true);
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
 
             // Big Ruin (Top Right)
             Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
-            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, true);
-            CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, true);
+            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
+            CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
 
             // Smaller Ruin (Bottom Right)
             Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
-            CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, true);
+            CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
 
 
             // ==========================================
@@ -314,7 +314,7 @@ namespace Pale_Roots_1
                 if (IsSpaceOccupied(gravePos, 80f)) continue;
 
                 string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
-                CreateStaticObject(graveName, gravePos, _staticObjectSheet, true);
+                CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
                 gravesPlaced++;
             }
 
@@ -394,7 +394,7 @@ namespace Pale_Roots_1
         {
             Rectangle data = Helper.GetSourceRect(assetName);
 
-            var obj = new WorldObject(_game, sheet, position, frames, true);
+            var obj = new WorldObject(_game, sheet, position, frames, false);
 
             obj.SetSpriteSheetLocation(data);
 
