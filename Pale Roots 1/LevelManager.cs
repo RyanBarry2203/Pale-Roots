@@ -20,31 +20,51 @@ namespace Pale_Roots_1
         private Texture2D _animatedObjectSheet;
         private Texture2D _staticObjectSheet;
 
-        private string[] _treeTypes = {
-            "Dying_Tree",
-            "Medium_Dying_Tree",
-            "Small_Dying_Tree",
+        //private string[] _treeTypes = {
+        //    "Dying_Tree",
+        //    "Medium_Dying_Tree",
+        //    "Small_Dying_Tree",
+        //};
+
+        //private string[] _brambleTypes = {
+        //    "Brambles_Large",
+        //    "Brambles_Medium",
+        //    "Brambles_Small",
+        //    "Brambles_Tiny",
+        //    "Brambles_Very_Tiny"
+        //};
+
+        //private string[] _floorDetails = {
+        //    "Bone_In_Floor",
+        //    "Hand_In_Floor",
+        //    "Hand_In_Floor_Medium",
+        //    "Hand_In_Floor_Small",
+        //    "Hand_In_Floor_Tiny",
+        //    "Ribcage",
+        //    "Bird_Skull"
+        //};
+
+        //private string[] _graveTypes = { "Grave_1", "Grave_2", "Grave_3" };
+
+        private string[] _natureObjects = {
+            "Dying_Tree", "Medium_Dying_Tree", "Small_Dying_Tree",
+            "Brambles_Large", "Brambles_Medium", "Brambles_Small",
+            "Brambles_Tiny", "Brambles_Very_Tiny"
         };
 
-        private string[] _brambleTypes = {
-            "Brambles_Large",
-            "Brambles_Medium",
-            "Brambles_Small",
-            "Brambles_Tiny",
-            "Brambles_Very_Tiny"
+        private string[] _graveObjects = {
+            "Grave_1", "Grave_2", "Grave_3",
+            "Hand_In_Floor", "Hand_In_Floor_Medium", "Hand_In_Floor_Small"
         };
 
-        private string[] _floorDetails = {
-            "Bone_In_Floor",
-            "Hand_In_Floor",
-            "Hand_In_Floor_Medium",
-            "Hand_In_Floor_Small",
-            "Hand_In_Floor_Tiny",
-            "Ribcage",
-            "Bird_Skull"
+        private string[] _ruinObjects = {
+            "Ruins_Column", "Smaller_Ruin", "Big_Rock", "Shrine_Blue"
         };
 
-        private string[] _graveTypes = { "Grave_1", "Grave_2", "Grave_3" };
+        private string[] _boneObjects = {
+            "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull",
+            "Baby_Skellington"
+        };
 
         public LevelManager(Game game)
         {
@@ -157,53 +177,41 @@ namespace Pale_Roots_1
             float centerX = width / 2f;
             float centerY = height / 2f;
 
-            float safeRadiusX = 25f; // Wide
-            float safeRadiusY = 13f; // Short
+            float safeRadiusX = 22f;
+            float safeRadiusY = 11f;
 
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
-                    // --- RECTANGULAR SDF MATH ---
 
-                    // 1. Distance from center
                     float dx = Math.Abs(x - centerX);
                     float dy = Math.Abs(y - centerY);
 
-                    // 2. Subtract the specific radius for that axis
-                    // This creates a box that is wider than it is tall
                     float excessX = Math.Max(dx - safeRadiusX, 0);
                     float excessY = Math.Max(dy - safeRadiusY, 0);
 
-                    // 3. Calculate distance outside that box
                     float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
 
                     if (distanceOutsideBox > 0)
                     {
-                        // 4. Calculate Chance (Gradient)
-                        // We make the gradient slightly steeper (6.0f) so the trees get dense faster
-                        float chance = distanceOutsideBox / 6.0f;
-                        chance *= 0.8f; // Density multiplier
+                        float chance = distanceOutsideBox / 4.5f;
+
+
+                        chance += CombatSystem.RandomFloat(-0.2f, 0.2f);
 
                         if (CombatSystem.RandomFloat() < chance)
                         {
                             Vector2 pos = new Vector2(x * 64, y * 64);
-                            pos.X += CombatSystem.RandomInt(-20, 20);
-                            pos.Y += CombatSystem.RandomInt(-20, 20);
+
+   
+                            pos.X += CombatSystem.RandomInt(-24, 24);
+                            pos.Y += CombatSystem.RandomInt(-24, 24);
 
 
-                            if (CombatSystem.RandomInt(0, 100) < 90)
-                            {
-                                // Pick a random tree from our new array
-                                string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
-                                CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
-                            }
-                            else
-                            {
+                            string randomNature = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
 
-                                string randomBramble = _brambleTypes[CombatSystem.RandomInt(0, _brambleTypes.Length)];
-                                CreateStaticObject(randomBramble, pos, _staticObjectSheet, false);
-                            }
+                            CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
                         }
                     }
                 }
@@ -270,115 +278,205 @@ namespace Pale_Roots_1
             }
             return false;
         }
+        //private void PlaceLandMarks()
+        //{
+        //    // ==========================================
+        //    // 1. FIXED LANDMARKS (Spawn these FIRST)
+        //    // ==========================================
+
+        //    // Center Tree
+        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+        //    // Skeleton King (Right, slightly Up)
+        //    Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
+        //    CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
+
+        //    // Big Ruin (Top Right)
+        //    Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
+        //    CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
+        //    CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
+        //    CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
+
+        //    // Smaller Ruin (Bottom Right)
+        //    Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
+        //    CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
+
+
+        //    // ==========================================
+        //    // 2. THE GRAVEYARD (Left Side Only)
+        //    // ==========================================
+        //    int gravesPlaced = 0;
+        //    int attempts = 0;
+
+        //    while (gravesPlaced < 25 && attempts < 200)
+        //    {
+        //        attempts++;
+
+        //        // Random Position on Left Side
+        //        int gx = CombatSystem.RandomInt(4, 22);
+        //        int gy = CombatSystem.RandomInt(4, 30);
+        //        Vector2 gravePos = new Vector2(gx * 64, gy * 64);
+
+        //        // CHECK: Increased gap to 80f (more than 1 tile width)
+        //        if (IsSpaceOccupied(gravePos, 80f)) continue;
+
+        //        string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
+        //        CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
+        //        gravesPlaced++;
+        //    }
+
+
+        //    // ==========================================
+        //    // 3. SKELETAL REMAINS CIRCLE (Around Tree)
+        //    // ==========================================
+        //    string[] bones = { "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull" };
+        //    int boneCount = 12;
+        //    float radius = 400f;
+
+        //    for (int i = 0; i < boneCount; i++)
+        //    {
+        //        float angle = i * (MathHelper.TwoPi / boneCount);
+        //        float jitter = CombatSystem.RandomFloat(-0.5f, 0.5f);
+        //        float distJitter = CombatSystem.RandomInt(-50, 50);
+
+        //        Vector2 offset = new Vector2(
+        //            (float)Math.Cos(angle + jitter) * (radius + distJitter),
+        //            (float)Math.Sin(angle + jitter) * (radius + distJitter)
+        //        );
+        //        Vector2 finalPos = centerPos + offset;
+
+        //        // CHECK: Gap of 60f for bones
+        //        if (IsSpaceOccupied(finalPos, 60f)) continue;
+
+        //        string boneItem = bones[CombatSystem.RandomInt(0, bones.Length)];
+        //        CreateStaticObject(boneItem, finalPos, _staticObjectSheet, false);
+        //    }
+
+
+        //    // ==========================================
+        //    // 4. RANDOM SCATTER (Hands, Dead Trees)
+        //    // ==========================================
+        //    int scatterPlaced = 0;
+        //    attempts = 0;
+
+        //    while (scatterPlaced < 15 && attempts < 200)
+        //    {
+        //        attempts++;
+
+        //        int rx = CombatSystem.RandomInt(5, 55);
+        //        int ry = CombatSystem.RandomInt(5, 29);
+        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+        //        // Don't spawn too close to center tree
+        //        if (Vector2.Distance(pos, centerPos) < 300) continue;
+
+        //        // CHECK: Increased gap to 100f so random trees don't clump
+        //        if (IsSpaceOccupied(pos, 100f)) continue;
+
+        //        if (CombatSystem.RandomInt(0, 100) > 50)
+        //        {
+        //            string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
+        //            CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
+        //        }
+        //        else
+        //        {
+        //            string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
+        //            CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
+        //        }
+
+
+        //        scatterPlaced++;
+        //    }
+        //}
+
         private void PlaceLandMarks()
         {
-            // ==========================================
-            // 1. FIXED LANDMARKS (Spawn these FIRST)
-            // ==========================================
 
-            // Center Tree
             Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
-            // Skeleton King (Right, slightly Up)
-            Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
-
-            // Big Ruin (Top Right)
-            Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
-            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
-            CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
-
-            // Smaller Ruin (Bottom Right)
-            Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
-            CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
+            Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true); // Solid!
 
 
-            // ==========================================
-            // 2. THE GRAVEYARD (Left Side Only)
-            // ==========================================
-            int gravesPlaced = 0;
+            Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
+            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(100, 90), _staticObjectSheet, true);
+
+            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
+            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
+
+            FillZones(centerPos);
+        }
+        private void FillZones(Vector2 centerPos)
+        {
             int attempts = 0;
+            int maxItems = 60; 
+            int itemsPlaced = 0;
 
-            while (gravesPlaced < 25 && attempts < 200)
+            while (itemsPlaced < maxItems && attempts < 1000)
             {
                 attempts++;
 
-                // Random Position on Left Side
-                int gx = CombatSystem.RandomInt(4, 22);
-                int gy = CombatSystem.RandomInt(4, 30);
-                Vector2 gravePos = new Vector2(gx * 64, gy * 64);
+                int tx = CombatSystem.RandomInt(6, 54);
+                int ty = CombatSystem.RandomInt(6, 28);
+                Vector2 pos = new Vector2(tx * 64, ty * 64);
 
-                // CHECK: Increased gap to 80f (more than 1 tile width)
-                if (IsSpaceOccupied(gravePos, 80f)) continue;
-
-                string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
-                CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
-                gravesPlaced++;
-            }
+                pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
 
 
-            // ==========================================
-            // 3. SKELETAL REMAINS CIRCLE (Around Tree)
-            // ==========================================
-            string[] bones = { "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull" };
-            int boneCount = 12;
-            float radius = 400f;
+                float distToCenter = Vector2.Distance(pos, centerPos);
 
-            for (int i = 0; i < boneCount; i++)
-            {
-                float angle = i * (MathHelper.TwoPi / boneCount);
-                float jitter = CombatSystem.RandomFloat(-0.5f, 0.5f);
-                float distJitter = CombatSystem.RandomInt(-50, 50);
+                // 3. Check Collision (Don't spawn on top of the King or Ruins)
+                // We use a large gap (80f) to ensure objects aren't clumped
+                if (IsSpaceOccupied(pos, 80f)) continue;
 
-                Vector2 offset = new Vector2(
-                    (float)Math.Cos(angle + jitter) * (radius + distJitter),
-                    (float)Math.Sin(angle + jitter) * (radius + distJitter)
-                );
-                Vector2 finalPos = centerPos + offset;
+                string assetToSpawn = "";
+                bool isSolid = false;
 
-                // CHECK: Gap of 60f for bones
-                if (IsSpaceOccupied(finalPos, 60f)) continue;
+                // --- ZONE LOGIC ---
 
-                string boneItem = bones[CombatSystem.RandomInt(0, bones.Length)];
-                CreateStaticObject(boneItem, finalPos, _staticObjectSheet, false);
-            }
-
-
-            // ==========================================
-            // 4. RANDOM SCATTER (Hands, Dead Trees)
-            // ==========================================
-            int scatterPlaced = 0;
-            attempts = 0;
-
-            while (scatterPlaced < 15 && attempts < 200)
-            {
-                attempts++;
-
-                int rx = CombatSystem.RandomInt(5, 55);
-                int ry = CombatSystem.RandomInt(5, 29);
-                Vector2 pos = new Vector2(rx * 64, ry * 64);
-
-                // Don't spawn too close to center tree
-                if (Vector2.Distance(pos, centerPos) < 300) continue;
-
-                // CHECK: Increased gap to 100f so random trees don't clump
-                if (IsSpaceOccupied(pos, 100f)) continue;
-
-                if (CombatSystem.RandomInt(0, 100) > 50)
+                // ZONE A: The Bone Circle (Close to center tree)
+                if (distToCenter < 350 && distToCenter > 100)
                 {
-                    string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
-                    CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
+                    assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
                 }
+                // ZONE B: The Graveyard (Left side of map: X < 20)
+                else if (tx < 22)
+                {
+                    assetToSpawn = _graveObjects[CombatSystem.RandomInt(0, _graveObjects.Length)];
+                    // Graves are usually solid, hands are not. 
+                    // Simple check: if it starts with "Grave", it's solid.
+                    if (assetToSpawn.StartsWith("Grave")) isSolid = true;
+                }
+                // ZONE C: The Ruins/Scatter (Right side: X > 38)
+                else if (tx > 38)
+                {
+                    // Mix of rocks and ruins
+                    if (CombatSystem.RandomInt(0, 100) > 70)
+                        assetToSpawn = _ruinObjects[CombatSystem.RandomInt(0, _ruinObjects.Length)];
+                    else
+                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
+
+                    isSolid = true;
+                }
+                // ZONE D: General Open Space (Everywhere else)
                 else
                 {
-                    string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
-                    CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
+                    // Sparse random details (Bones or small plants)
+                    if (CombatSystem.RandomInt(0, 100) > 50)
+                        assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
+                    else
+                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
                 }
 
-
-                scatterPlaced++;
+                // 4. Create the object
+                if (assetToSpawn != "")
+                {
+                    CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
+                    itemsPlaced++;
+                }
             }
         }
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
