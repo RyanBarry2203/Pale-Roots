@@ -18,7 +18,7 @@ namespace Pale_Roots_1
 
             { "HealthBar_Border", new Rectangle(0, 0, 1, 1)},
 
-            { "Ruins_Column", new Rectangle(8, 16, 87, 96) },
+            { "Ruins_Column", new Rectangle(7, 11, 89, 102) },
 
             { "Shrine_Blue", new Rectangle(0, 128, 32, 48) },
             { "Bird_Skull", new Rectangle(16, 332, 51, 52) },

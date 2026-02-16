@@ -24,7 +24,6 @@ namespace Pale_Roots_1
             "Dying_Tree",
             "Medium_Dying_Tree",
             "Small_Dying_Tree",
-            "Tree_Dead_Large" 
         };
 
         private string[] _brambleTypes = {
@@ -169,12 +168,13 @@ namespace Pale_Roots_1
                             {
                                 // Pick a random tree from our new array
                                 string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
-                                CreateStaticObject(randomTree, pos, _staticObjectSheet, true);
+                                CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
                             }
                             else
                             {
- 
-                                CreateStaticObject("Brambles_Large", pos, _staticObjectSheet, true);
+
+                                string randomBramble = _brambleTypes[CombatSystem.RandomInt(0, _brambleTypes.Length)];
+                                CreateStaticObject(randomBramble, pos, _staticObjectSheet, false);
                             }
                         }
                     }
@@ -339,9 +339,16 @@ namespace Pale_Roots_1
                 if (IsSpaceOccupied(pos, 100f)) continue;
 
                 if (CombatSystem.RandomInt(0, 100) > 50)
-                    CreateStaticObject("Dying_Tree", pos, _staticObjectSheet, true);
+                {
+                    string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
+                    CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
+                }
                 else
-                    CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
+                {
+                    string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
+                    CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
+                }
+
 
                 scatterPlaced++;
             }
