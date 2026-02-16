@@ -122,6 +122,34 @@ namespace Pale_Roots_1
             palette.Add(new TileRef(15, 48, 0));
             palette.Add(new TileRef(16, 48, 0));
             palette.Add(new TileRef(17, 48, 0));
+
+            palette.Add(new TileRef(9, 42, 0));
+            palette.Add(new TileRef(10, 42, 0));
+            palette.Add(new TileRef(11, 42, 0));
+            palette.Add(new TileRef(12, 42, 0));
+            palette.Add(new TileRef(9, 43, 0));
+            palette.Add(new TileRef(10, 43, 0));
+            palette.Add(new TileRef(11, 43, 0));
+            palette.Add(new TileRef(12, 43, 0));
+            //palette.Add(new TileRef(9, 44, 0)); 
+            //palette.Add(new TileRef(10, 44, 0));
+            //palette.Add(new TileRef(11, 44, 0));
+            //palette.Add(new TileRef(12, 44, 0));
+
+            palette.Add(new TileRef(9, 46, 0));
+            palette.Add(new TileRef(10, 46, 0));
+            palette.Add(new TileRef(11, 46, 0));
+            palette.Add(new TileRef(12, 46, 0));
+            palette.Add(new TileRef(9, 47, 0));
+            palette.Add(new TileRef(10, 47, 0));
+            palette.Add(new TileRef(11, 47, 0));
+            palette.Add(new TileRef(12, 47, 0));
+            palette.Add(new TileRef(9, 48, 0));
+            palette.Add(new TileRef(10, 48, 0));
+            palette.Add(new TileRef(11, 48, 0));
+            palette.Add(new TileRef(12, 48, 0));
+
+
             CurrentLevel = new TileLayer(map, palette, 64, 32);
 
 
