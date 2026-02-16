@@ -402,7 +402,7 @@ namespace Pale_Roots_1
 
             Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
             CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(100, 90), _staticObjectSheet, true);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, true);
 
             CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
             CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
@@ -474,16 +474,41 @@ namespace Pale_Roots_1
                 // 4. Create the object
                 if (assetToSpawn != "")
                 {
+
+                    if (IsTooCloseToIdentical(assetToSpawn, pos, 500f))
+                    {
+
+                        continue;
+                    }
+
                     CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
                     itemsPlaced++;
                 }
             }
+        }
+        private bool IsTooCloseToIdentical(string assetName, Vector2 pos, float minDistance)
+        {
+            foreach (var obj in MapObjects)
+            {
+                // 1. Is it the exact same object type?
+                if (obj.AssetName == assetName)
+                {
+                    // 2. Is it too close?
+                    if (Vector2.Distance(pos, obj.position) < minDistance)
+                    {
+                        return true; // Yes, reject this spawn
+                    }
+                }
+            }
+            return false; // No twins found nearby
         }
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
         {
             Rectangle data = Helper.GetSourceRect(assetName);
 
             var obj = new WorldObject(_game, sheet, position, 1, isSolid);
+
+            obj.AssetName = assetName;
 
             obj.SetSpriteSheetLocation(data);
             MapObjects.Add(obj);

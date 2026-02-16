@@ -15,6 +15,7 @@ namespace Pale_Roots_1
     public class WorldObject : Sprite
     {
         public bool IsSolid { get; set; }
+        public string AssetName { get; set; }
         private static Texture2D _debugTexture;
 
         // Percentages used when defaulting to simpler bounding box calculations.
