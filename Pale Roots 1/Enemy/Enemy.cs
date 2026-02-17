@@ -20,6 +20,8 @@ namespace Pale_Roots_1
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public enum AISTATE { Charging, Chasing, InCombat, Wandering, Hurt }
 
+        public bool IsStunned { get; set; }
+
         private AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
         private SpriteEffects _flipEffect = SpriteEffects.None;
@@ -181,6 +183,11 @@ namespace Pale_Roots_1
         // Core AI tick: cooldowns, target validation, and state dispatch
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
+
+            if (IsStunned)
+            {
+                return;
+            }
             if (_attackCooldown > 0)
                 _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 

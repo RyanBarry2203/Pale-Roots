@@ -150,10 +150,10 @@ namespace Pale_Roots_1
             if (_font != null)
             {
                 Vector2 textSize = _font.MeasureString(slide.Text);
-                Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 100);
+                Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
 
                 // Text also fades with the image
-                spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
+                spriteBatch.DrawString(_font, slide.Text, textPos, Color.Black * alpha);
             }
         }
     }

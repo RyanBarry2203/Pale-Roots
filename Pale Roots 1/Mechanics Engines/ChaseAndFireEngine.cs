@@ -44,6 +44,10 @@ namespace Pale_Roots_1
 
     public class ChaseAndFireEngine
     {
+        public bool SpawningBlocked { get; set; } = false;
+        public float GlobalPlayerDamageMult { get; set; } = 1.0f;
+        public float GlobalEnemyHealthMult { get; set; } = 1.0f;
+
         // References to major subsystems and the owning Game instance.
         // Keeping these public allows Game1 to access the camera matrix when starting SpriteBatch.
         public LevelManager _levelManager;
@@ -52,8 +56,10 @@ namespace Pale_Roots_1
 
         // Runtime entity collections owned by the engine.
         private Player _player;
-        private List<Ally> _allies = new List<Ally>();
-        private List<Enemy> _enemies = new List<Enemy>();
+        public List<Ally> _allies = new List<Ally>();
+        public List<Enemy> _enemies = new List<Enemy>();
+
+        private SpellManager _spellManager;
 
         // Battle state and configuration values used at runtime.
         private bool _battleStarted = false;
@@ -115,6 +121,18 @@ namespace Pale_Roots_1
 
             // LookAt calculates and stores the camera translation matrix (used by SpriteBatch.Begin).
             _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
+
+            Texture2D txSmite = game.Content.Load<Texture2D>("Effects/Smite_spritesheet");
+            Texture2D txNova = game.Content.Load<Texture2D>("Effects/HolyNova_spritesheet");
+            Texture2D txFury = game.Content.Load<Texture2D>("Effects/HeavensFury_spritesheet");
+            Texture2D txShield = game.Content.Load<Texture2D>("Effects/HolyShield_spritesheet");
+            // Note: I am guessing the names based on your screenshot. 
+            // If "Electricity" uses a different file, swap it here.
+            Texture2D txElectric = game.Content.Load<Texture2D>("Effects/Sprite-sheet"); // Placeholder if you don't have electric sheet yet
+            Texture2D txJustice = game.Content.Load<Texture2D>("Effects/SwordOfJustice_spritesheet");
+
+            // 2. Initialize Manager with all textures
+            _spellManager = new SpellManager(this, txSmite, txNova, txFury, txShield, txElectric, txJustice);
 
             // Load armies and register event handlers.
             InitializeArmies();
@@ -331,6 +349,8 @@ namespace Pale_Roots_1
             bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;
             if (scanNow) _targetingTimer = 0;
 
+            _spellManager.Update(gameTime);
+
             UpdateAllies(gameTime, scanNow);
             UpdateEnemies(gameTime, scanNow);
 
@@ -474,48 +494,52 @@ namespace Pale_Roots_1
             Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
             float spawnRadius = 1800f;
 
-            for (int i = 0; i < count; i++)
+            if (!SpawningBlocked)
             {
-                float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
-                Vector2 spawnPos = center + new Vector2(
-                    (float)Math.Cos(angle) * spawnRadius,
-                    (float)Math.Sin(angle) * spawnRadius
-                );
 
-                if (team == CombatTeam.Enemy)
+                for (int i = 0; i < count; i++)
                 {
-                    int roll = CombatSystem.RandomInt(0, 100);
-                    int typeIndex = 0;
+                    float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
+                    Vector2 spawnPos = center + new Vector2(
+                        (float)Math.Cos(angle) * spawnRadius,
+                        (float)Math.Sin(angle) * spawnRadius
+                    );
 
-                    if (roll >= 90) typeIndex = 2;
-                    else if (roll >= 60) typeIndex = 1;
-                    else typeIndex = 0;
-
-                    var newEnemy = new Enemy(_gameOwnedBy, _allOrcTypes[typeIndex], spawnPos, 4);
-
-                    if (typeIndex == 0) { newEnemy.Name = "Reinforcement Grunt"; newEnemy.AttackDamage = 10; }
-                    if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
-                    if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
-
-                    // Force immediate aggression: assign player as target and set AI state to chase.
-                    CombatSystem.AssignTarget(newEnemy, _player);
-                    newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
-
-                    _enemies.Add(newEnemy);
-                }
-                else if (team == CombatTeam.Player)
-                {
-                    var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
-                    newAlly.Name = "Reinforcement Soldier";
-
-                    var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
-                    if (bestTarget != null)
+                    if (team == CombatTeam.Enemy)
                     {
-                        CombatSystem.AssignTarget(newAlly, bestTarget);
-                        newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
-                    }
+                        int roll = CombatSystem.RandomInt(0, 100);
+                        int typeIndex = 0;
 
-                    _allies.Add(newAlly);
+                        if (roll >= 90) typeIndex = 2;
+                        else if (roll >= 60) typeIndex = 1;
+                        else typeIndex = 0;
+
+                        var newEnemy = new Enemy(_gameOwnedBy, _allOrcTypes[typeIndex], spawnPos, 4);
+
+                        if (typeIndex == 0) { newEnemy.Name = "Reinforcement Grunt"; newEnemy.AttackDamage = 10; }
+                        if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
+                        if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
+
+                        // Force immediate aggression: assign player as target and set AI state to chase.
+                        CombatSystem.AssignTarget(newEnemy, _player);
+                        newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
+
+                        _enemies.Add(newEnemy);
+                    }
+                    else if (team == CombatTeam.Player)
+                    {
+                        var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
+                        newAlly.Name = "Reinforcement Soldier";
+
+                        var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
+                        if (bestTarget != null)
+                        {
+                            CombatSystem.AssignTarget(newAlly, bestTarget);
+                            newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
+                        }
+
+                        _allies.Add(newAlly);
+                    }
                 }
             }
         }
@@ -570,6 +594,7 @@ namespace Pale_Roots_1
             {
                 sprite.Draw(spriteBatch);
             }
+            _spellManager.Draw(spriteBatch);
         }
 
         // Public accessors the rest of the game can query for status.

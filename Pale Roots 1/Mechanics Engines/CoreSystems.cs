@@ -89,10 +89,12 @@ namespace Pale_Roots_1
         public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
         // Apply damage with a small variance, notify listeners and perform kill handling.
-        public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage)
+        public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage, float multiplier = 1.0f)
         {
             if (target == null || !target.IsAlive) return 0;
             if (baseDamage <= 0) return 0;
+
+            int finalBase = (int)(baseDamage * multiplier);
 
             float variance = RandomFloat(0.9f, 1.1f);
             int finalDamage = Math.Max(1, (int)(baseDamage * variance));
