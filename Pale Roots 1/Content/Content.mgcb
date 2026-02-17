@@ -200,6 +200,18 @@
 /processorParam:TextureFormat=Color
 /build:Dragon_strip3.png
 
+#begin Effects/ElectricityIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/ElectricityIcon.png
+
 #begin Effects/HeavensFury_spritesheet.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -211,6 +223,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Effects/HeavensFury_spritesheet.png
+
+#begin Effects/HeavensFuryIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/HeavensFuryIcon.png
 
 #begin Effects/HolyNova_spritesheet.png
 /importer:TextureImporter
@@ -224,6 +248,18 @@
 /processorParam:TextureFormat=Color
 /build:Effects/HolyNova_spritesheet.png
 
+#begin Effects/HolyNovaIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/HolyNovaIcon.png
+
 #begin Effects/HolyShield_spritesheet.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -235,6 +271,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Effects/HolyShield_spritesheet.png
+
+#begin Effects/HolyShieldIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/HolyShieldIcon.png
 
 #begin Effects/Smite_spritesheet.png
 /importer:TextureImporter
@@ -248,6 +296,18 @@
 /processorParam:TextureFormat=Color
 /build:Effects/Smite_spritesheet.png
 
+#begin Effects/SmiteIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/SmiteIcon.png
+
 #begin Effects/Sprite-sheet.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -259,6 +319,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Effects/Sprite-sheet.png
+
+#begin Effects/SwordJusticeIcon.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Effects/SwordJusticeIcon.png
 
 #begin Effects/SwordOfJustice_spritesheet.png
 /importer:TextureImporter
@@ -361,6 +433,18 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:MapSheet.png
+
+#begin menu_background.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:menu_background.png
 
 #begin more details.png
 /importer:TextureImporter

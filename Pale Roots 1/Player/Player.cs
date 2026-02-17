@@ -16,6 +16,9 @@ namespace Pale_Roots_1
 
         private Vector2 _mouseWorldPosition;
 
+        public float DashTimer => _dashCooldownTimer;
+        public float DashDuration => _dashCooldownDuration;
+
         //public int Health
         //{
         //    get => _health;
@@ -552,16 +555,16 @@ namespace Pale_Roots_1
             _animManager.Draw(spriteBatch, drawPos, (float)Scale, _flipEffect, _currentDirectionIndex);
 
             // 2. Draw Health Bar (Follows the sprite visually)
-            if (IsAlive)
-            {
-                int barY = (int)drawPos.Y - 300;
-                int barWidth = (int)(32 * Scale);
-                int barX = (int)drawPos.X - (barWidth / 2);
+            //if (IsAlive)
+            //{
+            //    int barY = (int)drawPos.Y - 300;
+            //    int barWidth = (int)(32 * Scale);
+            //    int barX = (int)drawPos.X - (barWidth / 2);
 
-                spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
-                float healthPercent = (float)Health / MaxHealth;
-                spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
-            }
+            //    spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
+            //    float healthPercent = (float)Health / MaxHealth;
+            //    spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
+            //}
 
             // --- DEBUG VISUALS (Draw at LOGIC position) ---
             // These show where the code THINKS you are.

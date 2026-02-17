@@ -244,7 +244,7 @@ namespace Pale_Roots_1
 
             // FIX 2: Changed width from 128 to 64. 
             // This stops it from grabbing 2 frames at once (the double image issue).
-            _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 100f, true, 1, 64));
+            _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
             _animManager.Play("Justice");
         }
 
