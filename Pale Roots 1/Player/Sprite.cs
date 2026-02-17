@@ -18,7 +18,7 @@ namespace Pale_Roots_1
         public Sprite CurrentCombatPartner;
         public Enemy.AISTATE CurrentAIState = Enemy.AISTATE.Charging;
         public bool Visible = true;
-        public int Health { get; set; } = 100;
+        public int Health { get; set; } = 10000;
         public float AttackCooldown = 0f;
         public float AttackSpeed = 1000f; // 1 second cooldown
 

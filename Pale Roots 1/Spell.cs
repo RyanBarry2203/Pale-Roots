@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
@@ -14,10 +13,12 @@ namespace Pale_Roots_1
         public float CurrentActiveTimer { get; set; } = 0f;
         public bool IsActive { get; protected set; } = false;
 
+        // NEW: Allow spells to define their own size
+        public float Scale { get; set; } = 3.0f;
+
         protected Game _game;
         protected AnimationManager _animManager;
         protected Vector2 _position;
-
         protected ChaseAndFireEngine _engineRef;
 
         public Spell(Game game)
@@ -30,16 +31,13 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-
             if (CurrentCooldown > 0) CurrentCooldown -= dt;
-
 
             if (IsActive)
             {
                 CurrentActiveTimer -= dt;
                 _animManager.Update(gameTime);
-
-                OnUpdateActive(gameTime); 
+                OnUpdateActive(gameTime);
 
                 if (CurrentActiveTimer <= 0)
                 {
@@ -52,18 +50,16 @@ namespace Pale_Roots_1
         {
             if (IsActive)
             {
-
-                _animManager.Draw(spriteBatch, _position, 3.0f, SpriteEffects.None);
+                // FIX: Use the variable Scale instead of hardcoded 3.0f
+                _animManager.Draw(spriteBatch, _position, Scale, SpriteEffects.None);
             }
         }
 
-        // The public trigger
         public bool Cast(ChaseAndFireEngine engine, Vector2 targetPos)
         {
             if (CurrentCooldown > 0 || IsActive) return false;
 
             _engineRef = engine;
-
             CurrentCooldown = CooldownDuration;
             CurrentActiveTimer = ActiveDuration;
             IsActive = true;
@@ -74,11 +70,7 @@ namespace Pale_Roots_1
         }
 
         protected abstract void OnCast(ChaseAndFireEngine engine);
-
-
         protected virtual void EndEffect() { IsActive = false; }
-
-
         protected virtual void OnUpdateActive(GameTime gameTime) { }
     }
 }
