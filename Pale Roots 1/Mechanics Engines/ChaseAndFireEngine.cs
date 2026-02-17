@@ -239,12 +239,12 @@ namespace Pale_Roots_1
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
 
+
             if (!_battleStarted)
             {
-                // Pre-battle: just move player around
+
                 _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
 
-                // Press D to start battle
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
                 {
                     _battleStarted = true;
@@ -252,6 +252,7 @@ namespace Pale_Roots_1
             }
             else
             {
+
                 UpdateBattle(gameTime, vp);
             }
         }
@@ -259,7 +260,7 @@ namespace Pale_Roots_1
         private void UpdateBattle(GameTime gameTime, Viewport vp)
         {
             // Zoom in to battle view
-            //_camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
+            _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player
             _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);

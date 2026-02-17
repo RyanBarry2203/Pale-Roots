@@ -108,6 +108,7 @@ namespace Pale_Roots_1
 
             // 2. CALCULATE ZOOM & PAN (Linear Interpolation)
             // This smoothly moves from Start values to End values based on progress
+
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
             Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
 
