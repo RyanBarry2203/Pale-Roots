@@ -12,6 +12,7 @@ namespace Pale_Roots_1
         // ICombatant Properties
         // ===================
         public string Name { get; set; } = "Hero";
+        public float DamageMultiplier { get; set; } = 1.0f;
         public CombatTeam Team => CombatTeam.Player;
 
         private Vector2 _mouseWorldPosition;
@@ -463,7 +464,7 @@ namespace Pale_Roots_1
                 if (swordHitbox.Intersects(enemyRect))
                 {
                     // HIT CONFIRMED
-                    int finalDamage = (int)(GameConstants.SwordDamage * damageMult);
+                    int finalDamage = (int)(GameConstants.SwordDamage * damageMult * DamageMultiplier);
                     CombatSystem.DealDamage(this, enemy, finalDamage);
 
                     Vector2 kb = enemy.Position - this.position;

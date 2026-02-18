@@ -370,7 +370,7 @@
 
 #begin Groovy.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:Groovy.wav
 
@@ -400,13 +400,13 @@
 
 #begin Guitar.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:Guitar.wav
 
 #begin Ihavenoidea.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:Ihavenoidea.wav
 
@@ -508,7 +508,7 @@
 
 #begin MoreGuitar.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:MoreGuitar.wav
 
@@ -562,7 +562,7 @@
 
 #begin PaleRootsMenu.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:PaleRootsMenu.wav
 
@@ -964,7 +964,7 @@
 
 #begin SoundTrackAttempt1.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:SoundTrackAttempt1.wav
 
@@ -1016,9 +1016,15 @@
 /processorParam:TextureFormat=Color
 /build:tiles.png
 
+#begin uhm.wav
+/importer:WavImporter
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:uhm.wav
+
 #begin war theme.wav
 /importer:WavImporter
-/processor:SoundEffectProcessor
+/processor:SongProcessor
 /processorParam:Quality=Best
 /build:war theme.wav
 

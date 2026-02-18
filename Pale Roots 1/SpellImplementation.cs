@@ -57,7 +57,10 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            // --- NEW CODE ---
             List<Enemy> toKill = new List<Enemy>();
+
+            // 1. Find enemies in range
             foreach (var enemy in engine._enemies)
             {
                 if (Vector2.Distance(enemy.Position, _position) < _radius)
@@ -65,6 +68,8 @@ namespace Pale_Roots_1
                     toKill.Add(enemy);
                 }
             }
+
+            // 2. Deal massive damage
             foreach (var enemy in toKill)
             {
                 CombatSystem.DealDamage(engine.GetPlayer(), enemy, 9999);

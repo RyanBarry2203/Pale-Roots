@@ -344,6 +344,8 @@ namespace Pale_Roots_1
             // LevelManager updates animated world objects and enemy references it owns.
             _levelManager.Update(gameTime, _player);
 
+            _player.DamageMultiplier = GlobalPlayerDamageMult;
+
             // Target scanning: accumulate time and only run a full scan at defined intervals.
             _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;
