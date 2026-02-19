@@ -363,6 +363,7 @@ namespace Pale_Roots_1
             // 1. FADING ENGINE
             // ================================================================
 
+            // Smoothly move current volume towards target
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -376,23 +377,37 @@ namespace Pale_Roots_1
 
             MediaPlayer.Volume = _currentVolume;
 
-            // CROSS-FADE SWAP
+            // CROSS-FADE SWAP LOGIC
+            // Only swap if volume is effectively zero and we have a pending song
             if (_currentVolume <= 0.01f && _pendingSong != null)
             {
-                MediaPlayer.Stop();
-                MediaPlayer.Play(_pendingSong);
-                // Loop everything EXCEPT combat tracks
-                MediaPlayer.IsRepeating = (_currentState != GameState.Gameplay && _currentState != GameState.LevelUp);
+                try
+                {
+                    MediaPlayer.Stop();
+                    MediaPlayer.Play(_pendingSong);
 
-                _currentSong = _pendingSong;
-                _pendingSong = null;
+                    // Loop everything EXCEPT combat tracks
+                    bool isCombat = (_currentState == GameState.Gameplay || _currentState == GameState.LevelUp);
+                    MediaPlayer.IsRepeating = !isCombat;
 
-                _targetVolume = 0.5f; // Start fading in
+                    _currentSong = _pendingSong;
+                    _pendingSong = null;
+
+                    _targetVolume = 0.5f; // Start fading in
+                }
+                catch
+                {
+                    // Safety catch for Media Player errors
+                }
             }
 
             // ================================================================
             // 2. STATE MACHINE
             // ================================================================
+
+            // If we are currently fading out (Pending is not null), DO NOT run logic.
+            // This prevents the "Cut Over" bug where it tries to pick a song twice.
+            if (_pendingSong != null) return;
 
             switch (_currentState)
             {
@@ -415,35 +430,61 @@ namespace Pale_Roots_1
 
                 case GameState.Gameplay:
                 case GameState.LevelUp:
+                    // LOGIC:
+                    // 1. If playing a Theme Song (Menu/Death) -> Request Fade Out -> Fade In Combat.
+                    // 2. If Silence (Song Ended) -> Start New Song at 0 Volume -> Fade In.
 
                     bool isWrongTheme = (_currentSong == _menuSong || _currentSong == _introSong || _currentSong == _deathSong || _currentSong == _victorySong);
                     bool isSilence = (MediaPlayer.State == MediaState.Stopped);
                     bool isReset = (_currentSong == null);
 
-                    // If we have a pending song, we are already handling a switch, so ignore this.
-                    if ((isWrongTheme || isSilence || isReset) && _pendingSong == null)
+                    if (isWrongTheme || isSilence || isReset)
                     {
                         // Pick a random track
-                        int index = CombatSystem.RandomInt(0, _combatSongs.Count);
-                        Song nextTrack = _combatSongs[index];
+                        Song nextTrack = GetRandomCombatTrack();
 
-                        // If we are just switching tracks (Silence), snap to it.
-                        // If we are switching Themes (WrongTheme), fade to it.
                         if (isSilence || isReset)
                         {
-                            MediaPlayer.Play(nextTrack);
-                            MediaPlayer.IsRepeating = false;
-                            _currentSong = nextTrack;
-                            _targetVolume = 0.5f;
-                            _currentVolume = 0.5f; // Snap volume up
+                            // CASE: Song finished naturally or Game Reset.
+                            // We cannot "Fade Out" silence. We must start immediately at 0 and Fade In.
+                            try
+                            {
+                                MediaPlayer.Play(nextTrack);
+                                MediaPlayer.IsRepeating = false;
+                                _currentSong = nextTrack;
+
+                                _currentVolume = 0f;  // Force start at 0
+                                _targetVolume = 0.5f; // Fade in to max
+                            }
+                            catch { }
                         }
                         else
                         {
+                            // CASE: Switching from Menu/Death music.
+                            // Request a standard cross-fade.
                             RequestTrack(nextTrack);
                         }
                     }
                     break;
             }
+        }
+
+        // Helper to prevent picking the exact same song twice in a row
+        private Song GetRandomCombatTrack()
+        {
+            if (_combatSongs.Count == 0) return null;
+
+            Song candidate;
+            int attempts = 0;
+            do
+            {
+                int index = CombatSystem.RandomInt(0, _combatSongs.Count);
+                candidate = _combatSongs[index];
+                attempts++;
+            }
+            while (candidate == _currentSong && attempts < 5); // Try 5 times to get a different song
+
+            return candidate;
         }
 
 
@@ -488,6 +529,7 @@ namespace Pale_Roots_1
         // Helper to trigger a smooth transition
         private void RequestTrack(Song song)
         {
+            // If already playing or already pending, ignore
             if (_currentSong == song && _pendingSong == null) return;
             if (_pendingSong == song) return;
 

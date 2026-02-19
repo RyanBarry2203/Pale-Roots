@@ -6,26 +6,24 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // Player: controllable ICombatant with movement, dash and melee attack state machine.
+    // - Uses AnimationManager for visuals and GameConstants for shared tuning.
+    // - Interacts with CombatSystem for damage and ChaseAndFireEngine/LevelManager for world queries.
     public class Player : Sprite, ICombatant
     {
-        // ===================
-        // ICombatant Properties
-        // ===================
+        // ICombatant surface
         public string Name { get; set; } = "Hero";
         public float DamageMultiplier { get; set; } = 1.0f;
         public CombatTeam Team => CombatTeam.Player;
 
+        // Cached mouse world position used for aiming attacks
         private Vector2 _mouseWorldPosition;
 
+        // Dash timers exposed for UI
         public float DashTimer => _dashCooldownTimer;
         public float DashDuration => _dashCooldownDuration;
 
-        //public int Health
-        //{
-        //    get => _health;
-        //    set => _health = Math.Max(0, value);
-        //}
-
+        // Health / combat members (MaxHealth/Health from Sprite base)
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0;
@@ -34,13 +32,11 @@ namespace Pale_Roots_1
         public Vector2 Position => position;
         public Vector2 CentrePos => Center;
 
-        // ===================
-        // MOVEMENT & SWORD FIELDS
-        // ===================
+        // Movement & state
         private float _speed;
         private Vector2 _velocity;
 
-        // SWORD FIELDS
+        // Player state machine for movement/combat/interrupts
         public enum PlayerState
         {
             Idle,
@@ -52,51 +48,52 @@ namespace Pale_Roots_1
             Dead
         }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
+
+        // Facing and unlockables
         private Vector2 _facingDirection = new Vector2(0, 1);
         public bool IsHeavyAttackUnlocked { get; set; } = false;
         public bool IsDashUnlocked { get; set; } = false;
 
-        // Dash Variables
+        // Dash variables
         private float _dashSpeed = 12f;
         private Vector2 _dashDirection;
 
-        private float _stateTimer = 0f;   
+        // Timers / combo buffering
+        private float _stateTimer = 0f;
         private bool _comboBuffered = false;
-
-        //private float _swingTimer = 0f;
         private float _cooldownTimer = 0f;
 
+        // Enemies already hit this swing (prevents multi-hit per swing)
         private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
 
-
-        // animation stuff
-
+        // Animation / direction
         public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
         private Direction _currentDirection = Direction.Down;
         private int _currentDirectionIndex = 2;
 
+        // Dash cooldown / invincibility flag during dash
         private float _dashCooldownTimer = 0f;
         private float _dashCooldownDuration = 800f;
         private bool _isInvincible = false;
+
+        // Visual offset used when drawing (adjust to align sprite to logic position)
         private Vector2 _visualOffset = new Vector2(0, 32);
 
+        // Per-state textures (loaded in ctor) and animation manager
         private Texture2D _txIdle;
         private Texture2D _txRun;
         private Texture2D _txAttack1;
-        private Texture2D _txAttack2; // Optional, if you want combo attacks
+        private Texture2D _txAttack2;
         private Texture2D _txHurt;
         private Texture2D _txDeath;
         private Texture2D _txDash;
-
         private AnimationManager _animManager;
         private SpriteEffects _flipEffect = SpriteEffects.None;
 
-        // HEALTH BAR TEXTURE
+        // Shared 1x1 texture used for debug/health bar drawing
         private static Texture2D _healthBarTexture;
 
-        // ===================
-        // CONSTRUCTOR
-        // ===================
+        // Constructor: load textures, set stats and register animations
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount, 1)
         {
@@ -114,7 +111,7 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // 1. LOAD TEXTURES
+            // 1. Load texture sheets from Content
             _txIdle = game.Content.Load<Texture2D>("Player/Idle");
             _txRun = game.Content.Load<Texture2D>("Player/Run");
             _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1");
@@ -123,19 +120,13 @@ namespace Pale_Roots_1
             _txDeath = game.Content.Load<Texture2D>("Player/Death");
             _txDash = game.Content.Load<Texture2D>("Player/Dash");
 
-            // 2. REGISTER ANIMATIONS (THE MODULAR FIX)
-
-            // We assume the IDLE sheet is the "Correct" size.
-            // Idle has 7 frames.
+            // 2. Register animations (use Idle width as standard frame width for some sheets)
             int standardWidth = _txIdle.Width / 7;
-
 
             _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 150f, true));
             _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 120f, true));
-
             _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, standardWidth));
             _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 100f, false, 1, standardWidth));
-
             _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 125f, false, 1, standardWidth));
             _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1, standardWidth));
@@ -143,38 +134,35 @@ namespace Pale_Roots_1
             _animManager.Play("Idle");
         }
 
-        // ===================
-        // UPDATE
-        // ===================
-
+        // Main update called by the engine each frame.
+        // - currentLayer used for collision/tile checks
+        // - enemies list used for attack collision tests
         public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // 1. Update Timers
+            // Timers
             if (_cooldownTimer > 0) _cooldownTimer -= dt;
             if (_dashCooldownTimer > 0) _dashCooldownTimer -= dt;
 
-            // 2. Update Mouse Position
+            // Compute mouse world position from screen center and player center
             MouseState mouseState = Mouse.GetState();
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
-            // 3. STATE MACHINE
-            // IN FILE: Player.cs inside Update()
-
+            // State machine dispatch
             switch (CurrentState)
             {
                 case PlayerState.Idle:
                 case PlayerState.Run:
-                    HandleInput(currentLayer, true); // TRUE: Allowed to switch between Run/Idle
+                    HandleInput(currentLayer, true); // allow switching Run/Idle
                     CheckForCombatInput(enemies);
                     break;
 
                 case PlayerState.Attack1:
                 case PlayerState.Attack2:
-                    HandleInput(currentLayer, false); // FALSE: Move, but DO NOT change state. Keep Attacking.
+                    HandleInput(currentLayer, false); // allow movement but don't change attack state
                     UpdateAttack(gameTime, enemies, (CurrentState == PlayerState.Attack1 ? 1 : 2));
                     break;
 
@@ -183,7 +171,7 @@ namespace Pale_Roots_1
                     break;
 
                 case PlayerState.Hurt:
-                    HandleInput(currentLayer, false); // FALSE: Move, but keep Hurt animation playing.
+                    HandleInput(currentLayer, false);
                     UpdateHurt(gameTime);
                     break;
 
@@ -194,12 +182,13 @@ namespace Pale_Roots_1
             UpdateAnimation(gameTime);
         }
 
+        // Check input for combat actions (dash or mouse buttons)
         private void CheckForCombatInput(List<Enemy> enemies)
         {
             KeyboardState kState = Keyboard.GetState();
             MouseState mState = Mouse.GetState();
 
-
+            // Dash input
             if (IsDashUnlocked && kState.IsKeyDown(Keys.LeftShift))
             {
                 StartDash();
@@ -208,7 +197,7 @@ namespace Pale_Roots_1
 
             if (_cooldownTimer > 0) return;
 
-
+            // Attack input: left = light, right = heavy (if unlocked)
             if (mState.LeftButton == ButtonState.Pressed)
             {
                 StartAttack(enemies, 1);
@@ -219,58 +208,56 @@ namespace Pale_Roots_1
             }
         }
 
-
+        // Begin dash: set invincibility, direction and timers
         private void StartDash()
         {
-
             if (_dashCooldownTimer > 0) return;
 
             CurrentState = PlayerState.Dash;
-
             _dashSpeed = 20f;
             _stateTimer = 150f;
 
-            _dashCooldownTimer = _dashCooldownDuration; 
-            _isInvincible = true; 
+            _dashCooldownTimer = _dashCooldownDuration;
+            _isInvincible = true;
 
-            // Determine direction
+            // If moving, dash that direction. Otherwise dash horizontally based on facing index.
             if (_velocity != Vector2.Zero)
                 _dashDirection = Vector2.Normalize(_velocity);
             else
             {
-                // Dash in facing direction if standing still
                 if (_currentDirectionIndex == 2) _dashDirection = new Vector2(-1, 0);
                 else _dashDirection = new Vector2(1, 0);
             }
         }
 
+        // Dash state update: move for duration then clear invincibility
         private void UpdateDash(GameTime gameTime, TileLayer layer)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            // Move
             position += _dashDirection * _dashSpeed;
 
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
                 _velocity = Vector2.Zero;
-                _isInvincible = false; // GOD MODE OFF
+                _isInvincible = false;
             }
         }
+
+        // Hurt state countdown then return to Idle
         private void UpdateHurt(GameTime gameTime)
         {
             _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-
-
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
             }
         }
 
+        // Read WASD, set velocity and attempt movement against the tile layer.
+        // updateState = false prevents state switches (used during attacks/hurt).
         private void HandleInput(TileLayer currentLayer, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
@@ -287,7 +274,6 @@ namespace Pale_Roots_1
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                // Sync direction index
                 _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
 
                 Vector2 proposedPosition = position + _velocity;
@@ -305,8 +291,7 @@ namespace Pale_Roots_1
                 _velocity = Vector2.Zero;
             }
 
-            // CRITICAL FIX: Only change the state if we are allowed to!
-            // This prevents the Attack animation from being overwritten by Run/Idle.
+            // Only change Run/Idle when allowed (prevents attack animation override).
             if (updateState)
             {
                 if (_velocity != Vector2.Zero)
@@ -316,6 +301,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Map a direction vector to an animation row index
         private int GetDirectionFromVector(Vector2 dir)
         {
             if (Math.Abs(dir.X) > Math.Abs(dir.Y))
@@ -328,18 +314,14 @@ namespace Pale_Roots_1
             }
         }
 
+        // Collision / tile movement check. Computes a small "feet" rectangle for passability tests.
         private bool CanMoveTo(Vector2 newPos, TileLayer layer)
         {
-
-            // FEET BOX MATH (CENTERED)
             float scale = (float)Scale;
             int playerW = (int)(spriteWidth * scale * 0.4f);
             int playerH = (int)(spriteHeight * scale * 0.2f);
 
-            // X: Center - Half Box
             int playerX = (int)(newPos.X - (playerW / 2));
-
-            // Y: Bottom of sprite - Box Height
             int playerY = (int)(newPos.Y + (spriteHeight * scale / 2) - playerH);
 
             Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
@@ -347,30 +329,23 @@ namespace Pale_Roots_1
             float mapWidth = layer.Tiles.GetLength(1) * 64;
             float mapHeight = layer.Tiles.GetLength(0) * 64;
 
-            // Check Left/Top
+            // Basic bounds checks
             if (newPos.X < 0 || newPos.Y < 0) return false;
-
-            // Check Right/Bottom Account for sprite size
             if (newPos.X + (spriteWidth * Scale) > mapWidth) return false;
             if (newPos.Y + (spriteHeight * Scale) > mapHeight) return false;
 
-            // Tile Passability Check
-            float feetY = newPos.Y + (spriteHeight * (float)Scale);
-            float centerX = newPos.X + (spriteWidth * (float)Scale) / 2.0f;
-
-
-
-
+            // Tile passability checks would go here (sample surrounding tiles using futurePlayerBox).
+            // This function currently returns true (placeholder for your tile queries).
             return true;
         }
 
-        // ===================
-        // COMBAT LOGIC
-        // ===================
+        // -----------------------
+        // COMBAT
+        // -----------------------
 
+        // Initialize attack: set facing to mouse, start animation and reset hit list.
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
-            // 1. Direction Logic
             Vector2 dirToMouse = _mouseWorldPosition - this.Center;
             dirToMouse.Normalize();
             _currentDirectionIndex = GetDirectionFromVector(dirToMouse);
@@ -378,7 +353,6 @@ namespace Pale_Roots_1
             if (_currentDirectionIndex == 2) _flipEffect = SpriteEffects.FlipHorizontally;
             else _flipEffect = SpriteEffects.None;
 
-            // 2. Set State & Timer
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
             float frameSpeed = (attackNum == 1) ? 80f : 120f;
             float duration = 10 * frameSpeed;
@@ -387,50 +361,47 @@ namespace Pale_Roots_1
             _stateTimer = duration;
             _comboBuffered = false;
 
-            // 3. RESET THE HIT LIST
-            // New swing, so we can hit everyone again
+            // Reset hit list so each swing can hit targets again
             _enemiesHitThisAttack.Clear();
-
-            // NOTE: We removed PerformSwordHit() from here! 
-            // We will call it in Update instead.
         }
 
-
+        // Per-frame attack update: perform hit checks and end attack when timer expires
         private void UpdateAttack(GameTime gameTime, List<Enemy> enemies, int attackNum)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            // 1. PERFORM HIT CHECK (Every Frame)
+            // Perform the hit detection each frame while in attack state
             if (attackNum == 1)
                 PerformSwordHit(enemies, 1.0f, 1.0f);
             else
-                PerformSwordHit(enemies, 2.0f, 1.5f); // Double damage/knockback
+                PerformSwordHit(enemies, 2.0f, 1.5f);
 
-            // 2. END ATTACK
+            // End attack and set cooldown
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
                 _cooldownTimer = GameConstants.SwordCooldown;
-                _debugSwordBox = Rectangle.Empty; // Hide the red box
+                _debugSwordBox = Rectangle.Empty;
             }
         }
 
         private Rectangle _debugSwordBox;
 
+        // Sword hit detection: builds a chest-relative hitbox and checks enemy intersections
         private void PerformSwordHit(List<Enemy> enemies, float damageMult, float knockbackMult)
         {
-            // 1. Calculate Chest Position (Dynamic! Updates every frame)
+            // Chest position used as sword origin (updates as player moves)
             Vector2 chestPosition = new Vector2(position.X, position.Y - 50);
 
-            // 2. Attack Direction
+            // Cardinal attack directions based on currentDirectionIndex
             Vector2 attackDir = Vector2.Zero;
             if (_currentDirectionIndex == 0) attackDir = new Vector2(0, 1);  // Down
             if (_currentDirectionIndex == 1) attackDir = new Vector2(0, -1); // Up
             if (_currentDirectionIndex == 2) attackDir = new Vector2(-1, 0); // Left
             if (_currentDirectionIndex == 3) attackDir = new Vector2(1, 0);  // Right
 
-            // 3. Create Hitbox
+            // Build a square hitbox out in front of the chest
             float reach = 80f * knockbackMult;
             Vector2 hitCenter = chestPosition + (attackDir * reach);
             int boxSize = (int)(80 * knockbackMult);
@@ -442,15 +413,13 @@ namespace Pale_Roots_1
                 boxSize
             );
 
-            // Update Debug Box so it follows us visually
+            // Keep debug rectangle for drawing/inspection
             _debugSwordBox = swordHitbox;
 
-            // 4. Check Collisions
+            // Collision test per enemy; skip already-hit targets this swing
             foreach (var enemy in enemies.ToArray())
             {
                 if (!enemy.IsAlive) continue;
-
-                // FILTER: If we already hit this guy this swing, skip him!
                 if (_enemiesHitThisAttack.Contains(enemy)) continue;
 
                 Rectangle enemyRect = new Rectangle(
@@ -462,7 +431,6 @@ namespace Pale_Roots_1
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
-                    // HIT CONFIRMED
                     int finalDamage = (int)(GameConstants.SwordDamage * damageMult * DamageMultiplier);
                     CombatSystem.DealDamage(this, enemy, finalDamage);
 
@@ -470,22 +438,19 @@ namespace Pale_Roots_1
                     if (kb != Vector2.Zero) kb.Normalize();
                     enemy.ApplyKnockback(kb * GameConstants.SwordKnockback * knockbackMult);
 
-                    // Add to list so we don't hit him again this animation
                     _enemiesHitThisAttack.Add(enemy);
                 }
             }
         }
 
-
-        // ===================
-        // INTERFACE METHODS
-        // ===================
+        // -----------------------
+        // ICombatant methods
+        // -----------------------
 
         public void TakeDamage(int amount, ICombatant attacker)
         {
-            // 1. Check I-Frames
-            if (_isInvincible) return; // Can't touch this
-
+            // Respect invincibility frames (dash)
+            if (_isInvincible) return;
             if (!IsAlive) return;
 
             Health -= amount;
@@ -497,12 +462,14 @@ namespace Pale_Roots_1
             else
             {
                 CurrentState = PlayerState.Hurt;
-                _stateTimer = 300f; // Short hurt animation (Snappy!)
+                _stateTimer = 300f;
             }
         }
 
+        // Not used; CombatSystem.DealDamage is called directly from attack code
         public void PerformAttack() { }
 
+        // Choose animation key and flip sprite based on state and velocity
         private void UpdateAnimation(GameTime gameTime)
         {
             string animKey = "Idle";
@@ -518,9 +485,7 @@ namespace Pale_Roots_1
                 case PlayerState.Dead: animKey = "Death"; break;
             }
 
-            // FLIP LOGIC
-            // ONLY flip based on velocity if we are NOT attacking or dead.
-            // This keeps the attack facing the direction we clicked.
+            // Only flip during non-attack movement states so attack facing stays locked to click direction.
             if (CurrentState == PlayerState.Run || CurrentState == PlayerState.Idle || CurrentState == PlayerState.Dash)
             {
                 if (_velocity.X < -0.1f) _flipEffect = SpriteEffects.FlipHorizontally;
@@ -531,58 +496,27 @@ namespace Pale_Roots_1
             _animManager.Update(gameTime);
         }
 
+        // Enter death state; keep sprite visible so death animation plays
         public void Die()
         {
-            // Don't set Visible = false yet! We want to see the body fall.
             CurrentState = PlayerState.Dead;
             CombatSystem.ClearTarget(this);
         }
 
-        // ===================
+        // -----------------------
         // DRAW
-        // ===================
+        // -----------------------
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // --- ALIGNMENT FIX ---
-            // If the sprite is "Above" the dot, we need to increase Y to push it down.
-            // Try these numbers. If it's still floating, increase Y (e.g., to 60 or 80).
+            // Visual offset corrects sprite drawing so feet align with logic position
             Vector2 visualOffset = new Vector2(0, 175);
-
-            // Calculate where to draw the IMAGE
             Vector2 drawPos = position + visualOffset;
 
-            // 1. Draw Sprite at the corrected position
+            // Draw animation using AnimationManager
             _animManager.Draw(spriteBatch, drawPos, (float)Scale, _flipEffect, _currentDirectionIndex);
 
-            // 2. Draw Health Bar (Follows the sprite visually)
-            //if (IsAlive)
-            //{
-            //    int barY = (int)drawPos.Y - 300;
-            //    int barWidth = (int)(32 * Scale);
-            //    int barX = (int)drawPos.X - (barWidth / 2);
-
-            //    spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, 8), Color.DarkRed);
-            //    float healthPercent = (float)Health / MaxHealth;
-            //    spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, (int)(barWidth * healthPercent), 8), Color.Gold);
-            //}
-
-            // --- DEBUG VISUALS (Draw at LOGIC position) ---
-            // These show where the code THINKS you are.
-
-            // Sword Hitbox (Red)
-            //if (CurrentState == PlayerState.Attack1 || CurrentState == PlayerState.Attack2)
-            //{
-            //    spriteBatch.Draw(_healthBarTexture, _debugSwordBox, new Color(255, 0, 0, 100));
-            //}
-
-            //// Player Hurtbox (Blue) - Where enemies hit YOU
-            //// We draw this relative to 'position' (The Cyan Dot)
-            //Rectangle myHurtBox = new Rectangle((int)position.X - 20, (int)position.Y - 70, 40, 80);
-            //spriteBatch.Draw(_healthBarTexture, myHurtBox, new Color(0, 0, 255, 100));
-
-            //// The Logic Dot (Cyan)
-            //// Your goal: Change 'visualOffset' at the top until the Wizard's feet touch this dot.
-            //spriteBatch.Draw(_healthBarTexture, new Rectangle((int)position.X - 2, (int)position.Y - 2, 4, 4), Color.Cyan);
+            // Debug drawing (commented out) shows hitboxes and logic dot; useful while tuning alignment.
+            // Examples left in file for quick experiments.
         }
     }
 }

@@ -5,25 +5,24 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // Ally: a friendly combatant that mirrors Enemy behavior but fights for the player.
-    // Responsibilities:
-    // - Implements ICombatant so CombatSystem and ChaseAndFireEngine can treat it like any actor.
-    // - Holds animations via AnimationManager and transitions states (wander, chase, combat).
-    // - Movement and combat decision logic is intentionally similar to Enemy for reuse.
-    // Interactions:
-    // - Receives target assignments from ChaseAndFireEngine via CombatSystem.AssignTarget.
-    // - Uses CombatSystem to deal and take damage; ClearTarget called when a target is invalid.
-    // - Uses RotatingSprite movement/integration for obstacle-aware pathing.
+    // Ally: friendly combat unit that behaves like Enemy but fights for the player.
+    // - Implements ICombatant so CombatSystem and ChaseAndFireEngine treat it like any actor.
+    // - Uses RotatingSprite for movement/rotation helpers and AnimationManager for visuals.
     public class Ally : RotatingSprite, ICombatant
     {
+        // Simple lifecycle enum for ally state
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
+        // Animation + facing state
         private AnimationManager _animManager;
         private int _currentDirectionIndex = 1;
         private SpriteEffects _flipEffect = SpriteEffects.None;
+
+        // Shared 1x1 texture used to draw the ally's health bar
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
 
+        // Lifecycle backing field and property
         private ALLYSTATE _lifecycleState = ALLYSTATE.ALIVE;
         public ALLYSTATE LifecycleState
         {
@@ -31,14 +30,15 @@ namespace Pale_Roots_1
             set => _lifecycleState = value;
         }
 
+        // ICombatant surface (used by CombatSystem and engine)
         public string Name { get; set; } = "Ally";
         public CombatTeam Team => CombatTeam.Player;
-
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0 && _lifecycleState == ALLYSTATE.ALIVE;
         public bool IsActive => Visible && _lifecycleState != ALLYSTATE.DEAD;
 
+        // Target bookkeeping (keeps a Sprite reference for visual sync)
         private ICombatant _currentTarget;
         public ICombatant CurrentTarget
         {
@@ -50,6 +50,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Position/movement fields used by RotatingSprite and AI
         public Vector2 Position => position;
         protected float Velocity;
         protected Vector2 startPosition;
@@ -57,7 +58,7 @@ namespace Pale_Roots_1
         private float _attackCooldown = 0f;
         private int _deathCountdown;
 
-        // Ally constructor uses texture dictionary for animations, similar to Enemy
+        // Constructor: sets stats, animations and initial AI state (mirrors Enemy pattern)
         public Ally(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Walk"], userPosition, framecount)
         {
@@ -72,12 +73,14 @@ namespace Pale_Roots_1
             Scale = 3.0f;
             _animManager = new AnimationManager();
 
+            // Register animations using the supplied atlas dictionary
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 125f, true, 4, 0, true));
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 6, 0, 175f, false, 4, 0, true));
 
             _animManager.Play("Idle");
 
+            // Create the health-bar texture once for all allies
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
@@ -85,7 +88,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // High-level update: animation selection and death handling
+        // High-level update: run base update, choose animation and handle dying
         public override void Update(GameTime gametime)
         {
             base.Update(gametime);
@@ -103,7 +106,7 @@ namespace Pale_Roots_1
             if (_lifecycleState == ALLYSTATE.DYING) UpdateDying(gametime);
         }
 
-        // Update with obstacle list to enable pathing checks; uses shared AI loop pattern
+        // Frame update that includes obstacle-aware AI behavior (called by engine)
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -113,7 +116,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // AI tick shares structure with Enemy: cooldowns, validation, and state dispatch
+        // AI tick: handle cooldowns, validate targets, and dispatch to state handlers
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             if (_attackCooldown > 0) _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -133,7 +136,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Move forward while charging; different direction compared to Enemy
+        // Charge movement: ally moves right (game convention differs from Enemy)
         protected virtual void PerformCharge(List<WorldObject> obstacles)
         {
             position.X += Velocity;
@@ -141,6 +144,7 @@ namespace Pale_Roots_1
             MoveToward(target, Velocity, obstacles);
         }
 
+        // Chase current target using MoveToward (handles obstacle sliding). Switch to InCombat when close.
         protected virtual void PerformChase(List<WorldObject> obstacles)
         {
             if (_currentTarget == null) { CurrentAIState = Enemy.AISTATE.Wandering; return; }
@@ -149,6 +153,7 @@ namespace Pale_Roots_1
                 CurrentAIState = Enemy.AISTATE.InCombat;
         }
 
+        // Combat loop: face target, attack if in range and off-cooldown, break if target flees.
         protected virtual void PerformCombat(GameTime gameTime)
         {
             if (_currentTarget == null || !_currentTarget.IsAlive) { CurrentAIState = Enemy.AISTATE.Wandering; return; }
@@ -159,6 +164,7 @@ namespace Pale_Roots_1
                 CurrentAIState = Enemy.AISTATE.Chasing;
         }
 
+        // Wander: pick a random point around the start and MoveToward it slowly
         protected virtual void PerformWander(List<WorldObject> obstacles)
         {
             if (wanderTarget == Vector2.Zero || Vector2.Distance(position, wanderTarget) < 5f)
@@ -171,13 +177,14 @@ namespace Pale_Roots_1
             MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
         }
 
+        // Dying countdown then mark dead and hide
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
             if (_deathCountdown <= 0) { _lifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
 
-        // Simple damage handling; transitions to dead state when health depletes
+        // Apply damage; transition to dying/dead when health depletes
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
@@ -185,7 +192,7 @@ namespace Pale_Roots_1
             if (Health <= 0) Die();
         }
 
-        // Trigger melee attack using CombatSystem to resolve damage and cooldown bookkeeping
+        // Trigger melee attack animation and call CombatSystem to resolve damage
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || _attackCooldown > 0) return;
@@ -194,6 +201,7 @@ namespace Pale_Roots_1
             _attackCooldown = GameConstants.DefaultAttackCooldown;
         }
 
+        // Enter dying state and clear target bookkeeping
         public virtual void Die()
         {
             _lifecycleState = ALLYSTATE.DYING;
@@ -201,7 +209,7 @@ namespace Pale_Roots_1
             CombatSystem.ClearTarget(this);
         }
 
-        // Determine facing for animation; flipEffect is managed for visual mirroring
+        // Choose facing direction for animation based on current target or recent movement
         private void UpdateDirection()
         {
             if (CurrentTarget != null)
@@ -225,7 +233,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Draw uses the AnimationManager with the chosen direction and draws a small health bar above the ally
+        // Draw animation and a small health bar above the ally
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
@@ -234,6 +242,7 @@ namespace Pale_Roots_1
                 DrawHealthBar(spriteBatch);
         }
 
+        // Health bar rendering: red background, colored foreground based on health percent
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
         {
             int barWidth = spriteWidth;

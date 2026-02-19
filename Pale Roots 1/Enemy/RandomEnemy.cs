@@ -4,43 +4,39 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    /// <summary>
-    /// Enemy that wanders randomly across the screen.
-    /// Uses CombatSystem.RandomInt instead of creating new Random() each call.
-    /// </summary>
+    // RandomEnemy: picks screen-wide random targets and wanders between them.
+    // - Uses the shared RNG via CombatSystem.RandomInt (avoids creating new Random instances).
+    // - Uses MoveToward from RotatingSprite/Enemy so it respects obstacles passed from level code.
     public class RandomEnemy : Enemy
     {
+        // Current random target position on screen
         private Vector2 _randomTarget;
 
+        // Constructor uses the base Enemy constructor for setup and starts in Wandering state.
         public RandomEnemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
             _randomTarget = CreateRandomTarget();
             
-            // Start wandering instead of charging
+            // This enemy wanders rather than charging at spawn.
             CurrentAIState = AISTATE.Wandering;
         }
 
-        /// <summary>
-        /// Create a random target position within screen bounds
-        /// </summary>
+        // Pick a random point inside the viewport (uses CombatSystem's helper RNG).
         private Vector2 CreateRandomTarget()
         {
-            // Use the shared random from CombatSystem
             int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
             int ry = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Height - spriteHeight);
             return new Vector2(rx, ry);
         }
 
-        /// <summary>
-        /// Override wander to use screen-wide random targets
-        /// </summary>
+        // Wander behavior: walk toward the random target and choose a new one on arrival.
         protected override void PerformWander(List<WorldObject> obstacles)
         {
-            // Move toward target
+            // MoveToward handles collision checking with obstacles.
             MoveToward(_randomTarget, Velocity, obstacles);
 
-            // Pick new target when we arrive
+            // When close enough, pick a new random target inside the viewport.
             if (Vector2.Distance(position, _randomTarget) < 5f)
             {
                 int rx = CombatSystem.RandomInt(0, game.GraphicsDevice.Viewport.Width - spriteWidth);
@@ -49,9 +45,7 @@ namespace Pale_Roots_1
             }
         }
 
-        /// <summary>
-        /// Override charge to also wander (this enemy doesn't charge)
-        /// </summary>
+        // This enemy doesn't charge; use the wander behavior instead.
         protected override void PerformCharge(List<WorldObject> obstacles)
         {
             PerformWander(obstacles);

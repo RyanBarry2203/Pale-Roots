@@ -3,11 +3,8 @@ using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
-    // CoreSystems contains global constants, interface and the CombatSystem which coordinates combat.
-    // Purpose and interactions:
-    // - GameConstants centralizes magic numbers used by many modules (Player, Enemy, Projectiles, Camera, etc.).
-    // - ICombatant is the shared contract for any actor that can fight; systems rely on this to handle damage, targeting and queries.
-    // - CombatSystem is the authoritative place for damage resolution, random utilities and target bookkeeping; it emits events that UI or audio/particle systems can subscribe to.
+    // Shared numeric constants used across the project (speeds, ranges, timeouts, map size).
+    // Consumers: Player, Enemy, Projectile, Camera, AI and other systems read these values.
     public static class GameConstants
     {
         public const float SwordSwingDuration = 250f;
@@ -46,6 +43,7 @@ namespace Pale_Roots_1
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
     }
 
+    // Team tags used by CombatSystem and AI to decide friend/foe behavior.
     public enum CombatTeam
     {
         Player,
@@ -53,7 +51,8 @@ namespace Pale_Roots_1
         Neutral
     }
 
-    // Shared contract used by Player, Enemy, Ally and any other combat-capable actor.
+    // Minimal interface any combat-capable actor must implement so systems can interact with it.
+    // Implementers: Player, Enemy, Ally, Projectile-shaping actors, etc.
     public interface ICombatant
     {
         string Name { get; }
@@ -72,23 +71,24 @@ namespace Pale_Roots_1
         void Die();
     }
 
-    // Central combat coordination: damage, target assignment, validation and events.
-    // Systems that need to apply damage or query validity call into CombatSystem so bookkeeping (attacker counts, events) stays consistent.
+    // Centralized combat helper and bookkeeping.
+    // - Resolves damage (with small variance), fires events, and keeps attacker counts consistent.
+    // - Provides RNG helpers so the whole game uses one Random instance.
     public static class CombatSystem
     {
-        // Events for external systems (UI, sounds, scoring) to react to combat outcomes.
+        // Events: UI, audio, spawning logic, or analytics subscribe to these.
         public static event Action<ICombatant, ICombatant, int> OnDamageDealt;
         public static event Action<ICombatant, ICombatant> OnCombatantKilled;
         public static event Action<ICombatant, ICombatant> OnTargetAcquired;
 
-        // Single shared RNG used across the game to avoid many Random instances with identical seeds.
+        // Single RNG used project-wide to avoid seed duplication issues.
         private static readonly Random _random = new Random();
 
         public static int RandomInt(int min, int max) => _random.Next(min, max);
         public static float RandomFloat() => (float)_random.NextDouble();
         public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
-        // Apply damage with a small variance, notify listeners and perform kill handling.
+        // Apply damage to target, notify listeners and handle death bookkeeping.
         public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage, float multiplier = 1.0f)
         {
             if (target == null || !target.IsAlive) return 0;
@@ -96,6 +96,7 @@ namespace Pale_Roots_1
 
             int finalBase = (int)(baseDamage * multiplier);
 
+            // Small randomness so hits vary slightly.
             float variance = RandomFloat(0.9f, 1.1f);
             int finalDamage = Math.Max(1, (int)(baseDamage * variance));
 
@@ -111,7 +112,7 @@ namespace Pale_Roots_1
             return finalDamage;
         }
 
-        // Clean up references and fire kill event. This avoids dangling attacker counts.
+        // Clear attacker bookkeeping and emit kill event.
         private static void HandleKill(ICombatant killer, ICombatant victim)
         {
             if (victim.CurrentTarget != null)
@@ -124,7 +125,8 @@ namespace Pale_Roots_1
             OnCombatantKilled?.Invoke(killer, victim);
         }
 
-        // Assign a target and maintain AttackerCount on the target. Emits OnTargetAcquired for systems to react.
+        // Assign a new target for a combatant and maintain AttackerCount on the target.
+        // Emits OnTargetAcquired so UI/AI can react.
         public static void AssignTarget(ICombatant combatant, ICombatant newTarget)
         {
             if (combatant == null) return;
@@ -143,7 +145,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Clears a combatant's target and adjusts attacker bookkeeping.
+        // Remove whatever target a combatant currently has and update counts.
         public static void ClearTarget(ICombatant combatant)
         {
             if (combatant?.CurrentTarget != null)
@@ -153,14 +155,14 @@ namespace Pale_Roots_1
             }
         }
 
-        // Helper to determine if two combatants are on opposing teams (ignores Neutral).
+        // True if teams differ and neither is Neutral.
         public static bool AreEnemies(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return false;
             return a.Team != b.Team && a.Team != CombatTeam.Neutral && b.Team != CombatTeam.Neutral;
         }
 
-        // Validates whether a target can be attacked (alive, active, and an enemy).
+        // Checks that the target is alive, active and an enemy.
         public static bool IsValidTarget(ICombatant attacker, ICombatant target)
         {
             if (target == null) return false;
@@ -170,7 +172,7 @@ namespace Pale_Roots_1
             return true;
         }
 
-        // Range check using centers of combatants. Default uses MeleeAttackRange.
+        // Distance-based attack range check using entity centers.
         public static bool CanAttack(ICombatant attacker, ICombatant target, float range = -1)
         {
             if (!IsValidTarget(attacker, target)) return false;
@@ -181,14 +183,14 @@ namespace Pale_Roots_1
             return distance <= range;
         }
 
-        // Utility to return distance between entities for targeting decisions.
+        // Utility used by targeting logic to choose nearest candidates.
         public static float GetDistance(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return float.MaxValue;
             return Vector2.Distance(a.Center, b.Center);
         }
 
-        // Reset event subscriptions (useful during scene teardown or tests).
+        // Helper to remove external event handlers (useful during teardown/tests).
         public static void ClearAllEvents()
         {
             OnDamageDealt = null;

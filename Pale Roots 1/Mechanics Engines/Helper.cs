@@ -47,10 +47,6 @@ namespace Pale_Roots_1
             { "Hand_In_Floor_Tiny", new Rectangle(352, 542, 33, 48) },
 
 
-
-
-
-
         };
 
         public static Rectangle GetSourceRect(string key)

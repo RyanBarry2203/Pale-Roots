@@ -4,61 +4,61 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    /// <summary>
-    /// Fast charging enemy for battle scenarios.
-    /// Inherits from CircularChasingEnemy but with higher speed.
-    /// 
-    /// This class now actually has a purpose beyond just setting velocity!
-    /// It represents aggressive front-line enemies.
-    /// </summary>
+    // ChargingBattleEnemy: a fast, aggressive enemy.
+    // Inherits movement, AI states and combat hooks from CircularChasingEnemy -> Enemy -> RotatingSprite.
     public class ChargingBattleEnemy : CircularChasingEnemy
     {
-        /// <summary>Speed boost when charging (multiplier)</summary>
+        // Tunable multiplier for how much faster this enemy moves while charging.
+        // Other systems (spawn/level/balance) can change this at runtime.
         public float ChargeSpeedMultiplier { get; set; } = 1.5f;
         
-        /// <summary>Base speed for this enemy type</summary>
+        // Base movement speed used when not charging.
         private float _baseVelocity;
 
+        // Constructor matches base signatures so factories/LevelManager can create this class like other enemies.
         public ChargingBattleEnemy(Game g, Texture2D texture, Vector2 position1, int framecount)
             : base(g, texture, position1, framecount)
         {
+            // Choose default non-charging speed.
             _baseVelocity = 3.0f;
+
+            // Set the inherited Velocity field so movement/animation systems use correct speed.
             Velocity = _baseVelocity;
             
-            // Larger chase radius - these are aggressive
+            // Increase inherited chase detection radius so this enemy detects targets farther away.
+            // Uses shared GameConstants (defined elsewhere).
             ChaseRadius = GameConstants.DefaultChaseRadius * 1.5f;
             
-            // Start charging
+            // Start this instance in the Charging AI state; the base UpdateAI will treat it accordingly.
             CurrentAIState = AISTATE.Charging;
         }
 
-        /// <summary>
-        /// Charge faster than normal movement
-        /// </summary>
+        // Called by the base AI when in the Charging state.
+        // 'obstacles' comes from LevelManager each frame and contains map objects (WorldObject) to avoid.
         protected override void PerformCharge(List<WorldObject> obstacles)
         {
-            // Boost speed while charging
+            // Temporarily boost Velocity for charge movement/collision/animation.
             Velocity = _baseVelocity * ChargeSpeedMultiplier;
             
-            // Charge left toward player side
+            // Immediate leftward nudge to create a lunge effect (project assumes left is the player side).
             position.X -= Velocity;
 
+            // Build a distant left target and call the inherited MoveToward helper.
+            // MoveToward (in a base class) performs obstacle-aware stepping and rotation.
             Vector2 target = new Vector2(position.X - 1000, position.Y);
             MoveToward(target, Velocity, obstacles);
         }
 
-        /// <summary>
-        /// Normal speed when chasing specific target
-        /// </summary>
+        // Called by the base AI when chasing a specific target.
+        // Restores normal speed and defers to the base chase behavior that handles steering & state transitions.
         protected override void PerformChase(List<WorldObject> obstacles)
         {
             Velocity = _baseVelocity;
-            base.PerformChase(obstacles);
+            base.PerformChase(obstacles); // base handles moving toward CurrentTarget and switching to InCombat.
         }
 
-        /// <summary>
-        /// Normal speed in combat
-        /// </summary>
+        // Called by the base AI when engaged in combat.
+        // Use normal speed and let the base combat logic handle attacks/animations through CombatSystem.
         protected override void PerformCombat(GameTime gameTime)
         {
             Velocity = _baseVelocity;
