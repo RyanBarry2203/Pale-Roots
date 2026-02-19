@@ -147,43 +147,60 @@ namespace Pale_Roots_1
 
         public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
         {
-            // Card Background
+            // 1. Background & Border
             Color bgColor = isHovered ? Color.DarkSlateBlue : Color.Black * 0.9f;
             Color borderColor = isHovered ? Color.Cyan : Color.Gray;
 
             sb.Draw(_pixel, rect, bgColor);
 
-            // Border
-            int border = 2;
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, border), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Bottom - border, rect.Width, border), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, border, rect.Height), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.Right - border, rect.Y, border, rect.Height), borderColor);
+            int b = 2;
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, b), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Bottom - b, rect.Width, b), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, b, rect.Height), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.Right - b, rect.Y, b, rect.Height), borderColor);
 
-            // --- LAYOUT ADJUSTMENTS ---
-
-            // 1. Icon (Moved UP slightly)
+            // 2. Icon (Fixed Position at top)
+            int iconSize = 64;
+            int iconY = rect.Y + 30;
             if (option.Icon != null)
             {
-                Rectangle iconRect = new Rectangle(rect.Center.X - 32, rect.Y + 20, 64, 64);
+                Rectangle iconRect = new Rectangle(rect.Center.X - (iconSize / 2), iconY, iconSize, iconSize);
                 sb.Draw(option.Icon, iconRect, Color.White);
             }
 
             if (font != null)
             {
-                // 2. Title (Moved DOWN to clear the icon)
-                // Icon ends at Y+84 (20+64). Let's put text at Y+95.
-                Vector2 nameSize = font.MeasureString(option.Name);
-                Vector2 namePos = new Vector2(rect.Center.X - nameSize.X / 2, rect.Y + 95);
-                sb.DrawString(font, option.Name, namePos, Color.Gold);
+                // 3. Title (Centered below icon)
+                string title = option.Name;
+                Vector2 titleSize = font.MeasureString(title);
+                // Ensure title fits width, scale down if massive
+                float titleScale = 1.0f;
+                if (titleSize.X > rect.Width - 20) titleScale = (rect.Width - 20) / titleSize.X;
 
-                // 3. Description (Moved DOWN to clear the title)
-                // Title is roughly 20-30px high. Let's put description at Y+135.
-                string wrappedDesc = ParseText(option.Description, font, rect.Width - 20);
+                Vector2 titlePos = new Vector2(
+                    rect.Center.X - (titleSize.X * titleScale) / 2,
+                    iconY + iconSize + 15
+                );
+
+                sb.DrawString(font, title, titlePos, Color.Gold, 0f, Vector2.Zero, titleScale, SpriteEffects.None, 0f);
+
+                // 4. Description (Perfectly Centered in remaining space)
+                // Calculate remaining vertical space
+                float startY = titlePos.Y + (titleSize.Y * titleScale) + 10;
+                float endY = rect.Bottom - 10;
+                float availableHeight = endY - startY;
+
+                // Wrap text
+                string wrappedDesc = ParseText(option.Description, font, rect.Width - 30);
                 Vector2 descSize = font.MeasureString(wrappedDesc);
-                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, rect.Y + 135);
 
-                sb.DrawString(font, wrappedDesc, descPos, Color.White, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+                // Center vertically in the available space
+                float descY = startY + (availableHeight / 2) - (descSize.Y / 2);
+
+                // Center horizontally
+                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, descY);
+
+                sb.DrawString(font, wrappedDesc, descPos, Color.White);
             }
         }
     }

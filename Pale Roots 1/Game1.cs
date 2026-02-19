@@ -41,6 +41,8 @@ namespace Pale_Roots_1
         private float _uiInputDelay = 0f;
         private const float SAFETY_DELAY = 0.5f; // 0.5 seconds before you can click
 
+        private const float MAX_VOLUME = 0.8f;
+
 
         private int _nextLevelThreshold = 3; 
         private int _levelStep = 4;
@@ -107,6 +109,9 @@ namespace Pale_Roots_1
             int centerW = _graphics.PreferredBackBufferWidth / 2;
             int centerH = _graphics.PreferredBackBufferHeight / 2;
 
+            _currentVolume = 0f;
+            _targetVolume = 0f;
+
             // Make buttons slightly wider and thinner for a sleeker look
             _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
             _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
@@ -125,9 +130,9 @@ namespace Pale_Roots_1
             _combatSongs.Add(Content.Load<Song>("ihavenoidea"));
             _combatSongs.Add(Content.Load<Song>("uhm"));
             _introSong = Content.Load<Song>("Whimsy");
-            _outroSong = Content.Load<Song>("Whimsy");
+            _outroSong = Content.Load<Song>("Ihavenoidea");
             _deathSong = Content.Load<Song>("Sad");
-            _victorySong = Content.Load<Song>("uhm");
+            _victorySong = Content.Load<Song>("Ihavenoidea");
 
             _spellIcons = new Texture2D[6];
             _spellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
@@ -340,8 +345,10 @@ namespace Pale_Roots_1
                     _currentState = GameState.Gameplay;
                     _hasStarted = true;
 
-                    // Reset Audio Volume
-                    _targetVolume = 0.5f;
+                    _currentSong = null;
+                    _pendingSong = null;
+                    _currentVolume = 0f;
+                    _targetVolume = 0f; 
 
                     InputEngine.ClearState();
                 }
@@ -356,55 +363,80 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. FADING LOGIC
+            // ================================================================
+            // 1. FADING ENGINE
+            // ================================================================
+
+            // Move current volume towards target
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
                 if (_currentVolume > _targetVolume) _currentVolume = _targetVolume;
             }
+            else if (_currentVolume > _targetVolume)
+            {
+                _currentVolume -= _fadeSpeed * dt;
+                if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
+            }
 
             MediaPlayer.Volume = _currentVolume;
 
-            // 2. STATE MACHINE
+            // CROSS-FADE LOGIC:
+            // If volume hit 0 and we have a pending song, swap them and fade in.
+            if (_currentVolume <= 0.01f && _pendingSong != null)
+            {
+                MediaPlayer.Stop(); // Clean stop before start
+                MediaPlayer.Play(_pendingSong);
+                MediaPlayer.IsRepeating = (_currentState != GameState.Gameplay); // Loop everything except combat tracks
+
+                _currentSong = _pendingSong;
+                _pendingSong = null;
+
+                _targetVolume = MAX_VOLUME; // Start fading in
+            }
+
+            // ================================================================
+            // 2. STATE MACHINE (Requests tracks, doesn't touch MediaPlayer directly)
+            // ================================================================
+
             switch (_currentState)
             {
                 case GameState.Menu:
-                    EnsureLoopingTrack(_menuSong);
+                    RequestTrack(_menuSong);
                     break;
 
                 case GameState.Intro:
-                case GameState.Outro: // Use Intro music for Outro too, or _victorySong
-                    EnsureLoopingTrack(_introSong);
-                    break;
-
-                case GameState.Gameplay:
-                case GameState.LevelUp: // Keep gameplay music during level up
-                    // If we are playing a "State" song (Menu/Death/Victory), STOP IT immediately
-                    if (_currentSong == _menuSong || _currentSong == _deathSong || _currentSong == _victorySong || _currentSong == _introSong)
-                    {
-                        MediaPlayer.Stop();
-                        _currentSong = null;
-                    }
-
-                    // If nothing is playing, pick a random combat track
-                    if (MediaPlayer.State == MediaState.Stopped)
-                    {
-                        PlayRandomCombatTrack();
-                    }
-
-                    // Ensure volume is up (in case we came from a fade)
-                    _targetVolume = 0.5f;
+                case GameState.Outro:
+                    RequestTrack(_introSong);
                     break;
 
                 case GameState.GameOver:
-                    EnsureLoopingTrack(_deathSong);
+                    RequestTrack(_deathSong);
                     break;
 
                 case GameState.Victory:
-                    EnsureLoopingTrack(_victorySong);
+                    RequestTrack(_victorySong);
+                    break;
+
+                case GameState.Gameplay:
+                case GameState.LevelUp:
+                    // Gameplay Logic:
+                    // 1. If we are playing a "Menu/Cutscene" song, we need to switch to combat music.
+                    // 2. If the current combat song finished (State is Stopped), pick a new one.
+
+                    bool isWrongSong = (_currentSong == _menuSong || _currentSong == _introSong || _currentSong == _deathSong || _currentSong == _victorySong);
+                    bool isSilence = (MediaPlayer.State == MediaState.Stopped && _pendingSong == null);
+
+                    if (isWrongSong || isSilence)
+                    {
+                        // Pick a random track that isn't the one we just played (if possible)
+                        Song nextTrack = _combatSongs[CombatSystem.RandomInt(0, _combatSongs.Count)];
+                        RequestTrack(nextTrack);
+                    }
                     break;
             }
         }
+
 
         private void StartOutroSequence()
         {
@@ -445,10 +477,15 @@ namespace Pale_Roots_1
         }
 
         // Helper to trigger a smooth transition
-        private void SwitchTrack(Song newSong)
+        private void RequestTrack(Song song)
         {
-            _pendingSong = newSong;
-            _targetVolume = 0f; // Start fading out the current song
+            // If we are already playing it, or already fading to it, do nothing
+            if (_currentSong == song && _pendingSong == null) return;
+            if (_pendingSong == song) return;
+
+            // Start the transition
+            _pendingSong = song;
+            _targetVolume = 0.0f; // Fade out current
         }
 
         private void DrawLevelUpScreen()
