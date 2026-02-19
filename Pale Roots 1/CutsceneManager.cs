@@ -103,57 +103,54 @@ namespace Pale_Roots_1
 
             CutsceneSlide slide = _slides[_currentIndex];
 
-            // 1. CALCULATE PROGRESS (0.0 to 1.0)
+            // 1. CALCULATE PROGRESS
             float progress = _timer / slide.Duration;
 
-            // 2. CALCULATE ZOOM & PAN (Linear Interpolation)
-            // This smoothly moves from Start values to End values based on progress
-
+            // 2. CALCULATE ZOOM & PAN
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
             Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
 
-            // 3. CALCULATE FADE (Dip to Black)
-            // First 10% of time: Fade In. Last 10% of time: Fade Out.
+            // 3. CALCULATE FADE
             float fadeDuration = slide.Duration * 0.15f;
             float alpha = 1.0f;
 
-            if (_timer < fadeDuration)
-            {
-                // Fading In (0 to 1)
-                alpha = _timer / fadeDuration;
-            }
+            if (_timer < fadeDuration) alpha = _timer / fadeDuration;
             else if (_timer > slide.Duration - fadeDuration)
             {
-                // Fading Out (1 to 0)
                 float timeLeft = slide.Duration - _timer;
                 alpha = timeLeft / fadeDuration;
             }
 
-            // 4. DRAW THE IMAGE
-            // We draw the texture centered, scaled, and offset by our Pan
+            // 4. DRAW IMAGE
             Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
             Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
 
-            spriteBatch.Draw(
-                slide.Texture,
-                screenCenter + currentPan, // Move the image slightly
-                null,
-                Color.White * alpha, // Apply the Fade
-                0f,
-                origin,
-                currentZoom, // Apply the Zoom
-                SpriteEffects.None,
-                0f
-            );
+            spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha,
+                0f, origin, currentZoom, SpriteEffects.None, 0f);
 
-            // 5. DRAW TEXT
+            // 5. DRAW TEXT WITH BACKGROUND
             if (_font != null)
             {
+                // Main Story Text
                 Vector2 textSize = _font.MeasureString(slide.Text);
                 Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
 
-                // Text also fades with the image
-                spriteBatch.DrawString(_font, slide.Text, textPos, Color.Black * alpha);
+                // Draw Semi-Transparent Box behind text
+                Rectangle bgRect = new Rectangle(
+                    (int)textPos.X - 20,
+                    (int)textPos.Y - 10,
+                    (int)textSize.X + 40,
+                    (int)textSize.Y + 20
+                );
+                spriteBatch.Draw(_pixel, bgRect, Color.Black * 0.6f * alpha);
+                spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
+
+                // Skip Prompt (Bottom Right)
+                string skipMsg = "Press SPACE to Skip";
+                Vector2 skipSize = _font.MeasureString(skipMsg);
+                Vector2 skipPos = new Vector2(screenWidth - skipSize.X - 40, screenHeight - 60);
+
+                spriteBatch.DrawString(_font, skipMsg, skipPos, Color.Gray * alpha * 0.8f);
             }
         }
     }

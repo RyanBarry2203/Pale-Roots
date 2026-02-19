@@ -962,6 +962,12 @@
 /processorParam:TextureFormat=Color
 /build:RealEnemyFolder/orc3_walk_full.png
 
+#begin Sad.wav
+/importer:WavImporter
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:Sad.wav
+
 #begin SoundTrackAttempt1.wav
 /importer:WavImporter
 /processor:SongProcessor

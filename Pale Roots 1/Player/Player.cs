@@ -53,6 +53,8 @@ namespace Pale_Roots_1
         }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
         private Vector2 _facingDirection = new Vector2(0, 1);
+        public bool IsHeavyAttackUnlocked { get; set; } = false;
+        public bool IsDashUnlocked { get; set; } = false;
 
         // Dash Variables
         private float _dashSpeed = 12f;
@@ -197,24 +199,21 @@ namespace Pale_Roots_1
             KeyboardState kState = Keyboard.GetState();
             MouseState mState = Mouse.GetState();
 
-            // 1. DASH (Priority)
-            // We check this first so you can dash out of danger instantly
-            if (kState.IsKeyDown(Keys.LeftShift))
+
+            if (IsDashUnlocked && kState.IsKeyDown(Keys.LeftShift))
             {
                 StartDash();
-                return; // Don't attack if we are trying to dash
+                return;
             }
 
-            // Only allow attack if cooldown is ready
             if (_cooldownTimer > 0) return;
 
-            // 2. LIGHT ATTACK (Left Click)
+
             if (mState.LeftButton == ButtonState.Pressed)
             {
                 StartAttack(enemies, 1);
             }
-            // 3. HEAVY ATTACK (Right Click)
-            else if (mState.RightButton == ButtonState.Pressed)
+            else if (IsHeavyAttackUnlocked && mState.RightButton == ButtonState.Pressed)
             {
                 StartAttack(enemies, 2);
             }

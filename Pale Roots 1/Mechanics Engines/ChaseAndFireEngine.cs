@@ -546,6 +546,8 @@ namespace Pale_Roots_1
             }
         }
 
+        public SpellManager GetSpellManager() => _spellManager;
+
         /*
          * Draw
          *

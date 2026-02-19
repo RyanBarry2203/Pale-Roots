@@ -9,7 +9,8 @@ namespace Pale_Roots_1
     {
         private ChaseAndFireEngine _engine;
         private List<Spell> _spells = new List<Spell>();
-        // private Texture2D _spellSheet; // You can delete this line if you aren't using it anymore
+
+        private bool[] _unlockedSpells;
 
         // --- FIX IS HERE: NO "class" KEYWORD ---
         public SpellManager(ChaseAndFireEngine engine,
@@ -29,6 +30,8 @@ namespace Pale_Roots_1
             _spells.Add(new HolyShieldSpell(engine._gameOwnedBy, shieldTx));
             _spells.Add(new ElectricitySpell(engine._gameOwnedBy, electricTx));
             _spells.Add(new SwordOfJusticeSpell(engine._gameOwnedBy, justiceTx));
+
+            _unlockedSpells = new bool[_spells.Count];
         }
 
         public void Update(GameTime gameTime)
@@ -61,8 +64,24 @@ namespace Pale_Roots_1
         {
             if (index >= 0 && index < _spells.Count)
             {
-                _spells[index].Cast(_engine, target);
+                if (_unlockedSpells[index])
+                {
+                    _spells[index].Cast(_engine, target);
+                }
             }
+        }
+        public void UnlockSpell(int index)
+        {
+            if (index >= 0 && index < _unlockedSpells.Length)
+            {
+                _unlockedSpells[index] = true;
+            }
+        }
+
+        public bool IsSpellUnlocked(int index)
+        {
+            if (index >= 0 && index < _unlockedSpells.Length) return _unlockedSpells[index];
+            return false;
         }
 
         public void Draw(SpriteBatch spriteBatch)
