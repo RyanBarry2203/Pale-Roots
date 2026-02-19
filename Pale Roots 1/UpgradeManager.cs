@@ -64,12 +64,12 @@ namespace Pale_Roots_1
             // 3. Spells (Indices 0 to 5 based on SpellManager)
             string[] spellNames = { "Smite", "Holy Nova", "Heaven's Fury", "Holy Shield", "Electricity", "Sword of Justice" };
             string[] spellDescs = {
-                "Heal yourself.",
-                "Explosion around you.",
-                "Random holy strikes.",
-                "Buff allies.",
-                "Stun enemies.",
-                "Double damage buff."
+                "Heal yourself to full HP.",
+                "Instakill AOE on your cursor",
+                "Half Enemy Healthbars",
+                "Double Ally Health",
+                "Stun Enemies and stop spawning",
+                "Double Damage"
             };
 
             for (int i = 0; i < 6; i++)
