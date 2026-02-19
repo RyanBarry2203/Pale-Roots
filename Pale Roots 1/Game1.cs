@@ -312,22 +312,26 @@ namespace Pale_Roots_1
 
         private void HandleEndGameInput()
         {
+            // 1. Get Mouse State
             MouseState ms = Mouse.GetState();
+
+            // 2. Calculate Center (Must match DrawEndScreen exactly)
             int centerW = GraphicsDevice.Viewport.Width / 2;
             int centerH = GraphicsDevice.Viewport.Height / 2;
 
-            // RECALCULATE RECTANGLES EXACTLY AS DRAWN
+            // 3. Define Rectangles
             Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
             Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
 
-            // Check for click
-            if (ms.LeftButton == ButtonState.Pressed && InputEngine.IsMouseLeftClick())
+            // 4. Check Input - ONLY check IsMouseLeftClick (Release event)
+            // DO NOT check ButtonState.Pressed here.
+            if (InputEngine.IsMouseLeftClick())
             {
                 if (playAgainRect.Contains(ms.Position))
                 {
-                    // --- RESET PROGRESSION VARIABLES ---
-                    _nextLevelThreshold = 5; // Reset to starting difficulty
-                    _levelStep = 5;          // Reset scaling
+
+                    _nextLevelThreshold = 3; // Reset to starting difficulty
+                    _levelStep = 4;          // Reset scaling
 
                     // Reset Game Engine
                     Initialize();
