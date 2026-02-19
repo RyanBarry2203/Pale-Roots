@@ -97,6 +97,21 @@ namespace Pale_Roots_1
             }
         }
 
+        public void ClearSlides()
+        {
+            _slides.Clear();
+            _currentIndex = 0;
+            _timer = 0f;
+            IsFinished = false;
+        }
+
+        public void Reset()
+        {
+            _currentIndex = 0;
+            _timer = 0f;
+            IsFinished = false;
+        }
+
         public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
         {
             if (IsFinished) return;

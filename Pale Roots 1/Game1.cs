@@ -33,12 +33,22 @@ namespace Pale_Roots_1
         private Song _currentSong;
         private bool _isCombatMusicPlaying = false;
 
+        private Song _victorySong;
+        private Song _outroSong;
+        private List<Texture2D> _outroImages = new List<Texture2D>(); // Store textures to load into manager later
+
+        // Input Safety
+        private float _uiInputDelay = 0f;
+        private const float SAFETY_DELAY = 0.5f; // 0.5 seconds before you can click
+
+
+        private int _nextLevelThreshold = 3; 
+        private int _levelStep = 4;
+
         private UpgradeManager _upgradeManager;
         private List<UpgradeManager.UpgradeOption> _currentUpgradeOptions;
 
         // Progression Logic
-        private int _nextLevelThreshold = 5;
-        private int _levelStep = 5; 
         private const int WIN_CONDITION_KILLS = 180;
 
         // Spell Icons
@@ -72,6 +82,7 @@ namespace Pale_Roots_1
             Gameplay,
             LevelUp,
             Victory,
+            Outro,
             GameOver
         }
 
@@ -114,7 +125,9 @@ namespace Pale_Roots_1
             _combatSongs.Add(Content.Load<Song>("ihavenoidea"));
             _combatSongs.Add(Content.Load<Song>("uhm"));
             _introSong = Content.Load<Song>("Whimsy");
+            _outroSong = Content.Load<Song>("Whimsy");
             _deathSong = Content.Load<Song>("Sad");
+            _victorySong = Content.Load<Song>("uhm");
 
             _spellIcons = new Texture2D[6];
             _spellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
@@ -139,6 +152,11 @@ namespace Pale_Roots_1
             for (int i = 1; i < 9; i++)
             {
                 slides[i] = Content.Load<Texture2D>("cutscene_image_" + i);
+            }
+
+            for (int i = 1; i < 9; i++)
+            {
+                _outroImages.Add(Content.Load<Texture2D>("cutscene_image_" + i));
             }
 
             //Song introMusic = Content.Load<Song>("Whimsy");
@@ -170,7 +188,6 @@ namespace Pale_Roots_1
 
         protected override void Update(GameTime gameTime)
         {
-
             UpdateAudio(gameTime);
 
             switch (_currentState)
@@ -181,11 +198,24 @@ namespace Pale_Roots_1
                     {
                         _currentState = GameState.Gameplay;
                         _hasStarted = true;
-                        MediaPlayer.Volume = 1.0f;
+                    }
+                    break;
+
+                // NEW: Outro Logic
+                case GameState.Outro:
+                    _cutsceneManager.Update(gameTime);
+                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _cutsceneManager.IsFinished)
+                    {
+                        // Return to Menu after Outro
+                        _currentState = GameState.Menu;
+                        _hasStarted = false;
+                        Initialize(); // Reset game
+                        LoadContent();
                     }
                     break;
 
                 case GameState.Menu:
+                    // ... existing menu logic ...
                     IsMouseVisible = true;
                     MouseState ms = Mouse.GetState();
                     Point mousePoint = new Point(ms.X, ms.Y);
@@ -196,55 +226,34 @@ namespace Pale_Roots_1
                         {
                             if (!_hasStarted) _currentState = GameState.Intro;
                             else _currentState = GameState.Gameplay;
-                            IsMouseVisible = true;
                         }
-                        else if (_quitBtnRect.Contains(mousePoint))
-                        {
-                            Exit();
-                        }
-                    }
-                    if (_hasStarted && InputEngine.IsKeyPressed(Keys.Escape))
-                    {
-                        _currentState = GameState.Gameplay;
+                        else if (_quitBtnRect.Contains(mousePoint)) Exit();
                     }
                     break;
 
                 case GameState.Gameplay:
-                    if (InputEngine.IsKeyPressed(Keys.Escape))
-                    {
-                        _currentState = GameState.Menu;
-                    }
+                    if (InputEngine.IsKeyPressed(Keys.Escape)) _currentState = GameState.Menu;
 
                     if (_gameEngine != null)
                     {
                         _gameEngine.Update(gameTime);
 
-                        // 1. CHECK WIN CONDITION
-                        if (_gameEngine.EnemiesKilled >= WIN_CONDITION_KILLS)
-                        {
-                            _currentState = GameState.Victory;
-                        }
+                        // Win
+                        if (_gameEngine.EnemiesKilled >= WIN_CONDITION_KILLS) _currentState = GameState.Victory;
 
-                        // 2. CHECK LOSS CONDITION
-                        if (!_gameEngine.GetPlayer().IsAlive)
-                        {
-                            _currentState = GameState.GameOver;
-                        }
+                        // Loss
+                        if (!_gameEngine.GetPlayer().IsAlive) _currentState = GameState.GameOver;
 
-                        // 3. CHECK LEVEL UP
+                        // Level Up
                         if (_gameEngine.EnemiesKilled >= _nextLevelThreshold)
                         {
-                            // Generate options
                             _currentUpgradeOptions = _upgradeManager.GetRandomOptions(3);
-
-                            // If we have options left, go to LevelUp state
                             if (_currentUpgradeOptions.Count > 0)
                             {
                                 _currentState = GameState.LevelUp;
+                                _uiInputDelay = SAFETY_DELAY; // START THE DELAY TIMER
                             }
-
-                            // Increase threshold: 5 -> 15 -> 30 -> 50
-                            _levelStep += 5;
+                            _levelStep += 4; // Smaller step (easier)
                             _nextLevelThreshold += _levelStep;
                         }
                     }
@@ -252,7 +261,9 @@ namespace Pale_Roots_1
 
                 case GameState.LevelUp:
                     IsMouseVisible = true;
-                    HandleLevelUpInput();
+                    // Decrement Timer
+                    if (_uiInputDelay > 0) _uiInputDelay -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    else HandleLevelUpInput();
                     break;
 
                 case GameState.Victory:
@@ -301,22 +312,33 @@ namespace Pale_Roots_1
 
         private void HandleEndGameInput()
         {
-            if (InputEngine.IsMouseLeftClick())
+            MouseState ms = Mouse.GetState();
+            int centerW = GraphicsDevice.Viewport.Width / 2;
+            int centerH = GraphicsDevice.Viewport.Height / 2;
+
+            // RECALCULATE RECTANGLES EXACTLY AS DRAWN
+            Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
+            Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
+
+            // Check for click
+            if (ms.LeftButton == ButtonState.Pressed && InputEngine.IsMouseLeftClick())
             {
-                MouseState ms = Mouse.GetState();
-                int centerW = GraphicsDevice.Viewport.Width / 2;
-                int centerH = GraphicsDevice.Viewport.Height / 2;
-
-                Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
-                Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
-
                 if (playAgainRect.Contains(ms.Position))
                 {
-                    // Reset Game
+                    // --- RESET PROGRESSION VARIABLES ---
+                    _nextLevelThreshold = 5; // Reset to starting difficulty
+                    _levelStep = 5;          // Reset scaling
+
+                    // Reset Game Engine
                     Initialize();
                     LoadContent();
+
                     _currentState = GameState.Gameplay;
                     _hasStarted = true;
+
+                    // Reset Audio Volume
+                    _targetVolume = 0.5f;
+
                     InputEngine.ClearState();
                 }
                 else if (quitRect.Contains(ms.Position))
@@ -336,72 +358,86 @@ namespace Pale_Roots_1
                 _currentVolume += _fadeSpeed * dt;
                 if (_currentVolume > _targetVolume) _currentVolume = _targetVolume;
             }
-            else if (_currentVolume > _targetVolume)
-            {
-                _currentVolume -= _fadeSpeed * dt;
-                if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
-            }
 
             MediaPlayer.Volume = _currentVolume;
 
-            // Swap song if faded out
-            if (_targetVolume <= 0.01f && _currentVolume <= 0.01f && _pendingSong != null)
-            {
-                MediaPlayer.Play(_pendingSong);
-                _currentSong = _pendingSong;
-                _pendingSong = null;
-                _targetVolume = 0.5f; // Restore volume
-            }
-
-            // 2. STATE LOGIC
+            // 2. STATE MACHINE
             switch (_currentState)
             {
                 case GameState.Menu:
-                    if (_currentSong != _menuSong && _pendingSong != _menuSong)
-                    {
-                        SwitchTrack(_menuSong);
-                        MediaPlayer.IsRepeating = true;
-                    }
+                    EnsureLoopingTrack(_menuSong);
                     break;
 
                 case GameState.Intro:
-                    if (_currentSong != _introSong && _pendingSong != _introSong)
-                    {
-                        SwitchTrack(_introSong);
-                        MediaPlayer.IsRepeating = false;
-                    }
+                case GameState.Outro: // Use Intro music for Outro too, or _victorySong
+                    EnsureLoopingTrack(_introSong);
                     break;
 
                 case GameState.Gameplay:
-                    // If we just came back from LevelUp, ensure volume is up
-                    if (_targetVolume < 0.5f) _targetVolume = 0.5f;
-
-                    if (_hasIntroFinished && MediaPlayer.State == MediaState.Stopped)
+                case GameState.LevelUp: // Keep gameplay music during level up
+                    // If we are playing a "State" song (Menu/Death/Victory), STOP IT immediately
+                    if (_currentSong == _menuSong || _currentSong == _deathSong || _currentSong == _victorySong || _currentSong == _introSong)
                     {
-                        // Play random combat track
-                        int index = CombatSystem.RandomInt(0, _combatSongs.Count);
-                        Song nextTrack = _combatSongs[index];
-                        MediaPlayer.Play(nextTrack);
-                        _currentSong = nextTrack;
-                        _currentVolume = 0.5f;
-                        _targetVolume = 0.5f;
+                        MediaPlayer.Stop();
+                        _currentSong = null;
                     }
-                    break;
 
-                case GameState.LevelUp:
-                    // Lower volume but keep playing current track
-                    _targetVolume = 0.1f;
+                    // If nothing is playing, pick a random combat track
+                    if (MediaPlayer.State == MediaState.Stopped)
+                    {
+                        PlayRandomCombatTrack();
+                    }
+
+                    // Ensure volume is up (in case we came from a fade)
+                    _targetVolume = 0.5f;
                     break;
 
                 case GameState.GameOver:
+                    EnsureLoopingTrack(_deathSong);
+                    break;
+
                 case GameState.Victory:
-                    if (_currentSong != _deathSong && _pendingSong != _deathSong)
-                    {
-                        SwitchTrack(_deathSong);
-                        MediaPlayer.IsRepeating = true;
-                    }
+                    EnsureLoopingTrack(_victorySong);
                     break;
             }
+        }
+
+        private void StartOutroSequence()
+        {
+            _cutsceneManager.ClearSlides();
+
+            float dur = 5000f;
+            // Add your lore slides here. I'm reusing images but changing text.
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[0], "The Skeleton King has fallen...", dur, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[1], "The Pale Roots begin to wither...", dur, 1.05f, 1.0f, Vector2.Zero, Vector2.Zero));
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[2], "Humanity has reclaimed its future.", dur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[3], "The War is over.", dur + 2000, 1.0f, 1.0f, Vector2.Zero, Vector2.Zero));
+
+            _currentState = GameState.Outro;
+        }
+
+        // Helper to ensure a specific track is looping
+        private void EnsureLoopingTrack(Song song)
+        {
+            if (_currentSong != song)
+            {
+                MediaPlayer.Stop();
+                MediaPlayer.Play(song);
+                MediaPlayer.IsRepeating = true;
+                _currentSong = song;
+                _targetVolume = 0.5f;
+                _currentVolume = 0.5f; // Snap volume immediately to avoid silence
+            }
+        }
+
+        private void PlayRandomCombatTrack()
+        {
+            int index = CombatSystem.RandomInt(0, _combatSongs.Count);
+            Song nextTrack = _combatSongs[index];
+            MediaPlayer.Play(nextTrack);
+            MediaPlayer.IsRepeating = false; // Don't loop combat tracks, let them end so we pick a new one
+            _currentSong = nextTrack;
+            _targetVolume = 0.5f;
         }
 
         // Helper to trigger a smooth transition
@@ -442,8 +478,7 @@ namespace Pale_Roots_1
 
         private void DrawEndScreen(bool victory)
         {
-            // FIX: Use * 0.7f to make it transparent so we can see the frozen game behind it
-            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.7f);
+            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.85f); // Darker background
 
             string title = victory ? "VICTORY" : "YOU DIED";
             Color color = victory ? Color.Gold : Color.Red;
@@ -453,33 +488,41 @@ namespace Pale_Roots_1
 
             _spriteBatch.DrawString(_uiFont, title, new Vector2(center.X - size.X, center.Y - 150), color, 0f, Vector2.Zero, 2.0f, SpriteEffects.None, 0f);
 
-            // Draw Buttons
-            Rectangle playAgainRect = new Rectangle((int)center.X - 100, (int)center.Y, 200, 50);
-            Rectangle quitRect = new Rectangle((int)center.X - 100, (int)center.Y + 70, 200, 50);
+            // Lore Text for Victory
+            if (victory)
+            {
+                string lore = "The Skeleton King is defeated.\nThe Pale Roots recede.";
+                Vector2 loreSize = _uiFont.MeasureString(lore);
+                _spriteBatch.DrawString(_uiFont, lore, new Vector2(center.X - loreSize.X / 2, center.Y - 80), Color.White);
+            }
+
+            Rectangle btn1Rect = new Rectangle((int)center.X - 100, (int)center.Y, 200, 50);
+            Rectangle btn2Rect = new Rectangle((int)center.X - 100, (int)center.Y + 70, 200, 50);
 
             Point mousePos = Mouse.GetState().Position;
 
-            // Helper to draw button
             void DrawBtn(Rectangle r, string t)
             {
                 bool hover = r.Contains(mousePos);
-                // Make buttons opaque so they stand out against the transparent background
                 _spriteBatch.Draw(_uiPixel, r, hover ? Color.Gray : Color.DarkGray);
 
-                // Draw Border
+                // Border
                 int b = 2;
-                Color borderColor = hover ? Color.White : Color.Black;
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, r.Width, b), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Bottom - b, r.Width, b), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, b, r.Height), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.Right - b, r.Y, b, r.Height), borderColor);
+                Color bc = hover ? Color.White : Color.Black;
+                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, r.Width, b), bc);
+                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Bottom - b, r.Width, b), bc);
+                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, b, r.Height), bc);
+                _spriteBatch.Draw(_uiPixel, new Rectangle(r.Right - b, r.Y, b, r.Height), bc);
 
                 Vector2 ts = _uiFont.MeasureString(t);
                 _spriteBatch.DrawString(_uiFont, t, new Vector2(r.Center.X - ts.X / 2, r.Center.Y - ts.Y / 2), Color.White);
             }
 
-            DrawBtn(playAgainRect, "PLAY AGAIN");
-            DrawBtn(quitRect, "QUIT");
+            // Change Button Text based on state
+            string btn1Text = victory ? "FINISH GAME" : "PLAY AGAIN";
+
+            DrawBtn(btn1Rect, btn1Text);
+            DrawBtn(btn2Rect, "QUIT");
         }
 
         protected override void Draw(GameTime gameTime)
@@ -519,8 +562,13 @@ namespace Pale_Roots_1
                     _spriteBatch.End();
                     break;
 
+                case GameState.Outro:
+                    _spriteBatch.Begin();
+                    _cutsceneManager.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+                    _spriteBatch.End();
+                    break;
+
                 case GameState.Menu:
-                    // ... existing menu draw code ...
                     _spriteBatch.Begin();
                     if (_menuBackground != null)
                     {
