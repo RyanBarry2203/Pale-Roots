@@ -7,7 +7,7 @@ namespace Pale_Roots_1
     public class GameplayState : IGameState
     {
         private Game1 _game;
-        private const int WIN_CONDITION_KILLS = 1;
+        private const int WIN_CONDITION_KILLS = 180;
 
         public GameplayState(Game1 game)
         {

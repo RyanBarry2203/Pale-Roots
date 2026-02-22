@@ -8,38 +8,11 @@ namespace Pale_Roots_1
 {
     public class CutsceneManager
     {
+        private Dictionary<string, Cutscene> _cutscenes = new Dictionary<string, Cutscene>();
+        private Cutscene _currentCutscene;
 
-        public class CutsceneSlide
-        {
-            public Texture2D Texture;
-            public string Text;
-            public float Duration;
-
-            // Movement Variables
-            public float ZoomStart;
-            public float ZoomEnd;
-            public Vector2 PanStart;
-            public Vector2 PanEnd;
-
-            private float _fadeAlpha = 1.0f;
-
-            public CutsceneSlide(Texture2D texture, string text, float duration, float zStart, float zEnd, Vector2 pStart, Vector2 pEnd)
-            {
-                Texture = texture;
-                Text = text;
-                Duration = duration;
-                ZoomStart = zStart;
-                ZoomEnd = zEnd;
-                PanStart = pStart;
-                PanEnd = pEnd;
-            }
-        }
-
-        private List<CutsceneSlide> _slides = new List<CutsceneSlide>();
         private int _currentIndex = 0;
         private float _timer = 0f;
-
-
         private Texture2D _pixel;
         private SpriteFont _font;
 
@@ -47,94 +20,67 @@ namespace Pale_Roots_1
 
         public CutsceneManager(Game game)
         {
-
             _pixel = new Texture2D(game.GraphicsDevice, 1, 1);
             _pixel.SetData(new[] { Color.White });
-
-
-            try
-            {
-                _font = game.Content.Load<SpriteFont>("cutsceneFont");
-            }
-            catch
-            {
-                
-            }
-
-
-            //_slides.Add(new CutsceneSlide("In the beginning, the roots were pale...", Color.Black, 3000f));
-            //_slides.Add(new CutsceneSlide("The war consumed everything.", Color.DarkRed, 3000f));
-            //_slides.Add(new CutsceneSlide("Now, only the Skeleton King remains.", Color.DarkSlateGray, 3000f));
-            //_slides.Add(new CutsceneSlide("Press SPACE to skip...", Color.Black, 2000f));
+            try { _font = game.Content.Load<SpriteFont>("cutsceneFont"); } catch { }
         }
-        public void AddSlide(CutsceneSlide slide)
+
+        public void AddCutscene(string key, Cutscene cutscene)
         {
-            _slides.Add(slide);
+            _cutscenes[key] = cutscene;
+        }
+
+        public void Play(string key)
+        {
+            if (_cutscenes.ContainsKey(key))
+            {
+                _currentCutscene = _cutscenes[key];
+                _currentIndex = 0;
+                _timer = 0f;
+                IsFinished = false;
+            }
         }
 
         public void Update(GameTime gameTime)
         {
-            if (IsFinished) return;
+            if (IsFinished || _currentCutscene == null) return;
 
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _timer += dt;
 
-
-            if (Keyboard.GetState().IsKeyDown(Keys.Space) || Keyboard.GetState().IsKeyDown(Keys.Enter))
+            // Using InputEngine so a held spacebar doesn't instantly skip everything
+            if (InputEngine.IsKeyPressed(Keys.Space) || InputEngine.IsKeyPressed(Keys.Enter))
             {
                 IsFinished = true;
             }
 
-
-            if (_timer >= _slides[_currentIndex].Duration)
+            if (_timer >= _currentCutscene.Slides[_currentIndex].Duration)
             {
                 _timer = 0;
                 _currentIndex++;
 
-                if (_currentIndex >= _slides.Count)
+                if (_currentIndex >= _currentCutscene.Slides.Count)
                 {
                     IsFinished = true;
                 }
             }
         }
 
-        public void ClearSlides()
-        {
-            _slides.Clear();
-            _currentIndex = 0;
-            _timer = 0f;
-            IsFinished = false;
-        }
-
-        public void Reset()
-        {
-            _currentIndex = 0;
-            _timer = 0f;
-            IsFinished = false;
-        }
-
         public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
         {
-            if (IsFinished) return;
+            if (IsFinished || _currentCutscene == null) return;
 
-            CutsceneSlide slide = _slides[_currentIndex];
+            CutsceneSlide slide = _currentCutscene.Slides[_currentIndex];
 
-            // 1. CALCULATE PROGRESS
             float progress = _timer / slide.Duration;
-
-            // 2. CALCULATE CINEMATIC SCALE (FILL SCREEN)
-            // Determine how much we need to scale the image to cover the whole screen
             float scaleX = (float)screenWidth / slide.Texture.Width;
             float scaleY = (float)screenHeight / slide.Texture.Height;
-            float baseScale = Math.Max(scaleX, scaleY); // Use the larger scale to ensure coverage
+            float baseScale = Math.Max(scaleX, scaleY);
 
-            // 3. APPLY ZOOM & PAN
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
             float finalScale = baseScale * currentZoom;
-
             Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
 
-            // 4. CALCULATE FADE
             float fadeDuration = slide.Duration * 0.15f;
             float alpha = 1.0f;
 
@@ -145,35 +91,23 @@ namespace Pale_Roots_1
                 alpha = timeLeft / fadeDuration;
             }
 
-            // 5. DRAW IMAGE (Centered origin)
             Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
             Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
 
-            spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha,
-                0f, origin, finalScale, SpriteEffects.None, 0f);
+            spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha, 0f, origin, finalScale, SpriteEffects.None, 0f);
 
-            // 6. DRAW TEXT WITH BACKGROUND
             if (_font != null)
             {
-                // Main Story Text
                 Vector2 textSize = _font.MeasureString(slide.Text);
                 Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
 
-                // Draw Semi-Transparent Box behind text
-                Rectangle bgRect = new Rectangle(
-                    (int)textPos.X - 20,
-                    (int)textPos.Y - 10,
-                    (int)textSize.X + 40,
-                    (int)textSize.Y + 20
-                );
+                Rectangle bgRect = new Rectangle((int)textPos.X - 20, (int)textPos.Y - 10, (int)textSize.X + 40, (int)textSize.Y + 20);
                 spriteBatch.Draw(_pixel, bgRect, Color.Black * 0.6f * alpha);
                 spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
 
-                // Skip Prompt (Bottom Right)
                 string skipMsg = "Press SPACE to Skip";
                 Vector2 skipSize = _font.MeasureString(skipMsg);
                 Vector2 skipPos = new Vector2(screenWidth - skipSize.X - 40, screenHeight - 60);
-
                 spriteBatch.DrawString(_font, skipMsg, skipPos, Color.Gray * alpha * 0.8f);
             }
         }

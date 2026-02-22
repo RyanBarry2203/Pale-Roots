@@ -16,6 +16,7 @@ namespace Pale_Roots_1
         public void LoadContent()
         {
             _game.AudioManager.HandleMusicState(GameState.Intro);
+            _game.CutsceneManager.Play("Intro");
         }
 
         public void Update(GameTime gameTime)

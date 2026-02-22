@@ -36,7 +36,8 @@ namespace Pale_Roots_1
                 {
                     if (_isVictory)
                     {
-                        _game.StartOutroSequence();
+                        // The StartOutroSequence() call was removed here!
+                        // We just transition to the OutroState, which plays the cutscene automatically.
                         _game.StateManager.ChangeState(new OutroState(_game));
                     }
                     else
