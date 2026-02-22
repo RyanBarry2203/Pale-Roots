@@ -20,31 +20,6 @@ namespace Pale_Roots_1
         private Texture2D _animatedObjectSheet;
         private Texture2D _staticObjectSheet;
 
-        //private string[] _treeTypes = {
-        //    "Dying_Tree",
-        //    "Medium_Dying_Tree",
-        //    "Small_Dying_Tree",
-        //};
-
-        //private string[] _brambleTypes = {
-        //    "Brambles_Large",
-        //    "Brambles_Medium",
-        //    "Brambles_Small",
-        //    "Brambles_Tiny",
-        //    "Brambles_Very_Tiny"
-        //};
-
-        //private string[] _floorDetails = {
-        //    "Bone_In_Floor",
-        //    "Hand_In_Floor",
-        //    "Hand_In_Floor_Medium",
-        //    "Hand_In_Floor_Small",
-        //    "Hand_In_Floor_Tiny",
-        //    "Ribcage",
-        //    "Bird_Skull"
-        //};
-
-        //private string[] _graveTypes = { "Grave_1", "Grave_2", "Grave_3" };
 
         private string[] _natureObjects = {
             "Dying_Tree", "Medium_Dying_Tree", "Small_Dying_Tree",
@@ -100,7 +75,7 @@ namespace Pale_Roots_1
                 }
             }
 
-            // i know i should have used a loop okay but it was faster to just brute force it than use brain rescources to figure out the maths for the palette indexing. Sue me.
+          
             List<TileRef> palette = new List<TileRef>();
             palette.Add(new TileRef(13, 41, 0));
             palette.Add(new TileRef(14, 41, 0));

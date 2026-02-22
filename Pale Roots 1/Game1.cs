@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
@@ -12,9 +11,6 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
 
-        // Assets
-        private SoundEffect warTheme;
-        private Song introMusic;
         private Texture2D _uiPixel;
         private SpriteFont _uiFont;
 
@@ -28,23 +24,16 @@ namespace Pale_Roots_1
         private Rectangle _playBtnRect;
         private Rectangle _quitBtnRect;
 
-        private Song _menuSong;
-        private List<Song> _combatSongs = new List<Song>();
-        private Song _currentSong;
-        private bool _isCombatMusicPlaying = false;
-
-        private Song _victorySong;
-        private Song _outroSong;
-        private List<Texture2D> _outroImages = new List<Texture2D>(); // Store textures to load into manager later
+        private List<Texture2D> _outroImages = new List<Texture2D>();
 
         // Input Safety
         private float _uiInputDelay = 0f;
-        private const float SAFETY_DELAY = 0.5f; // 0.5 seconds before you can click
+        private const float SAFETY_DELAY = 0.5f;
 
-        private const float MAX_VOLUME = 0.8f;
+        // --- NEW AUDIO MANAGER ---
+        private AudioManager _audioManager;
 
-
-        private int _nextLevelThreshold = 3; 
+        private int _nextLevelThreshold = 3;
         private int _levelStep = 4;
 
         private UpgradeManager _upgradeManager;
@@ -65,17 +54,8 @@ namespace Pale_Roots_1
 
         // UI Colors (Medieval Sci-Fantasy Theme)
         Color _hudColor = new Color(10, 10, 15, 200);
-        Color _healthColor = new Color(180, 20, 20); 
+        Color _healthColor = new Color(180, 20, 20);
         Color _staminaColor = new Color(50, 205, 50);
-
-        private float _currentVolume = 1.0f;
-        private float _targetVolume = 1.0f;
-        private float _fadeSpeed = 0.5f; 
-        private Song _pendingSong = null;
-
-        private Song _introSong;
-        private bool _hasIntroFinished = false;
-        private Song _deathSong;
 
         private float _creditsScrollY = 0f;
         private string _creditsText =
@@ -89,22 +69,11 @@ namespace Pale_Roots_1
 
         // Button Styling
         Color _btnNormal = new Color(20, 20, 30, 220);
-        Color _btnHover = new Color(40, 60, 100, 240); 
-        Color _borderNormal = new Color(60, 60, 80);   
+        Color _btnHover = new Color(40, 60, 100, 240);
+        Color _borderNormal = new Color(60, 60, 80);
         Color _borderHover = Color.Cyan;
 
-        private enum GameState
-        {
-            Intro,
-            Menu,
-            Gameplay,
-            LevelUp,
-            Victory,
-            Outro,
-            Credits,
-            GameOver
-        }
-
+        // GameState is now in GameState.cs (Global Enum)
         private GameState _currentState = GameState.Menu;
         private bool _hasStarted = false;
 
@@ -114,6 +83,9 @@ namespace Pale_Roots_1
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
             new InputEngine(this);
+
+            // Initialize the Audio Manager
+            _audioManager = new AudioManager();
         }
 
         protected override void Initialize()
@@ -126,9 +98,6 @@ namespace Pale_Roots_1
             int centerW = _graphics.PreferredBackBufferWidth / 2;
             int centerH = _graphics.PreferredBackBufferHeight / 2;
 
-            _currentVolume = 0f;
-            _targetVolume = 0f;
-
             // Make buttons slightly wider and thinner for a sleeker look
             _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
             _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
@@ -138,18 +107,21 @@ namespace Pale_Roots_1
 
         protected override void LoadContent()
         {
+            // --- AUDIO LOADING (Delegated to Manager) ---
+            _audioManager.MenuSong = Content.Load<Song>("PaleRootsMenu");
+            _audioManager.IntroSong = Content.Load<Song>("Whimsy");
+            _audioManager.DeathSong = Content.Load<Song>("Sad");
 
-            _menuSong = Content.Load<Song>("PaleRootsMenu"); 
+            // Load Outro once, assign to Outro
+            Song outro = Content.Load<Song>("Ihavenoidea");
+            _audioManager.OutroSong = outro;
 
-            _combatSongs.Add(Content.Load<Song>("Guitar"));
-            _combatSongs.Add(Content.Load<Song>("MoreGuitar"));
-            _combatSongs.Add(Content.Load<Song>("Groovy"));
-            _combatSongs.Add(Content.Load<Song>("ihavenoidea"));
-            _combatSongs.Add(Content.Load<Song>("uhm"));
-            _introSong = Content.Load<Song>("Whimsy");
-            _outroSong = Content.Load<Song>("Ihavenoidea");
-            _deathSong = Content.Load<Song>("Sad");
-            _victorySong = Content.Load<Song>("Ihavenoidea");
+            _audioManager.AddCombatSong(Content.Load<Song>("Guitar"));
+            _audioManager.AddCombatSong(Content.Load<Song>("MoreGuitar"));
+            _audioManager.AddCombatSong(Content.Load<Song>("Groovy"));
+            _audioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
+            _audioManager.AddCombatSong(Content.Load<Song>("uhm"));
+            // --------------------------------------------
 
             _spellIcons = new Texture2D[6];
             _spellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
@@ -169,7 +141,7 @@ namespace Pale_Roots_1
                _gameEngine.GetPlayer(),
                _gameEngine.GetSpellManager(),
                _spellIcons,
-               _dashIcon,         
+               _dashIcon,
                _heavyAttackIcon,
                GraphicsDevice
            );
@@ -186,18 +158,12 @@ namespace Pale_Roots_1
                 _outroSlides.Add(Content.Load<Texture2D>("outro_image_" + i));
             }
 
-            //Song introMusic = Content.Load<Song>("Whimsy");
-            //MediaPlayer.Play(introMusic);
-            //MediaPlayer.IsRepeating = false;
-            //MediaPlayer.Volume = 0.2f;
-
             _uiPixel = new Texture2D(GraphicsDevice, 1, 1);
             _uiPixel.SetData(new[] { Color.White });
 
             try { _uiFont = Content.Load<SpriteFont>("cutsceneFont"); }
             catch { }
 
-            // NEW: Try loading a menu background, fallback to null if missing
             try { _menuBackground = Content.Load<Texture2D>("menu_background"); }
             catch { }
 
@@ -215,7 +181,10 @@ namespace Pale_Roots_1
 
         protected override void Update(GameTime gameTime)
         {
-            UpdateAudio(gameTime);
+            // --- UPDATE AUDIO MANAGER ---
+            _audioManager.HandleMusicState(_currentState);
+            _audioManager.Update(gameTime);
+            // ----------------------------
 
             switch (_currentState)
             {
@@ -260,7 +229,6 @@ namespace Pale_Roots_1
                     _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
                     // Check for Spacebar OR if text has scrolled off screen
-                    // (Adjust -1500f based on how long your credits text is)
                     if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
                     {
                         // 1. Change State to Menu
@@ -340,12 +308,10 @@ namespace Pale_Roots_1
         }
         private void HandleLevelUpInput()
         {
-            // We don't need to check ButtonState.Pressed here because IsMouseLeftClick handles the "Click" event (Press -> Release)
             if (InputEngine.IsMouseLeftClick())
             {
                 MouseState ms = Mouse.GetState();
 
-                // Recalculate layout exactly as drawn
                 Rectangle screen = GraphicsDevice.Viewport.Bounds;
                 int cardWidth = 200;
                 int cardHeight = 300;
@@ -360,13 +326,8 @@ namespace Pale_Roots_1
 
                     if (cardRect.Contains(ms.Position))
                     {
-                        // Apply Upgrade
                         _currentUpgradeOptions[i].ApplyAction.Invoke();
-
-                        // Resume Game
                         _currentState = GameState.Gameplay;
-
-                        // Clear state to prevent clicking through to the game immediately
                         InputEngine.ClearState();
                         break;
                     }
@@ -393,15 +354,12 @@ namespace Pale_Roots_1
                     }
                     else
                     {
-                        SoftResetGame(); 
+                        SoftResetGame();
                         _currentState = GameState.Gameplay;
                         _hasStarted = true;
 
-                        MediaPlayer.Stop();
-                        _currentSong = null;
-                        _pendingSong = null;
-                        _currentVolume = 0.5f;
-                        _targetVolume = 0.5f;
+                        // Stop audio on death/restart so it resets
+                        _audioManager.Stop();
                     }
                     InputEngine.ClearState();
                 }
@@ -411,115 +369,6 @@ namespace Pale_Roots_1
                 }
             }
         }
-
-        private void UpdateAudio(GameTime gameTime)
-        {
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (_currentVolume < _targetVolume)
-            {
-                _currentVolume += _fadeSpeed * dt;
-                if (_currentVolume > _targetVolume) _currentVolume = _targetVolume;
-            }
-            else if (_currentVolume > _targetVolume)
-            {
-                _currentVolume -= _fadeSpeed * dt;
-                if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
-            }
-
-            MediaPlayer.Volume = _currentVolume;
-
-            // 2. CROSS-FADE EXECUTION
-            // If we have a pending song and volume hit 0, swap now.
-            if (_pendingSong != null && _currentVolume <= 0.01f)
-            {
-                try
-                {
-                    MediaPlayer.Stop();
-                    MediaPlayer.Play(_pendingSong);
-
-                    // Loop non-combat songs
-                    bool isCombat = (_currentState == GameState.Gameplay || _currentState == GameState.LevelUp);
-                    MediaPlayer.IsRepeating = !isCombat;
-
-                    _currentSong = _pendingSong;
-                    _pendingSong = null; // Clear pending
-                    _targetVolume = 0.5f; // Fade back in
-                }
-                catch { }
-            }
-
-            // 3. STATE MANAGEMENT
-            // If we are currently fading out (Pending exists), DO NOT run logic.
-            if (_pendingSong != null) return;
-
-            switch (_currentState)
-            {
-                case GameState.Menu:
-                    RequestTrack(_menuSong);
-                    break;
-                case GameState.Intro:
-                case GameState.GameOver:
-                    RequestTrack(_deathSong);
-                    break;
-                case GameState.Victory:
-                case GameState.Outro:
-                case GameState.Credits:
-                    RequestTrack(_outroSong);
-                    break;
-
-                case GameState.Gameplay:
-                case GameState.LevelUp:
-                    // COMBAT LOGIC
-
-                    // Check if we are playing a "Theme" song (Menu/Death) that shouldn't be here
-                    bool isWrongTheme = (_currentSong == _menuSong || _currentSong == _introSong ||
-                                         _currentSong == _deathSong || _currentSong == _victorySong);
-
-                    // Check if the current song has finished naturally
-                    bool isSilence = (MediaPlayer.State == MediaState.Stopped);
-
-                    if (isWrongTheme)
-                    {
-                        // Fade out the theme, then pick random
-                        RequestTrack(GetRandomCombatTrack());
-                    }
-                    else if (isSilence)
-                    {
-                        // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
-                        Song next = GetRandomCombatTrack();
-                        try
-                        {
-                            MediaPlayer.Play(next);
-                            MediaPlayer.IsRepeating = false;
-                            _currentSong = next;
-                            _currentVolume = 0f;  // Start silent
-                            _targetVolume = 0.5f; // Fade in
-                        }
-                        catch { }
-                    }
-                    break;
-            }
-        }
-
-        // Helper to prevent picking the exact same song twice in a row
-        private Song GetRandomCombatTrack()
-        {
-            if (_combatSongs.Count == 0) return null;
-
-            Song candidate;
-            int attempts = 0;
-            do
-            {
-                int index = CombatSystem.RandomInt(0, _combatSongs.Count);
-                candidate = _combatSongs[index];
-                attempts++;
-            }
-            while (candidate == _currentSong && attempts < 5); // Try 5 times to get a different song
-
-            return candidate;
-        }
-
 
         private void StartOutroSequence()
         {
@@ -562,57 +411,16 @@ namespace Pale_Roots_1
                 dur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
 
             _currentState = GameState.Outro;
-
-            // Ensure music switches
-            RequestTrack(_outroSong);
-        }
-
-        // Helper to ensure a specific track is looping
-        private void EnsureLoopingTrack(Song song)
-        {
-            if (_currentSong != song)
-            {
-                MediaPlayer.Stop();
-                MediaPlayer.Play(song);
-                MediaPlayer.IsRepeating = true;
-                _currentSong = song;
-                _targetVolume = 0.5f;
-                _currentVolume = 0.5f; // Snap volume immediately to avoid silence
-            }
-        }
-
-        private void PlayRandomCombatTrack()
-        {
-            int index = CombatSystem.RandomInt(0, _combatSongs.Count);
-            Song nextTrack = _combatSongs[index];
-            MediaPlayer.Play(nextTrack);
-            MediaPlayer.IsRepeating = false; // Don't loop combat tracks, let them end so we pick a new one
-            _currentSong = nextTrack;
-            _targetVolume = 0.5f;
-        }
-
-        // Helper to trigger a smooth transition
-        private void RequestTrack(Song song)
-        {
-            // If already playing or already pending, ignore
-            if (_currentSong == song && _pendingSong == null) return;
-            if (_pendingSong == song) return;
-
-            _pendingSong = song;
-            _targetVolume = 0.0f; // Fade out current
         }
 
         private void DrawLevelUpScreen()
         {
-            // Darken background
             _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.7f);
 
-            // Title
             string title = "ALTERNATE PHYSICS WITH THE STRENGTH OF THE DEAD";
             Vector2 size = _uiFont.MeasureString(title);
             _spriteBatch.DrawString(_uiFont, title, new Vector2(GraphicsDevice.Viewport.Width / 2 - size.X / 2, 100), Color.Gold);
 
-            // Draw Cards
             Rectangle screen = GraphicsDevice.Viewport.Bounds;
             int cardWidth = 200;
             int cardHeight = 300;
@@ -633,7 +441,7 @@ namespace Pale_Roots_1
 
         private void DrawEndScreen(bool victory)
         {
-            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.85f); // Darker background
+            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
 
             string title = victory ? "VICTORY" : "YOU DIED";
             Color color = victory ? Color.Gold : Color.Red;
@@ -643,7 +451,6 @@ namespace Pale_Roots_1
 
             _spriteBatch.DrawString(_uiFont, title, new Vector2(center.X - size.X, center.Y - 150), color, 0f, Vector2.Zero, 2.0f, SpriteEffects.None, 0f);
 
-            // Lore Text for Victory
             if (victory)
             {
                 string lore = "The Skeleton King is defeated.\nThe Pale Roots recede.";
@@ -661,7 +468,6 @@ namespace Pale_Roots_1
                 bool hover = r.Contains(mousePos);
                 _spriteBatch.Draw(_uiPixel, r, hover ? Color.Gray : Color.DarkGray);
 
-                // Border
                 int b = 2;
                 Color bc = hover ? Color.White : Color.Black;
                 _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, r.Width, b), bc);
@@ -673,7 +479,6 @@ namespace Pale_Roots_1
                 _spriteBatch.DrawString(_uiFont, t, new Vector2(r.Center.X - ts.X / 2, r.Center.Y - ts.Y / 2), Color.White);
             }
 
-            // Change Button Text based on state
             string btn1Text = victory ? "FINISH GAME" : "PLAY AGAIN";
 
             DrawBtn(btn1Rect, btn1Text);
@@ -727,14 +532,12 @@ namespace Pale_Roots_1
                     break;
 
                 case GameState.LevelUp:
-                case GameState.Victory:   
+                case GameState.Victory:
                 case GameState.GameOver:
-                    // 1. Draw World (Frozen)
                     _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _gameEngine._camera.CurrentCameraTranslation);
                     _gameEngine.Draw(gameTime, _spriteBatch);
                     _spriteBatch.End();
 
-                    // 2. Draw UI Overlay
                     _spriteBatch.Begin();
                     if (_currentState == GameState.LevelUp) DrawLevelUpScreen();
                     else DrawEndScreen(_currentState == GameState.Victory);
@@ -777,15 +580,12 @@ namespace Pale_Roots_1
             int barHeight = 25;
             int barWidth = 300;
 
-            // --- HEALTH & STAMINA (Existing Code) ---
             _spriteBatch.Draw(_uiPixel, new Rectangle(padding, padding, barWidth + 4, (barHeight * 2) + 15), _hudColor);
 
-            // Health
             float hpPercent = (float)p.Health / p.MaxHealth;
             _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, barWidth, barHeight), Color.Black * 0.5f);
             _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
 
-            // Stamina
             float dashRatio = 0f;
             if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
             else dashRatio = 1.0f;
@@ -797,7 +597,6 @@ namespace Pale_Roots_1
             Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
             _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
 
-            // --- WAR DOMINANCE BAR ---
             int screenW = GraphicsDevice.Viewport.Width;
             int barW = 600;
             int barH = 20;
@@ -815,14 +614,10 @@ namespace Pale_Roots_1
             Vector2 textSize = _uiFont.MeasureString(warText);
             _spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
 
-
-            // ... inside DrawHUD, after drawing War Dominance bar ...
-
             int iconSize = 64;
             int spacing = 20;
             int startY = GraphicsDevice.Viewport.Height - iconSize - 20;
 
-            // 1. CALCULATE TOTAL WIDTH (Spells + Dash + Heavy)
             int unlockedSpells = 0;
             for (int i = 0; i < 6; i++) if (_gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
 
@@ -836,18 +631,15 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                // Draw Background Bar
                 Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
                 _spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
-                // --- DRAW DASH (If Unlocked) ---
                 if (showDash)
                 {
                     Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
                     _spriteBatch.Draw(_dashIcon, dest, Color.White);
                     _spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
-                    // Dash Cooldown Overlay
                     if (p.DashTimer > 0)
                     {
                         float ratio = p.DashTimer / p.DashDuration;
@@ -858,7 +650,6 @@ namespace Pale_Roots_1
                     currentX += iconSize + spacing;
                 }
 
-                // --- DRAW HEAVY ATTACK (If Unlocked) ---
                 if (showHeavy)
                 {
                     Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
@@ -867,34 +658,27 @@ namespace Pale_Roots_1
                     currentX += iconSize + spacing;
                 }
 
-                // --- DRAW SPELLS ---
                 for (int i = 0; i < 6; i++)
                 {
                     if (_gameEngine.GetSpellManager().IsSpellUnlocked(i))
                     {
                         Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
 
-                        // Draw Icon
                         if (_spellIcons[i] != null)
                             _spriteBatch.Draw(_spellIcons[i], dest, Color.White);
 
-                        // Draw Key Number
                         string key = (i + 1).ToString();
                         _spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
 
-                        // NEW: Cooldown Overlay
                         Spell s = _gameEngine.GetSpellManager().GetSpell(i);
                         if (s != null && s.CurrentCooldown > 0)
                         {
-                            // Calculate height based on remaining time
                             float ratio = s.CurrentCooldown / s.CooldownDuration;
                             int h = (int)(iconSize * ratio);
 
-                            // Draw dark box from bottom up
                             Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
                             _spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
 
-                            // Optional: Draw text timer if > 1 second
                             if (s.CurrentCooldown > 1000)
                             {
                                 string sec = (s.CurrentCooldown / 1000).ToString("0");
@@ -915,28 +699,23 @@ namespace Pale_Roots_1
             int screenW = GraphicsDevice.Viewport.Width;
             int screenH = GraphicsDevice.Viewport.Height;
 
-            // Dark Overlay to make text pop (darker if we have a background image)
             _spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, screenH), Color.Black * 0.6f);
 
             Point mousePoint = new Point(Mouse.GetState().X, Mouse.GetState().Y);
 
-            // --- HELPER TO DRAW BUTTONS ---
             void DrawFancyButton(Rectangle rect, string text, bool isHovered)
             {
                 Color fillColor = isHovered ? _btnHover : _btnNormal;
                 Color borderColor = isHovered ? _borderHover : _borderNormal;
 
-                // 1. Fill
                 _spriteBatch.Draw(_uiPixel, rect, fillColor);
 
-                // 2. Borders (Top, Bottom, Left, Right)
                 int borderThickness = 2;
                 _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, rect.Width, borderThickness), borderColor);
                 _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Bottom - borderThickness, rect.Width, borderThickness), borderColor);
                 _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, borderThickness, rect.Height), borderColor);
                 _spriteBatch.Draw(_uiPixel, new Rectangle(rect.Right - borderThickness, rect.Y, borderThickness, rect.Height), borderColor);
 
-                // 3. Text
                 if (_uiFont != null)
                 {
                     Vector2 size = _uiFont.MeasureString(text);
@@ -945,15 +724,12 @@ namespace Pale_Roots_1
                 }
             }
 
-            // Draw Play/Resume
             bool playHover = _playBtnRect.Contains(mousePoint);
             DrawFancyButton(_playBtnRect, _hasStarted ? "RESUME" : "PLAY", playHover);
 
-            // Draw Quit
             bool quitHover = _quitBtnRect.Contains(mousePoint);
             DrawFancyButton(_quitBtnRect, "QUIT", quitHover);
 
-            // --- DRAW TITLE ---
             if (_uiFont != null)
             {
                 string title = "PALE ROOTS";
@@ -961,10 +737,7 @@ namespace Pale_Roots_1
                 Vector2 titlePos = new Vector2(screenW / 2f, 200);
                 Vector2 origin = titleSize / 2f;
 
-                // 1. Shadow (Offset by 3 pixels)
                 _spriteBatch.DrawString(_uiFont, title, titlePos + new Vector2(3, 3), Color.Black * 0.8f, 0f, origin, 2.5f, SpriteEffects.None, 0f);
-
-                // 2. Main Text (Cyan/White gradient look)
                 _spriteBatch.DrawString(_uiFont, title, titlePos, Color.PaleGoldenrod, 0f, origin, 2.5f, SpriteEffects.None, 0f);
             }
         }
