@@ -256,14 +256,19 @@ namespace Pale_Roots_1
                     break;
 
                 case GameState.Credits:
+                    // Scroll text upwards
                     _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1000)
+                    // Check for Spacebar OR if text has scrolled off screen
+                    // (Adjust -1500f based on how long your credits text is)
+                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
                     {
+                        // 1. Change State to Menu
                         _currentState = GameState.Menu;
                         _hasStarted = false;
-                        Initialize();
-                        LoadContent();
+
+                        // 2. Perform Soft Reset (Reset gameplay, keep audio/assets alive)
+                        SoftResetGame();
                     }
                     break;
 
@@ -309,6 +314,29 @@ namespace Pale_Roots_1
                     break;
             }
             base.Update(gameTime);
+        }
+
+        private void SoftResetGame()
+        {
+            // Reset Game Engine (Player, Level, Enemies)
+            _gameEngine = new ChaseAndFireEngine(this);
+
+            // Re-link the UpgradeManager to the NEW Player/SpellManager
+            _upgradeManager = new UpgradeManager(
+                _gameEngine.GetPlayer(),
+                _gameEngine.GetSpellManager(),
+                _spellIcons,
+                _dashIcon,
+                _heavyAttackIcon,
+                GraphicsDevice
+            );
+
+            // Reset Progression Variables
+            _nextLevelThreshold = 3;
+            _levelStep = 4;
+
+            // Reset Input State so we don't accidentally click something immediately
+            InputEngine.ClearState();
         }
         private void HandleLevelUpInput()
         {
@@ -359,20 +387,15 @@ namespace Pale_Roots_1
             {
                 if (playAgainRect.Contains(ms.Position))
                 {
-
                     if (_currentState == GameState.Victory)
                     {
                         StartOutroSequence();
                     }
                     else
                     {
-                        _nextLevelThreshold = 5;
-                        _levelStep = 5;
-                        Initialize();
-                        LoadContent();
+                        SoftResetGame(); 
                         _currentState = GameState.Gameplay;
                         _hasStarted = true;
-
 
                         MediaPlayer.Stop();
                         _currentSong = null;
@@ -380,7 +403,6 @@ namespace Pale_Roots_1
                         _currentVolume = 0.5f;
                         _targetVolume = 0.5f;
                     }
-
                     InputEngine.ClearState();
                 }
                 else if (quitRect.Contains(ms.Position))
@@ -394,8 +416,6 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. FADING LOGIC
-            // Smoothly interpolate current volume to target volume
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -439,14 +459,13 @@ namespace Pale_Roots_1
                     RequestTrack(_menuSong);
                     break;
                 case GameState.Intro:
-                case GameState.Outro:
-                    RequestTrack(_introSong); // Or _outroSong if you prefer
-                    break;
                 case GameState.GameOver:
                     RequestTrack(_deathSong);
                     break;
                 case GameState.Victory:
-                    RequestTrack(_victorySong);
+                case GameState.Outro:
+                case GameState.Credits:
+                    RequestTrack(_outroSong);
                     break;
 
                 case GameState.Gameplay:
@@ -505,46 +524,46 @@ namespace Pale_Roots_1
         private void StartOutroSequence()
         {
             _cutsceneManager.ClearSlides();
-            float dur = 6000f; // 6 seconds per slide
+            float dur = 6000f;
 
-            // Slide 1: The King Falls
+            // Slide 1: Zoom In
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[0],
                 "The Skeleton King crumbles, his reign of bone and ash finally at an end.",
-                dur, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
+                dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
 
-            // Slide 2: The Roots Recede
+            // Slide 2: Pan Right
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[1],
                 "Without his dark magic, the Pale Roots begin to wither and retreat.",
-                dur, 1.05f, 1.0f, Vector2.Zero, Vector2.Zero));
+                dur, 1.1f, 1.1f, new Vector2(-50, 0), new Vector2(50, 0)));
 
-            // Slide 3: Nature Returns
+            // Slide 3: Zoom Out
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[2],
                 "Where death once choked the land, the first sprouts of green life return.",
-                dur, 1.0f, 1.1f, new Vector2(-20, 0), new Vector2(20, 0)));
+                dur, 1.2f, 1.0f, Vector2.Zero, Vector2.Zero));
 
-            // Slide 4: The Survivors
+            // Slide 4: Pan Up
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[3],
                 "The survivors emerge from the ruins, looking up at a clear sky for the first time in years.",
-                dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
+                dur, 1.1f, 1.1f, new Vector2(0, 50), new Vector2(0, -50)));
 
-            // Slide 5: Rebuilding
+            // Slide 5: Zoom In
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[4],
                 "We will rebuild. Not as subjects of a tyrant, but as free people.",
-                dur, 1.0f, 1.05f, new Vector2(0, 20), new Vector2(0, -20)));
+                dur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
 
-            // Slide 6: Reflection
+            // Slide 6: Static -> Zoom
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[5],
                 "The scars of this war will remain, a reminder of what was lost.",
-                dur, 1.05f, 1.05f, Vector2.Zero, Vector2.Zero));
+                dur, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
 
-            // Slide 7: The End
+            // Slide 7: Slow Pan
             _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[6],
                 "But today... today we celebrate the dawn.",
-                dur + 3000, 1.0f, 1.2f, Vector2.Zero, Vector2.Zero));
+                dur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
 
             _currentState = GameState.Outro;
 
-            // Ensure music switches to Outro theme
+            // Ensure music switches
             RequestTrack(_outroSong);
         }
 
@@ -687,13 +706,23 @@ namespace Pale_Roots_1
                     _spriteBatch.Begin();
                     GraphicsDevice.Clear(Color.Black);
 
-                    Vector2 textSize = _uiFont.MeasureString(_creditsText);
-                    Vector2 textPos = new Vector2(
-                        (GraphicsDevice.Viewport.Width / 2) - (textSize.X / 2),
-                        _creditsScrollY
-                    );
+                    string[] lines = _creditsText.Split('\n');
+                    float currentY = _creditsScrollY;
+                    float lineHeight = _uiFont.LineSpacing;
 
-                    _spriteBatch.DrawString(_uiFont, _creditsText, textPos, Color.White);
+                    foreach (string line in lines)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            Vector2 lineSize = _uiFont.MeasureString(line);
+                            Vector2 linePos = new Vector2(
+                                (GraphicsDevice.Viewport.Width / 2) - (lineSize.X / 2),
+                                currentY
+                            );
+                            _spriteBatch.DrawString(_uiFont, line, linePos, Color.White);
+                        }
+                        currentY += lineHeight;
+                    }
                     _spriteBatch.End();
                     break;
 

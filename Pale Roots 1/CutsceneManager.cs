@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using System.Collections.Generic;
 
 namespace Pale_Roots_1
@@ -121,11 +122,19 @@ namespace Pale_Roots_1
             // 1. CALCULATE PROGRESS
             float progress = _timer / slide.Duration;
 
-            // 2. CALCULATE ZOOM & PAN
+            // 2. CALCULATE CINEMATIC SCALE (FILL SCREEN)
+            // Determine how much we need to scale the image to cover the whole screen
+            float scaleX = (float)screenWidth / slide.Texture.Width;
+            float scaleY = (float)screenHeight / slide.Texture.Height;
+            float baseScale = Math.Max(scaleX, scaleY); // Use the larger scale to ensure coverage
+
+            // 3. APPLY ZOOM & PAN
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
+            float finalScale = baseScale * currentZoom;
+
             Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
 
-            // 3. CALCULATE FADE
+            // 4. CALCULATE FADE
             float fadeDuration = slide.Duration * 0.15f;
             float alpha = 1.0f;
 
@@ -136,14 +145,14 @@ namespace Pale_Roots_1
                 alpha = timeLeft / fadeDuration;
             }
 
-            // 4. DRAW IMAGE
+            // 5. DRAW IMAGE (Centered origin)
             Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
             Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
 
             spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha,
-                0f, origin, currentZoom, SpriteEffects.None, 0f);
+                0f, origin, finalScale, SpriteEffects.None, 0f);
 
-            // 5. DRAW TEXT WITH BACKGROUND
+            // 6. DRAW TEXT WITH BACKGROUND
             if (_font != null)
             {
                 // Main Story Text
