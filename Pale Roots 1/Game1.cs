@@ -51,11 +51,17 @@ namespace Pale_Roots_1
         private List<UpgradeManager.UpgradeOption> _currentUpgradeOptions;
 
         // Progression Logic
-        private const int WIN_CONDITION_KILLS = 180;
+        private const int WIN_CONDITION_KILLS = 1;
 
         // Spell Icons
         private Texture2D[] _spellIcons;
         private Keys[] _spellKeys = { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6 };
+
+        private Texture2D _dashIcon;
+        private Texture2D _heavyAttackIcon;
+
+        // NEW: Outro List
+        private List<Texture2D> _outroSlides = new List<Texture2D>();
 
         // UI Colors (Medieval Sci-Fantasy Theme)
         Color _hudColor = new Color(10, 10, 15, 200);
@@ -71,6 +77,16 @@ namespace Pale_Roots_1
         private bool _hasIntroFinished = false;
         private Song _deathSong;
 
+        private float _creditsScrollY = 0f;
+        private string _creditsText =
+            "PALE ROOTS\n\n" +
+            "A Game by Ryan Barry\n\n" +
+            "PROGRAMMING\nRyan Barry\n\n" +
+            "ART ASSETS\nItch Artists\n\n" +
+            "MUSIC\nRyan Barry\n\n" +
+            "SPECIAL THANKS\nPaul Powell\nNeil Gannon\n\n\n" +
+            "Thank you for playing!";
+
         // Button Styling
         Color _btnNormal = new Color(20, 20, 30, 220);
         Color _btnHover = new Color(40, 60, 100, 240); 
@@ -85,6 +101,7 @@ namespace Pale_Roots_1
             LevelUp,
             Victory,
             Outro,
+            Credits,
             GameOver
         }
 
@@ -142,15 +159,20 @@ namespace Pale_Roots_1
             _spellIcons[4] = Content.Load<Texture2D>("Effects/ElectricityIcon");
             _spellIcons[5] = Content.Load<Texture2D>("Effects/SwordJusticeIcon");
 
+            _dashIcon = Content.Load<Texture2D>("Effects/DashIcon");
+            _heavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
+
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _gameEngine = new ChaseAndFireEngine(this);
 
             _upgradeManager = new UpgradeManager(
-                _gameEngine.GetPlayer(),
-                _gameEngine.GetSpellManager(),
-                _spellIcons,
-                GraphicsDevice
-            );
+               _gameEngine.GetPlayer(),
+               _gameEngine.GetSpellManager(),
+               _spellIcons,
+               _dashIcon,         
+               _heavyAttackIcon,
+               GraphicsDevice
+           );
 
             _cutsceneManager = new CutsceneManager(this);
             Texture2D[] slides = new Texture2D[9];
@@ -159,9 +181,9 @@ namespace Pale_Roots_1
                 slides[i] = Content.Load<Texture2D>("cutscene_image_" + i);
             }
 
-            for (int i = 1; i < 9; i++)
+            for (int i = 1; i < 8; i++)
             {
-                _outroImages.Add(Content.Load<Texture2D>("cutscene_image_" + i));
+                _outroSlides.Add(Content.Load<Texture2D>("outro_image_" + i));
             }
 
             //Song introMusic = Content.Load<Song>("Whimsy");
@@ -206,21 +228,18 @@ namespace Pale_Roots_1
                     }
                     break;
 
-                // NEW: Outro Logic
+
                 case GameState.Outro:
                     _cutsceneManager.Update(gameTime);
+
                     if (Keyboard.GetState().IsKeyDown(Keys.Space) || _cutsceneManager.IsFinished)
                     {
-                        // Return to Menu after Outro
-                        _currentState = GameState.Menu;
-                        _hasStarted = false;
-                        Initialize(); // Reset game
-                        LoadContent();
+                        _currentState = GameState.Credits;
+                        _creditsScrollY = GraphicsDevice.Viewport.Height;
                     }
                     break;
 
                 case GameState.Menu:
-                    // ... existing menu logic ...
                     IsMouseVisible = true;
                     MouseState ms = Mouse.GetState();
                     Point mousePoint = new Point(ms.X, ms.Y);
@@ -233,6 +252,18 @@ namespace Pale_Roots_1
                             else _currentState = GameState.Gameplay;
                         }
                         else if (_quitBtnRect.Contains(mousePoint)) Exit();
+                    }
+                    break;
+
+                case GameState.Credits:
+                    _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1000)
+                    {
+                        _currentState = GameState.Menu;
+                        _hasStarted = false;
+                        Initialize();
+                        LoadContent();
                     }
                     break;
 
@@ -328,23 +359,27 @@ namespace Pale_Roots_1
             {
                 if (playAgainRect.Contains(ms.Position))
                 {
-                    // --- RESET PROGRESSION ---
-                    _nextLevelThreshold = 5;
-                    _levelStep = 5;
 
-                    // --- RESET GAME ENGINE ---
-                    Initialize();
-                    LoadContent();
+                    if (_currentState == GameState.Victory)
+                    {
+                        StartOutroSequence();
+                    }
+                    else
+                    {
+                        _nextLevelThreshold = 5;
+                        _levelStep = 5;
+                        Initialize();
+                        LoadContent();
+                        _currentState = GameState.Gameplay;
+                        _hasStarted = true;
 
-                    _currentState = GameState.Gameplay;
-                    _hasStarted = true;
 
-                    // --- FIX AUDIO STATE ---
-                    MediaPlayer.Stop(); // <--- CRITICAL: Force stop so UpdateAudio detects silence
-                    _currentSong = null;
-                    _pendingSong = null;
-                    _currentVolume = 0.5f; // Reset volume immediately so the next song is audible
-                    _targetVolume = 0.5f;
+                        MediaPlayer.Stop();
+                        _currentSong = null;
+                        _pendingSong = null;
+                        _currentVolume = 0.5f;
+                        _targetVolume = 0.5f;
+                    }
 
                     InputEngine.ClearState();
                 }
@@ -359,11 +394,8 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // ================================================================
-            // 1. FADING ENGINE
-            // ================================================================
-
-            // Smoothly move current volume towards target
+            // 1. FADING LOGIC
+            // Smoothly interpolate current volume to target volume
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -377,36 +409,28 @@ namespace Pale_Roots_1
 
             MediaPlayer.Volume = _currentVolume;
 
-            // CROSS-FADE SWAP LOGIC
-            // Only swap if volume is effectively zero and we have a pending song
-            if (_currentVolume <= 0.01f && _pendingSong != null)
+            // 2. CROSS-FADE EXECUTION
+            // If we have a pending song and volume hit 0, swap now.
+            if (_pendingSong != null && _currentVolume <= 0.01f)
             {
                 try
                 {
                     MediaPlayer.Stop();
                     MediaPlayer.Play(_pendingSong);
 
-                    // Loop everything EXCEPT combat tracks
+                    // Loop non-combat songs
                     bool isCombat = (_currentState == GameState.Gameplay || _currentState == GameState.LevelUp);
                     MediaPlayer.IsRepeating = !isCombat;
 
                     _currentSong = _pendingSong;
-                    _pendingSong = null;
-
-                    _targetVolume = 0.5f; // Start fading in
+                    _pendingSong = null; // Clear pending
+                    _targetVolume = 0.5f; // Fade back in
                 }
-                catch
-                {
-                    // Safety catch for Media Player errors
-                }
+                catch { }
             }
 
-            // ================================================================
-            // 2. STATE MACHINE
-            // ================================================================
-
-            // If we are currently fading out (Pending is not null), DO NOT run logic.
-            // This prevents the "Cut Over" bug where it tries to pick a song twice.
+            // 3. STATE MANAGEMENT
+            // If we are currently fading out (Pending exists), DO NOT run logic.
             if (_pendingSong != null) return;
 
             switch (_currentState)
@@ -414,56 +438,46 @@ namespace Pale_Roots_1
                 case GameState.Menu:
                     RequestTrack(_menuSong);
                     break;
-
                 case GameState.Intro:
                 case GameState.Outro:
-                    RequestTrack(_introSong);
+                    RequestTrack(_introSong); // Or _outroSong if you prefer
                     break;
-
                 case GameState.GameOver:
                     RequestTrack(_deathSong);
                     break;
-
                 case GameState.Victory:
                     RequestTrack(_victorySong);
                     break;
 
                 case GameState.Gameplay:
                 case GameState.LevelUp:
-                    // LOGIC:
-                    // 1. If playing a Theme Song (Menu/Death) -> Request Fade Out -> Fade In Combat.
-                    // 2. If Silence (Song Ended) -> Start New Song at 0 Volume -> Fade In.
+                    // COMBAT LOGIC
 
-                    bool isWrongTheme = (_currentSong == _menuSong || _currentSong == _introSong || _currentSong == _deathSong || _currentSong == _victorySong);
+                    // Check if we are playing a "Theme" song (Menu/Death) that shouldn't be here
+                    bool isWrongTheme = (_currentSong == _menuSong || _currentSong == _introSong ||
+                                         _currentSong == _deathSong || _currentSong == _victorySong);
+
+                    // Check if the current song has finished naturally
                     bool isSilence = (MediaPlayer.State == MediaState.Stopped);
-                    bool isReset = (_currentSong == null);
 
-                    if (isWrongTheme || isSilence || isReset)
+                    if (isWrongTheme)
                     {
-                        // Pick a random track
-                        Song nextTrack = GetRandomCombatTrack();
-
-                        if (isSilence || isReset)
+                        // Fade out the theme, then pick random
+                        RequestTrack(GetRandomCombatTrack());
+                    }
+                    else if (isSilence)
+                    {
+                        // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
+                        Song next = GetRandomCombatTrack();
+                        try
                         {
-                            // CASE: Song finished naturally or Game Reset.
-                            // We cannot "Fade Out" silence. We must start immediately at 0 and Fade In.
-                            try
-                            {
-                                MediaPlayer.Play(nextTrack);
-                                MediaPlayer.IsRepeating = false;
-                                _currentSong = nextTrack;
-
-                                _currentVolume = 0f;  // Force start at 0
-                                _targetVolume = 0.5f; // Fade in to max
-                            }
-                            catch { }
+                            MediaPlayer.Play(next);
+                            MediaPlayer.IsRepeating = false;
+                            _currentSong = next;
+                            _currentVolume = 0f;  // Start silent
+                            _targetVolume = 0.5f; // Fade in
                         }
-                        else
-                        {
-                            // CASE: Switching from Menu/Death music.
-                            // Request a standard cross-fade.
-                            RequestTrack(nextTrack);
-                        }
+                        catch { }
                     }
                     break;
             }
@@ -491,15 +505,47 @@ namespace Pale_Roots_1
         private void StartOutroSequence()
         {
             _cutsceneManager.ClearSlides();
+            float dur = 6000f; // 6 seconds per slide
 
-            float dur = 5000f;
-            // Add your lore slides here. I'm reusing images but changing text.
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[0], "The Skeleton King has fallen...", dur, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[1], "The Pale Roots begin to wither...", dur, 1.05f, 1.0f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[2], "Humanity has reclaimed its future.", dur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroImages[3], "The War is over.", dur + 2000, 1.0f, 1.0f, Vector2.Zero, Vector2.Zero));
+            // Slide 1: The King Falls
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[0],
+                "The Skeleton King crumbles, his reign of bone and ash finally at an end.",
+                dur, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
+
+            // Slide 2: The Roots Recede
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[1],
+                "Without his dark magic, the Pale Roots begin to wither and retreat.",
+                dur, 1.05f, 1.0f, Vector2.Zero, Vector2.Zero));
+
+            // Slide 3: Nature Returns
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[2],
+                "Where death once choked the land, the first sprouts of green life return.",
+                dur, 1.0f, 1.1f, new Vector2(-20, 0), new Vector2(20, 0)));
+
+            // Slide 4: The Survivors
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[3],
+                "The survivors emerge from the ruins, looking up at a clear sky for the first time in years.",
+                dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
+
+            // Slide 5: Rebuilding
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[4],
+                "We will rebuild. Not as subjects of a tyrant, but as free people.",
+                dur, 1.0f, 1.05f, new Vector2(0, 20), new Vector2(0, -20)));
+
+            // Slide 6: Reflection
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[5],
+                "The scars of this war will remain, a reminder of what was lost.",
+                dur, 1.05f, 1.05f, Vector2.Zero, Vector2.Zero));
+
+            // Slide 7: The End
+            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[6],
+                "But today... today we celebrate the dawn.",
+                dur + 3000, 1.0f, 1.2f, Vector2.Zero, Vector2.Zero));
 
             _currentState = GameState.Outro;
+
+            // Ensure music switches to Outro theme
+            RequestTrack(_outroSong);
         }
 
         // Helper to ensure a specific track is looping
@@ -637,9 +683,23 @@ namespace Pale_Roots_1
                     _spriteBatch.End();
                     break;
 
+                case GameState.Credits:
+                    _spriteBatch.Begin();
+                    GraphicsDevice.Clear(Color.Black);
+
+                    Vector2 textSize = _uiFont.MeasureString(_creditsText);
+                    Vector2 textPos = new Vector2(
+                        (GraphicsDevice.Viewport.Width / 2) - (textSize.X / 2),
+                        _creditsScrollY
+                    );
+
+                    _spriteBatch.DrawString(_uiFont, _creditsText, textPos, Color.White);
+                    _spriteBatch.End();
+                    break;
+
                 case GameState.LevelUp:
-                case GameState.Victory:   // ADDED HERE
-                case GameState.GameOver:  // ADDED HERE
+                case GameState.Victory:   
+                case GameState.GameOver:
                     // 1. Draw World (Frozen)
                     _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _gameEngine._camera.CurrentCameraTranslation);
                     _gameEngine.Draw(gameTime, _spriteBatch);
@@ -726,27 +786,59 @@ namespace Pale_Roots_1
             Vector2 textSize = _uiFont.MeasureString(warText);
             _spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
 
-  
+
+            // ... inside DrawHUD, after drawing War Dominance bar ...
+
             int iconSize = 64;
             int spacing = 20;
+            int startY = GraphicsDevice.Viewport.Height - iconSize - 20;
 
-            int unlockedCount = 0;
-            for (int i = 0; i < 6; i++)
+            // 1. CALCULATE TOTAL WIDTH (Spells + Dash + Heavy)
+            int unlockedSpells = 0;
+            for (int i = 0; i < 6; i++) if (_gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
+
+            bool showDash = p.IsDashUnlocked;
+            bool showHeavy = p.IsHeavyAttackUnlocked;
+
+            int totalItems = unlockedSpells + (showDash ? 1 : 0) + (showHeavy ? 1 : 0);
+
+            if (totalItems > 0)
             {
-                if (_gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedCount++;
-            }
+                int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
+                int currentX = (screenW / 2) - (totalWidth / 2);
 
-            if (unlockedCount > 0)
-            {
-                int totalWidth = (unlockedCount * iconSize) + ((unlockedCount - 1) * spacing);
-                int startX = (screenW / 2) - (totalWidth / 2);
-                int startY = GraphicsDevice.Viewport.Height - iconSize - 20;
-                int currentX = startX;
-
-                // Draw Background for the bar
-                Rectangle bgRect = new Rectangle(startX - 10, startY - 10, totalWidth + 20, iconSize + 20);
+                // Draw Background Bar
+                Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
                 _spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
+                // --- DRAW DASH (If Unlocked) ---
+                if (showDash)
+                {
+                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    _spriteBatch.Draw(_dashIcon, dest, Color.White);
+                    _spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    // Dash Cooldown Overlay
+                    if (p.DashTimer > 0)
+                    {
+                        float ratio = p.DashTimer / p.DashDuration;
+                        int h = (int)(iconSize * ratio);
+                        Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
+                        _spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
+                    }
+                    currentX += iconSize + spacing;
+                }
+
+                // --- DRAW HEAVY ATTACK (If Unlocked) ---
+                if (showHeavy)
+                {
+                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    _spriteBatch.Draw(_heavyAttackIcon, dest, Color.White);
+                    _spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+                    currentX += iconSize + spacing;
+                }
+
+                // --- DRAW SPELLS ---
                 for (int i = 0; i < 6; i++)
                 {
                     if (_gameEngine.GetSpellManager().IsSpellUnlocked(i))
@@ -757,9 +849,31 @@ namespace Pale_Roots_1
                         if (_spellIcons[i] != null)
                             _spriteBatch.Draw(_spellIcons[i], dest, Color.White);
 
-                        // Draw Key Number (Top Left of icon to avoid overlap)
+                        // Draw Key Number
                         string key = (i + 1).ToString();
                         _spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
+
+                        // NEW: Cooldown Overlay
+                        Spell s = _gameEngine.GetSpellManager().GetSpell(i);
+                        if (s != null && s.CurrentCooldown > 0)
+                        {
+                            // Calculate height based on remaining time
+                            float ratio = s.CurrentCooldown / s.CooldownDuration;
+                            int h = (int)(iconSize * ratio);
+
+                            // Draw dark box from bottom up
+                            Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
+                            _spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
+
+                            // Optional: Draw text timer if > 1 second
+                            if (s.CurrentCooldown > 1000)
+                            {
+                                string sec = (s.CurrentCooldown / 1000).ToString("0");
+                                Vector2 sz = _uiFont.MeasureString(sec);
+                                _spriteBatch.DrawString(_uiFont, sec,
+                                    new Vector2(dest.Center.X - sz.X / 2, dest.Center.Y - sz.Y / 2), Color.White);
+                            }
+                        }
 
                         currentX += iconSize + spacing;
                     }

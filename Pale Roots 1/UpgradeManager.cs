@@ -22,16 +22,24 @@ namespace Pale_Roots_1
         private Player _player;
         private SpellManager _spellManager;
         private Texture2D[] _spellIcons;
+
+        private Texture2D _dashIcon;
+        private Texture2D _heavyIcon;
+
         private Texture2D _pixel; // For card backgrounds
 
         // All possible upgrades in the game
         private List<UpgradeOption> _allUpgrades = new List<UpgradeOption>();
 
-        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, GraphicsDevice gd)
+        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, GraphicsDevice gd)
         {
             _player = p;
             _spellManager = sm;
             _spellIcons = icons;
+
+            // Store the new icons
+            _dashIcon = dashIcon;
+            _heavyIcon = heavyIcon;
 
             _pixel = new Texture2D(gd, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -47,7 +55,7 @@ namespace Pale_Roots_1
                 Name = "Heavy Attack",
                 Description = "Right Click to deal double damage.",
                 Type = UpgradeType.HeavyAttack,
-                Icon = null, // You can add a specific icon later if you want
+                Icon = _heavyIcon,
                 ApplyAction = () => _player.IsHeavyAttackUnlocked = true
             });
 
@@ -57,7 +65,7 @@ namespace Pale_Roots_1
                 Name = "Dash",
                 Description = "Press Shift to dodge attacks.",
                 Type = UpgradeType.Dash,
-                Icon = null,
+                Icon = _dashIcon,
                 ApplyAction = () => _player.IsDashUnlocked = true
             });
 

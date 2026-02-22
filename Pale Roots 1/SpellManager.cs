@@ -83,6 +83,14 @@ namespace Pale_Roots_1
             if (index >= 0 && index < _unlockedSpells.Length) return _unlockedSpells[index];
             return false;
         }
+        public Spell GetSpell(int index)
+        {
+            if (index >= 0 && index < _spells.Count)
+            {
+                return _spells[index];
+            }
+            return null;
+        }
 
         public void Draw(SpriteBatch spriteBatch)
         {
