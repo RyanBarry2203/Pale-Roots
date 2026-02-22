@@ -41,6 +41,8 @@ namespace Pale_Roots_1
 
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
+
+        public const int WinConditionKills = 1;
     }
 
     // Team tags used by CombatSystem and AI to decide friend/foe behavior.
