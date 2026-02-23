@@ -6,14 +6,14 @@ namespace Pale_Roots_1
     public abstract class Spell
     {
         public string Name { get; protected set; }
+        public string Description { get; protected set; } 
+        public Texture2D Icon { get; set; }
+
         public float CooldownDuration { get; protected set; }
         public float CurrentCooldown { get; set; } = 0f;
-
         public float ActiveDuration { get; protected set; }
         public float CurrentActiveTimer { get; set; } = 0f;
         public bool IsActive { get; protected set; } = false;
-
-        // NEW: Allow spells to define their own size
         public float Scale { get; set; } = 3.0f;
 
         protected Game _game;
@@ -30,7 +30,6 @@ namespace Pale_Roots_1
         public virtual void Update(GameTime gameTime)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
             if (CurrentCooldown > 0) CurrentCooldown -= dt;
 
             if (IsActive)
@@ -50,7 +49,6 @@ namespace Pale_Roots_1
         {
             if (IsActive)
             {
-                // FIX: Use the variable Scale instead of hardcoded 3.0f
                 _animManager.Draw(spriteBatch, _position, Scale, SpriteEffects.None);
             }
         }
@@ -58,13 +56,11 @@ namespace Pale_Roots_1
         public bool Cast(ChaseAndFireEngine engine, Vector2 targetPos)
         {
             if (CurrentCooldown > 0 || IsActive) return false;
-
             _engineRef = engine;
             CurrentCooldown = CooldownDuration;
             CurrentActiveTimer = ActiveDuration;
             IsActive = true;
             _position = targetPos;
-
             OnCast(engine);
             return true;
         }

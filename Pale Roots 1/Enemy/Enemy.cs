@@ -131,7 +131,7 @@ namespace Pale_Roots_1
         }
 
         // Top-level Update: apply knockback, run rotation/movement update, pick animations and handle dying.
-        public virtual void Update(GameTime gametime)
+        public override void Update(GameTime gametime)
         {
             // Apply residual knockback and damp it over time.
             if (_knockBackVelocity != Vector2.Zero)

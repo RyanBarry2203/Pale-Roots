@@ -33,13 +33,13 @@ namespace Pale_Roots_1
             Cutscene outro = new Cutscene();
             float outroDur = 6000f;
 
-            outro.AddSlide(new CutsceneSlide(outroSlides[1], "The Skeleton King crumbles, his reign of bone and ash finally at an end.", outroDur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
-            outro.AddSlide(new CutsceneSlide(outroSlides[2], "Without his dark magic, the Pale Roots begin to wither and retreat.", outroDur, 1.1f, 1.1f, new Vector2(-50, 0), new Vector2(50, 0)));
-            outro.AddSlide(new CutsceneSlide(outroSlides[3], "Where death once choked the land, the first sprouts of green life return.", outroDur, 1.2f, 1.0f, Vector2.Zero, Vector2.Zero));
-            outro.AddSlide(new CutsceneSlide(outroSlides[4], "The survivors emerge from the ruins, looking up at a clear sky for the first time in years.", outroDur, 1.1f, 1.1f, new Vector2(0, 50), new Vector2(0, -50)));
-            outro.AddSlide(new CutsceneSlide(outroSlides[5], "We will rebuild. Not as subjects of a tyrant, but as free people.", outroDur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
-            outro.AddSlide(new CutsceneSlide(outroSlides[6], "The scars of this war will remain, a reminder of what was lost.", outroDur, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
-            outro.AddSlide(new CutsceneSlide(outroSlides[7], "But today... today we celebrate the dawn.", outroDur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
+            outro.AddSlide(new CutsceneSlide(outroSlides[1], "Nivellins attack was Victorious thanks to his power to absorb the power of\n the dead and alternate the physical world with magic", outroDur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[2], "The specticle of his inexplicable power led to a undisputed devotion to his Leadership.", outroDur, 1.1f, 1.1f, new Vector2(-50, 0), new Vector2(50, 0)));
+            outro.AddSlide(new CutsceneSlide(outroSlides[3], "However, he soon came to learn, there was an explanation to his Power.", outroDur, 1.2f, 1.0f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[4], "Nivellin was born a demi god, of imaculate conception. The son of Atun.\n But not a soul in the Galaxy new except his Mother and his Uncle.", outroDur, 1.1f, 1.1f, new Vector2(0, 50), new Vector2(0, -50)));
+            outro.AddSlide(new CutsceneSlide(outroSlides[5], "The battle has been won, but not the war. Nivellin had to prepare his infantry\n for the wraith of Atun", outroDur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[6], "Nivellin had wonder, what was this all for. He had won a dying planet in his feat of reclaiming his Throne.\n And he was about to challenge the wrath of the most powerful being in exsistance, his father.", outroDur, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[7], "Nivellin knew but one thing to be true. This was his home, and to defend it would be his responsibility. ", outroDur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
 
             manager.AddCutscene("Outro", outro);
         }

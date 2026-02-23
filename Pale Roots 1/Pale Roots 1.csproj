@@ -12,6 +12,11 @@
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Enemy\PlatformEnemy.cs" />
+    <Compile Remove="Enemy\SentryEnemy.cs" />
+    <Compile Remove="Mechanics Systems\Projectile.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.*" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
   </ItemGroup>

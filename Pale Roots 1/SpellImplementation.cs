@@ -12,9 +12,10 @@ namespace Pale_Roots_1
         public SmiteSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Smite";
+            Description = "Heal yourself to full HP.";
             CooldownDuration = 5000f;
             ActiveDuration = 1100f;
-            Scale = 2.0f; // Slightly smaller than default
+            Scale = 2.0f; 
 
             _animManager.AddAnimation("Heal", new Animation(sheet, 11, 0, 100f, false, 1, 64));
             _animManager.Play("Heal");
@@ -42,14 +43,15 @@ namespace Pale_Roots_1
     // ==========================================
     public class HolyNovaSpell : Spell
     {
-        private float _radius = 250f;
+        private float _radius = 300f;
 
         public HolyNovaSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Nova";
+            Description = "Instakill AOE on your cursor"; // NEW: Data-Driven UI
             CooldownDuration = 10000f;
             ActiveDuration = 1000f;
-            Scale = 3.0f; // Keep big
+            Scale = 5.0f; // Keep big
 
             _animManager.AddAnimation("Explode", new Animation(sheet, 10, 0, 100f, false, 1, 128));
             _animManager.Play("Explode");
@@ -57,7 +59,7 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
-            // --- NEW CODE ---
+            // Restored the generic <Enemy> type!
             List<Enemy> toKill = new List<Enemy>();
 
             // 1. Find enemies in range
@@ -82,11 +84,13 @@ namespace Pale_Roots_1
     // ==========================================
     public class HeavensFurySpell : Spell
     {
+        // Restored the generic <Vector2> type!
         private List<Vector2> _strikeLocations = new List<Vector2>();
 
         public HeavensFurySpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Heaven's Fury";
+            Description = "Half Enemy Healthbars"; // NEW: Data-Driven UI
             CooldownDuration = 30000f;
             ActiveDuration = 15000f;
             Scale = 3.0f; // Keep big
@@ -140,13 +144,11 @@ namespace Pale_Roots_1
         public HolyShieldSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Shield";
+            Description = "Double Ally Health"; // NEW: Data-Driven UI
             CooldownDuration = 20000f;
             ActiveDuration = 15000f;
-
-            // FIX: Reduced Scale so it isn't massive
             Scale = 1.5f;
 
-            // FIX: Ensure width is 64 (standard tile)
             _animManager.AddAnimation("Shield", new Animation(sheet, 11, 0, 100f, true, 1, 64));
             _animManager.Play("Shield");
         }
@@ -174,11 +176,13 @@ namespace Pale_Roots_1
     // ==========================================
     public class ElectricitySpell : Spell
     {
+        // Restored the generic <Vector2> type!
         private List<Vector2> _strikeLocations = new List<Vector2>();
 
         public ElectricitySpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Electricity";
+            Description = "Stun Enemies and stop spawning"; // NEW: Data-Driven UI
             CooldownDuration = 40000f;
             ActiveDuration = 15000f;
             Scale = 3.0f;
@@ -241,14 +245,11 @@ namespace Pale_Roots_1
         public SwordOfJusticeSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Sword of Justice";
+            Description = "Double Damage";
             CooldownDuration = 25000f;
             ActiveDuration = 15000f;
-
-            // FIX 1: Reduced Scale
             Scale = 1.5f;
 
-            // FIX 2: Changed width from 128 to 64. 
-            // This stops it from grabbing 2 frames at once (the double image issue).
             _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
             _animManager.Play("Justice");
         }

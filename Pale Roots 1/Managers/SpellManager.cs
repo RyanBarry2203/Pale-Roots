@@ -11,6 +11,7 @@ namespace Pale_Roots_1
         private List<Spell> _spells = new List<Spell>();
 
         private bool[] _unlockedSpells;
+        public List<Spell> AllSpells => _spells;
 
         public SpellManager(ChaseAndFireEngine engine,
                             Texture2D smiteTx,
