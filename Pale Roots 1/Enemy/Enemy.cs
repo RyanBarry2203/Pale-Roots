@@ -5,41 +5,27 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // Enemy: an AI-controlled actor that can move, pick targets, fight and die.
-    // - Uses CombatSystem for targeting/damage and AnimationManager for visuals.
-    // - Inherits movement/rotation helpers from RotatingSprite and exposes ICombatant surface.
-    public class Enemy : RotatingSprite, ICombatant
+    public class Enemy : RotatingSprite, INpcActor
     {
-        // Lifecycle and AI states used by the AI loop below.
-        public enum ENEMYSTATE { ALIVE, DYING, DEAD }
-        public enum AISTATE { Charging, Chasing, InCombat, Wandering, Hurt }
 
+        public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public bool IsStunned { get; set; }
 
-        // Animation, facing and visual state
         private AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
         private SpriteEffects _flipEffect = SpriteEffects.None;
-
-        // Physics / impact
         private Vector2 _knockBackVelocity;
-
-        // Shared health bar texture (created once)
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
-
-        // Movement bookkeeping
         private Vector2 _previousPosition;
-
-        // Lifecycle backing field
         private ENEMYSTATE _lifecycleState = ENEMYSTATE.ALIVE;
+
         public ENEMYSTATE LifecycleState
         {
             get => _lifecycleState;
             set => _lifecycleState = value;
         }
 
-        // ICombatant surface (fields expected by CombatSystem and chase code)
         public string Name { get; set; } = "Enemy";
         public CombatTeam Team => CombatTeam.Enemy;
         public int MaxHealth { get; protected set; }
@@ -47,7 +33,6 @@ namespace Pale_Roots_1
         public bool IsAlive => Health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
         public bool IsActive => Visible && _lifecycleState != ENEMYSTATE.DEAD;
 
-        // Current target, synchronized to a Sprite reference for visuals
         private ICombatant _currentTarget;
         public ICombatant CurrentTarget
         {
@@ -59,35 +44,45 @@ namespace Pale_Roots_1
             }
         }
 
-        // Position / movement fields used by RotatingSprite and AI
         public Vector2 Position => position;
-        protected float Velocity;
-        protected Vector2 startPosition;
-        protected Vector2 wanderTarget;
-        private float _attackCooldown = 0f;
+
+        // Exposed variables so the State Objects can manipulate them
+        public float Velocity { get; set; }
+        public Vector2 StartPosition { get; set; }
+        public Vector2 WanderTarget { get; set; }
+        public float AttackCooldown { get; set; }
         private int _deathCountdown;
 
-        // Modern constructor: takes a texture map for direction/animation sheets.
+        // --- THE ENGINE FLEX: POLYMORPHIC STATE MACHINE ---
+        public IAIState CurrentState { get; private set; }
+
+        public void ChangeState(IAIState newState)
+        {
+            CurrentState?.Exit(this);
+            CurrentState = newState;
+            CurrentState?.Enter(this);
+        }
+
+        public void PlayAnimation(string key)
+        {
+            _animManager.Play(key);
+        }
+
         public Enemy(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Idle"], userPosition, framecount)
         {
             SetupCommonStats(userPosition);
-
             Scale = 3.0;
             _animManager = new AnimationManager();
-
-            // Register directional animations (keys used elsewhere when switching animations)
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true));
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
-
             _animManager.Play("Idle");
             SetupHealthBar(g);
         }
 
-        // Legacy constructor for single-sheet enemies.
         public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
@@ -95,32 +90,29 @@ namespace Pale_Roots_1
             Scale = 3.0;
             _animManager = new AnimationManager();
             var legacyAnim = new Animation(texture, framecount, 0, 200f, true, 1, 0, false);
-
-            // Use the same legacy animation for all states to remain compatible.
             _animManager.AddAnimation("Idle", legacyAnim);
             _animManager.AddAnimation("Walk", legacyAnim);
             _animManager.AddAnimation("Attack", legacyAnim);
             _animManager.AddAnimation("Hurt", legacyAnim);
             _animManager.AddAnimation("Death", legacyAnim);
-
             _animManager.Play("Idle");
             SetupHealthBar(g);
         }
 
-        // Shared initialization used by both constructors.
         private void SetupCommonStats(Vector2 pos)
         {
-            startPosition = pos;
+            StartPosition = pos;
             _previousPosition = pos;
             Velocity = GameConstants.DefaultEnemySpeed;
             MaxHealth = GameConstants.DefaultHealth;
             Health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
             _deathCountdown = GameConstants.DeathCountdown;
-            CurrentAIState = AISTATE.Charging;
+
+            // Start the brain in the Charge State!
+            ChangeState(new ChargeState());
         }
 
-        // Create a 1x1 white texture once for health bars used in Draw.
         private void SetupHealthBar(Game g)
         {
             if (_healthBarTexture == null)
@@ -130,10 +122,8 @@ namespace Pale_Roots_1
             }
         }
 
-        // Top-level Update: apply knockback, run rotation/movement update, pick animations and handle dying.
         public override void Update(GameTime gametime)
         {
-            // Apply residual knockback and damp it over time.
             if (_knockBackVelocity != Vector2.Zero)
             {
                 position += _knockBackVelocity;
@@ -141,28 +131,15 @@ namespace Pale_Roots_1
                 if (_knockBackVelocity.Length() < 0.1f) _knockBackVelocity = Vector2.Zero;
             }
 
-            base.Update(gametime);   // RotatingSprite/Sprite update (timing, source rect)
-            UpdateDirection();       // Choose facing row for animations
+            base.Update(gametime);
+            UpdateDirection();
 
-            // Select animation key based on lifecycle and AI state.
+            // Check what class the current state is to drive the animation
             string animKey = "Idle";
-
-            if (_lifecycleState == ENEMYSTATE.DYING)
-            {
-                animKey = "Death";
-            }
-            else if (CurrentAIState == AISTATE.Hurt)
-            {
-                animKey = "Hurt";
-            }
-            else if (CurrentAIState == AISTATE.InCombat && _attackCooldown > 200)
-            {
-                animKey = "Attack";
-            }
-            else if (Velocity > 0.1f || CurrentAIState == AISTATE.Chasing || CurrentAIState == AISTATE.Charging)
-            {
-                animKey = "Walk";
-            }
+            if (_lifecycleState == ENEMYSTATE.DYING) animKey = "Death";
+            else if (CurrentState is HurtState) animKey = "Hurt";
+            else if (CurrentState is CombatState && AttackCooldown > 200) animKey = "Attack";
+            else if (Velocity > 0.1f || CurrentState is ChaseState || CurrentState is ChargeState) animKey = "Walk";
 
             _animManager.Play(animKey);
             _animManager.Update(gametime);
@@ -172,7 +149,6 @@ namespace Pale_Roots_1
             _previousPosition = position;
         }
 
-        // Update that includes obstacle-aware AI behavior from the level.
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -182,94 +158,27 @@ namespace Pale_Roots_1
             }
         }
 
-        // Core AI tick: handles stun, cooldowns, target validation and dispatch to state methods.
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
             if (IsStunned) return;
 
-            if (_attackCooldown > 0)
-                _attackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            if (AttackCooldown > 0)
+                AttackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // If current target is invalid, clear it and wander.
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
                 CombatSystem.ClearTarget(this);
-                CurrentAIState = AISTATE.Wandering;
+                if (!(CurrentState is WanderState)) ChangeState(new WanderState());
             }
 
-            // Hurt state will transition back to chasing after cooldown.
-            if (CurrentAIState == AISTATE.Hurt)
-            {
-                if (_attackCooldown <= 0)
-                {
-                    CurrentAIState = AISTATE.Chasing;
-                }
-            }
-
-            // Dispatch to specific AI behavior methods defined below (overridable by children).
-            switch (CurrentAIState)
-            {
-                case AISTATE.Charging: PerformCharge(obstacles); break;
-                case AISTATE.Chasing: PerformChase(obstacles); break;
-                case AISTATE.InCombat: PerformCombat(gameTime); break;
-                case AISTATE.Wandering: PerformWander(obstacles); break;
-            }
+            CurrentState?.Update(this, gameTime, obstacles);
         }
 
-        // Default charge: nudge left and path toward a distant point (children may override).
-        protected virtual void PerformCharge(List<WorldObject> obstacles)
-        {
-            position.X -= Velocity;
-            Vector2 target = new Vector2(position.X - 1000, position.Y);
-            MoveToward(target, Velocity, obstacles);
-        }
-
-        // Apply an external knockback impulse (stackable).
         public void ApplyKnockback(Vector2 force)
         {
             _knockBackVelocity += force;
         }
 
-        // Chase current target; switch to InCombat when within engage range.
-        protected virtual void PerformChase(List<WorldObject> obstacle)
-        {
-            if (_currentTarget == null) { CurrentAIState = AISTATE.Wandering; return; }
-            MoveToward(_currentTarget.Center, Velocity, obstacle);
-            if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.CombatEngageRange)
-            {
-                CurrentAIState = AISTATE.InCombat;
-            }
-        }
-
-        // Combat loop: face target, attack if in melee range and off cooldown, break if target flees.
-        protected virtual void PerformCombat(GameTime gameTime)
-        {
-            if (_currentTarget == null || !_currentTarget.IsAlive) { CurrentAIState = AISTATE.Wandering; return; }
-            SnapToFace(_currentTarget.Center);
-            if (CombatSystem.GetDistance(this, _currentTarget) < GameConstants.MeleeAttackRange && _attackCooldown <= 0)
-            {
-                PerformAttack();
-            }
-            if (CombatSystem.GetDistance(this, _currentTarget) > GameConstants.CombatBreakRange)
-            {
-                CurrentAIState = AISTATE.Chasing;
-            }
-        }
-
-        // Wandering: pick a random nearby point and walk there slowly.
-        protected virtual void PerformWander(List<WorldObject> obstacles)
-        {
-            if (wanderTarget == Vector2.Zero || Vector2.Distance(position, wanderTarget) < 5f)
-            {
-                wanderTarget = startPosition + new Vector2(
-                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
-                    CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
-                );
-            }
-            MoveToward(wanderTarget, Velocity * 0.5f, obstacles);
-        }
-
-        // Handle dying countdown then hide and mark dead.
         protected virtual void UpdateDying(GameTime gameTime)
         {
             _deathCountdown--;
@@ -280,35 +189,23 @@ namespace Pale_Roots_1
             }
         }
 
-        // Take damage, set Hurt or Dying state and notify animation system.
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
-
             Health -= amount;
 
-            if (Health <= 0)
-            {
-                Die();
-            }
-            else
-            {
-                CurrentAIState = AISTATE.Hurt;
-                _attackCooldown = 500f; // brief stun before action
-                _animManager.Play("Hurt");
-            }
+            if (Health <= 0) Die();
+            else ChangeState(new HurtState());
         }
 
-        // Trigger attack animation and use CombatSystem to apply damage.
         public virtual void PerformAttack()
         {
-            if (_currentTarget == null || _attackCooldown > 0) return;
+            if (_currentTarget == null || AttackCooldown > 0) return;
             _animManager.Play("Attack");
             CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
-            _attackCooldown = GameConstants.DefaultAttackCooldown;
+            AttackCooldown = GameConstants.DefaultAttackCooldown;
         }
 
-        // Enter dying lifecycle and clear target bookkeeping.
         public virtual void Die()
         {
             _lifecycleState = ENEMYSTATE.DYING;
@@ -316,23 +213,19 @@ namespace Pale_Roots_1
             CombatSystem.ClearTarget(this);
         }
 
-        // Choose animation row based on target position or recent movement.
         private void UpdateDirection()
         {
-            // If we have a target, face them.
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
-                    _currentDirectionIndex = (diff.X > 0) ? 3 : 2; // Right vs Left
+                    _currentDirectionIndex = (diff.X > 0) ? 3 : 2;
                 else
-                    _currentDirectionIndex = (diff.Y > 0) ? 0 : 1; // Down vs Up
+                    _currentDirectionIndex = (diff.Y > 0) ? 0 : 1;
             }
             else
             {
                 Vector2 movement = position - _previousPosition;
-
-                // Only update facing if we actually moved.
                 if (movement.Length() > 0.5f)
                 {
                     if (Math.Abs(movement.X) > Math.Abs(movement.Y))
@@ -343,21 +236,18 @@ namespace Pale_Roots_1
             }
         }
 
-        // Draw current animation and optional health bar above the sprite.
         public override void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
             {
                 _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
             }
-
             if (_drawHealthBar && IsAlive)
             {
                 DrawHealthBar(spriteBatch);
             }
         }
 
-        // Simple health bar rendered using a shared 1x1 texture.
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
         {
             int barWidth = spriteWidth;
@@ -366,12 +256,9 @@ namespace Pale_Roots_1
             int barY = (int)position.Y - spriteHeight / 2 - 10;
 
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
-
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
-
             Color healthColor = healthPercent > 0.6f ? Color.Green : healthPercent > 0.3f ? Color.Orange : Color.Red;
-
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), healthColor);
         }
     }

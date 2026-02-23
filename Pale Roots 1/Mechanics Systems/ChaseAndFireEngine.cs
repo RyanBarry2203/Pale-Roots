@@ -267,7 +267,8 @@ namespace Pale_Roots_1
                     if (target != null)
                     {
                         CombatSystem.AssignTarget(ally, target);
-                        ally.CurrentAIState = Enemy.AISTATE.Chasing;
+                        // THE POLYMORPHIC STATE MACHINE FLEX
+                        ally.ChangeState(new ChaseState());
                     }
                 }
                 ally.Update(gameTime, _levelManager.MapObjects);
@@ -290,7 +291,8 @@ namespace Pale_Roots_1
                     if (target != null)
                     {
                         CombatSystem.AssignTarget(enemy, target);
-                        enemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                        // THE POLYMORPHIC STATE MACHINE FLEX
+                        enemy.ChangeState(new ChaseState());
                     }
                 }
                 enemy.Update(gameTime, _levelManager.MapObjects);
@@ -368,7 +370,8 @@ namespace Pale_Roots_1
 
                         // Immediately assign player as target so they behave aggressively on spawn
                         CombatSystem.AssignTarget(newEnemy, _player);
-                        newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
+                        // THE POLYMORPHIC STATE MACHINE FLEX
+                        newEnemy.ChangeState(new ChaseState());
                         _enemies.Add(newEnemy);
                     }
                     else if (team == CombatTeam.Player)
@@ -380,7 +383,8 @@ namespace Pale_Roots_1
                         if (bestTarget != null)
                         {
                             CombatSystem.AssignTarget(newAlly, bestTarget);
-                            newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
+                            // THE POLYMORPHIC STATE MACHINE FLEX
+                            newAlly.ChangeState(new ChaseState());
                         }
                         _allies.Add(newAlly);
                     }
@@ -391,7 +395,7 @@ namespace Pale_Roots_1
         // Expose SpellManager for external UI or systems
         public SpellManager GetSpellManager() => _spellManager;
 
-        // Draw: level first, then gather sprites, use custom Rendering API to depth-sort and draw.
+        // Draw: level first, then gather sprites, sort by bottom-Y and draw in that order.
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
             _levelManager.Draw(spriteBatch);
@@ -403,7 +407,7 @@ namespace Pale_Roots_1
             foreach (var ally in _allies)
             {
                 if (ally.Visible) renderList.Add(ally);
-            } 
+            }
 
             foreach (var enemy in _enemies)
             {
@@ -415,7 +419,7 @@ namespace Pale_Roots_1
                 if (obj.Visible) renderList.Add(obj);
             }
 
-            // Using our new Custom API to handle rendering/sorting!
+            // Using our custom Rendering API to handle rendering/sorting!
             Renderer.DrawDepthSorted(spriteBatch, renderList);
 
             _spellManager.Draw(spriteBatch);

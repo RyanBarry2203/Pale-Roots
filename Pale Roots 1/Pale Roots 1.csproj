@@ -12,7 +12,10 @@
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Enemy\ChargingBattleEnemy.cs" />
+    <Compile Remove="Enemy\CircularChasingEnemy.cs" />
     <Compile Remove="Enemy\PlatformEnemy.cs" />
+    <Compile Remove="Enemy\RandomEnemy.cs" />
     <Compile Remove="Enemy\SentryEnemy.cs" />
     <Compile Remove="Mechanics Systems\Projectile.cs" />
   </ItemGroup>

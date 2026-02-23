@@ -20,7 +20,6 @@ namespace Pale_Roots_1
         // Battle / gameplay bookkeeping (kept lightweight so CombatSystem can read/write)
         public int AttackerCount { get; set; } = 0;
         public Sprite CurrentCombatPartner;
-        public Enemy.AISTATE CurrentAIState = Enemy.AISTATE.Charging;
         public bool Visible = true;
         public int Health { get; set; } = 10000;
         public float AttackCooldown = 0f;
