@@ -8,7 +8,6 @@ namespace Pale_Roots_1
     public class LevelManager
     {
         private Game _game;
-        private List<Level> _allLevels = new List<Level>();
 
         // --- ENTITY LISTS ---
         public List<Enemy> enemies = new List<Enemy>();
@@ -20,53 +19,28 @@ namespace Pale_Roots_1
         private Texture2D _animatedObjectSheet;
         private Texture2D _staticObjectSheet;
 
-
-        private string[] _natureObjects = {
-            "Dying_Tree", "Medium_Dying_Tree", "Small_Dying_Tree",
-            "Brambles_Large", "Brambles_Medium", "Brambles_Small",
-            "Brambles_Tiny", "Brambles_Very_Tiny"
-        };
-
-        private string[] _graveObjects = {
-            "Grave_1", "Grave_2", "Grave_3",
-            "Hand_In_Floor", "Hand_In_Floor_Medium", "Hand_In_Floor_Small"
-        };
-
-        private string[] _ruinObjects = {
-            "Ruins_Column", "Smaller_Ruin", "Big_Rock", "Shrine_Blue"
-        };
-
-        private string[] _boneObjects = {
-            "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull",
-            "Baby_Skellington"
-        };
-
         public LevelManager(Game game)
         {
             _game = game;
-            // We don't initialize here anymore, we do it in LoadLevel to be safe
         }
 
         public void LoadLevel(int index)
         {
             _groundSheet = _game.Content.Load<Texture2D>("MainLev2.0");
-
             _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
             _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
 
             Helper.SpriteSheet = _groundSheet;
-
-            InitializeGameWorld();
+            InitializeGameWorld(index);
         }
 
-        private void InitializeGameWorld()
+        private void InitializeGameWorld(int levelIndex)
         {
-
             int width = 60;
             int height = 34;
             int[,] map = new int[height, width];
 
-            // 2. CREATE FLOOR
+            // 1. CREATE FLOOR
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -75,83 +49,13 @@ namespace Pale_Roots_1
                 }
             }
 
-          
-            List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(13, 41, 0));
-            palette.Add(new TileRef(14, 41, 0));
-            palette.Add(new TileRef(15, 41, 0));
-            palette.Add(new TileRef(16, 41, 0));
-            palette.Add(new TileRef(17, 41, 0));
-            palette.Add(new TileRef(13, 42, 0));
-            palette.Add(new TileRef(14, 42, 0));
-            palette.Add(new TileRef(15, 42, 0));
-            palette.Add(new TileRef(16, 42, 0));
-            palette.Add(new TileRef(17, 42, 0));
-            palette.Add(new TileRef(13, 43, 0));
-            palette.Add(new TileRef(14, 43, 0));
-            palette.Add(new TileRef(15, 43, 0));
-            palette.Add(new TileRef(16, 43, 0));
-            palette.Add(new TileRef(17, 43, 0));
-            palette.Add(new TileRef(13, 44, 0));
-            palette.Add(new TileRef(14, 44, 0));
-            palette.Add(new TileRef(15, 44, 0));
-            palette.Add(new TileRef(16, 44, 0));
-            palette.Add(new TileRef(17, 44, 0));
-            palette.Add(new TileRef(13, 45, 0));
-            palette.Add(new TileRef(14, 45, 0));
-            palette.Add(new TileRef(15, 45, 0));
-            palette.Add(new TileRef(16, 45, 0));
-            palette.Add(new TileRef(17, 45, 0));
-            palette.Add(new TileRef(13, 46, 0));
-            palette.Add(new TileRef(14, 46, 0));
-            palette.Add(new TileRef(15, 46, 0));
-            palette.Add(new TileRef(16, 46, 0));
-            palette.Add(new TileRef(17, 46, 0));
-            palette.Add(new TileRef(13, 47, 0));
-            palette.Add(new TileRef(14, 47, 0));
-            palette.Add(new TileRef(15, 47, 0));
-            palette.Add(new TileRef(16, 47, 0));
-            palette.Add(new TileRef(17, 47, 0));
-            palette.Add(new TileRef(13, 48, 0));
-            palette.Add(new TileRef(14, 48, 0));
-            palette.Add(new TileRef(15, 48, 0));
-            palette.Add(new TileRef(16, 48, 0));
-            palette.Add(new TileRef(17, 48, 0));
-
-            palette.Add(new TileRef(9, 42, 0));
-            palette.Add(new TileRef(10, 42, 0));
-            palette.Add(new TileRef(11, 42, 0));
-            palette.Add(new TileRef(12, 42, 0));
-            palette.Add(new TileRef(9, 43, 0));
-            palette.Add(new TileRef(10, 43, 0));
-            palette.Add(new TileRef(11, 43, 0));
-            palette.Add(new TileRef(12, 43, 0));
-            //palette.Add(new TileRef(9, 44, 0)); 
-            //palette.Add(new TileRef(10, 44, 0));
-            //palette.Add(new TileRef(11, 44, 0));
-            //palette.Add(new TileRef(12, 44, 0));
-
-            palette.Add(new TileRef(9, 46, 0));
-            palette.Add(new TileRef(10, 46, 0));
-            palette.Add(new TileRef(11, 46, 0));
-            palette.Add(new TileRef(12, 46, 0));
-            palette.Add(new TileRef(9, 47, 0));
-            palette.Add(new TileRef(10, 47, 0));
-            palette.Add(new TileRef(11, 47, 0));
-            palette.Add(new TileRef(12, 47, 0));
-            palette.Add(new TileRef(9, 48, 0));
-            palette.Add(new TileRef(10, 48, 0));
-            palette.Add(new TileRef(11, 48, 0));
-            palette.Add(new TileRef(12, 48, 0));
-
+            // 2. FETCH PALETTE FROM DATA LIBRARY (API CALL)
+            List<TileRef> palette = LevelDataLibrary.GetLevelPalette(levelIndex);
 
             CurrentLevel = new TileLayer(map, palette, 64, 32);
 
-
-
             float centerX = width / 2f;
             float centerY = height / 2f;
-
             float safeRadiusX = 22f;
             float safeRadiusY = 11f;
 
@@ -159,33 +63,26 @@ namespace Pale_Roots_1
             {
                 for (int x = 0; x < width; x++)
                 {
-
                     float dx = Math.Abs(x - centerX);
                     float dy = Math.Abs(y - centerY);
 
                     float excessX = Math.Max(dx - safeRadiusX, 0);
                     float excessY = Math.Max(dy - safeRadiusY, 0);
-
                     float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
 
                     if (distanceOutsideBox > 0)
                     {
                         float chance = distanceOutsideBox / 4.5f;
-
-
                         chance += CombatSystem.RandomFloat(-0.2f, 0.2f);
 
                         if (CombatSystem.RandomFloat() < chance)
                         {
                             Vector2 pos = new Vector2(x * 64, y * 64);
-
-   
                             pos.X += CombatSystem.RandomInt(-24, 24);
                             pos.Y += CombatSystem.RandomInt(-24, 24);
 
-
-                            string randomNature = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
-
+                            // Fetching dynamically from the Data Library
+                            string randomNature = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                             CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
                         }
                     }
@@ -194,186 +91,29 @@ namespace Pale_Roots_1
 
             PlaceLandMarks();
         }
-        //private void PlaceLandMarks()
-        //{
-        //    // Animated objects are fine as they were
-        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
-        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
-        //    Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
-
-        //    // CHANGE: Columns and Rocks are solid (true)
-        //    CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet, true);
-        //    CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet, true);
-
-        //    Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
-        //    CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet, true);
-
-        //    Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
-        //    int radius = 150;
-        //    int skullCount = 8;
-
-        //    for (int i = 0; i < skullCount; i++)
-        //    {
-        //        float angle = i * (MathHelper.TwoPi / skullCount);
-        //        Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
-
-
-        //        CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet, false);
-        //    }
-
-        //    for (int i = 0; i < 15; i++)
-        //    {
-        //        int rx = CombatSystem.RandomInt(10, 50);
-        //        int ry = CombatSystem.RandomInt(5, 29);
-        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
-
-        //        if (CombatSystem.RandomInt(0, 100) > 50)
-
-        //            CreateStaticObject("Big_Rock", pos, _staticObjectSheet, true);
-        //        else
-
-        //            CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
-        //    }
-        //}
         private bool IsSpaceOccupied(Vector2 pos, float minGap)
         {
             foreach (var obj in MapObjects)
             {
-
                 float objectRadius = (obj.spriteWidth * (float)obj.Scale) / 2.5f;
-
                 float safeDistance = minGap + objectRadius;
 
-                // 3. Check distance
                 if (Vector2.Distance(pos, obj.position) < safeDistance)
                 {
-                    return true; // Too close!
+                    return true;
                 }
             }
             return false;
         }
-        //private void PlaceLandMarks()
-        //{
-        //    // ==========================================
-        //    // 1. FIXED LANDMARKS (Spawn these FIRST)
-        //    // ==========================================
-
-        //    // Center Tree
-        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
-        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
-
-        //    // Skeleton King (Right, slightly Up)
-        //    Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
-        //    CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
-
-        //    // Big Ruin (Top Right)
-        //    Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
-        //    CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
-        //    CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
-        //    CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
-
-        //    // Smaller Ruin (Bottom Right)
-        //    Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
-        //    CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
-
-
-        //    // ==========================================
-        //    // 2. THE GRAVEYARD (Left Side Only)
-        //    // ==========================================
-        //    int gravesPlaced = 0;
-        //    int attempts = 0;
-
-        //    while (gravesPlaced < 25 && attempts < 200)
-        //    {
-        //        attempts++;
-
-        //        // Random Position on Left Side
-        //        int gx = CombatSystem.RandomInt(4, 22);
-        //        int gy = CombatSystem.RandomInt(4, 30);
-        //        Vector2 gravePos = new Vector2(gx * 64, gy * 64);
-
-        //        // CHECK: Increased gap to 80f (more than 1 tile width)
-        //        if (IsSpaceOccupied(gravePos, 80f)) continue;
-
-        //        string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
-        //        CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
-        //        gravesPlaced++;
-        //    }
-
-
-        //    // ==========================================
-        //    // 3. SKELETAL REMAINS CIRCLE (Around Tree)
-        //    // ==========================================
-        //    string[] bones = { "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull" };
-        //    int boneCount = 12;
-        //    float radius = 400f;
-
-        //    for (int i = 0; i < boneCount; i++)
-        //    {
-        //        float angle = i * (MathHelper.TwoPi / boneCount);
-        //        float jitter = CombatSystem.RandomFloat(-0.5f, 0.5f);
-        //        float distJitter = CombatSystem.RandomInt(-50, 50);
-
-        //        Vector2 offset = new Vector2(
-        //            (float)Math.Cos(angle + jitter) * (radius + distJitter),
-        //            (float)Math.Sin(angle + jitter) * (radius + distJitter)
-        //        );
-        //        Vector2 finalPos = centerPos + offset;
-
-        //        // CHECK: Gap of 60f for bones
-        //        if (IsSpaceOccupied(finalPos, 60f)) continue;
-
-        //        string boneItem = bones[CombatSystem.RandomInt(0, bones.Length)];
-        //        CreateStaticObject(boneItem, finalPos, _staticObjectSheet, false);
-        //    }
-
-
-        //    // ==========================================
-        //    // 4. RANDOM SCATTER (Hands, Dead Trees)
-        //    // ==========================================
-        //    int scatterPlaced = 0;
-        //    attempts = 0;
-
-        //    while (scatterPlaced < 15 && attempts < 200)
-        //    {
-        //        attempts++;
-
-        //        int rx = CombatSystem.RandomInt(5, 55);
-        //        int ry = CombatSystem.RandomInt(5, 29);
-        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
-
-        //        // Don't spawn too close to center tree
-        //        if (Vector2.Distance(pos, centerPos) < 300) continue;
-
-        //        // CHECK: Increased gap to 100f so random trees don't clump
-        //        if (IsSpaceOccupied(pos, 100f)) continue;
-
-        //        if (CombatSystem.RandomInt(0, 100) > 50)
-        //        {
-        //            string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
-        //            CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
-        //        }
-        //        else
-        //        {
-        //            string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
-        //            CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
-        //        }
-
-
-        //        scatterPlaced++;
-        //    }
-        //}
 
         private void PlaceLandMarks()
         {
-
             Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
             Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true); // Solid!
-
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true);
 
             Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
             CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
@@ -384,131 +124,95 @@ namespace Pale_Roots_1
 
             FillZones(centerPos);
         }
+
         private void FillZones(Vector2 centerPos)
         {
             int attempts = 0;
-            int maxItems = 60; 
+            int maxItems = 60;
             int itemsPlaced = 0;
 
             while (itemsPlaced < maxItems && attempts < 1000)
             {
                 attempts++;
-
                 int tx = CombatSystem.RandomInt(6, 54);
                 int ty = CombatSystem.RandomInt(6, 28);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
-
                 pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-
 
                 float distToCenter = Vector2.Distance(pos, centerPos);
 
-                // 3. Check Collision (Don't spawn on top of the King or Ruins)
-                // We use a large gap (80f) to ensure objects aren't clumped
                 if (IsSpaceOccupied(pos, 80f)) continue;
 
                 string assetToSpawn = "";
                 bool isSolid = false;
 
                 // --- ZONE LOGIC ---
-
-                // ZONE A: The Bone Circle (Close to center tree)
                 if (distToCenter < 350 && distToCenter > 100)
                 {
-                    assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
+                    assetToSpawn = LevelDataLibrary.BoneObjects[CombatSystem.RandomInt(0, LevelDataLibrary.BoneObjects.Length)];
                 }
-                // ZONE B: The Graveyard (Left side of map: X < 20)
                 else if (tx < 22)
                 {
-                    assetToSpawn = _graveObjects[CombatSystem.RandomInt(0, _graveObjects.Length)];
-                    // Graves are usually solid, hands are not. 
-                    // Simple check: if it starts with "Grave", it's solid.
+                    assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
                     if (assetToSpawn.StartsWith("Grave")) isSolid = true;
                 }
-                // ZONE C: The Ruins/Scatter (Right side: X > 38)
                 else if (tx > 38)
                 {
-                    // Mix of rocks and ruins
                     if (CombatSystem.RandomInt(0, 100) > 70)
-                        assetToSpawn = _ruinObjects[CombatSystem.RandomInt(0, _ruinObjects.Length)];
+                        assetToSpawn = LevelDataLibrary.RuinObjects[CombatSystem.RandomInt(0, LevelDataLibrary.RuinObjects.Length)];
                     else
-                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
-
+                        assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                     isSolid = true;
                 }
-                // ZONE D: General Open Space (Everywhere else)
                 else
                 {
-                    // Sparse random details (Bones or small plants)
                     if (CombatSystem.RandomInt(0, 100) > 50)
-                        assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
+                        assetToSpawn = LevelDataLibrary.BoneObjects[CombatSystem.RandomInt(0, LevelDataLibrary.BoneObjects.Length)];
                     else
-                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
+                        assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                 }
 
-                // 4. Create the object
                 if (assetToSpawn != "")
                 {
-
-                    if (IsTooCloseToIdentical(assetToSpawn, pos, 500f))
-                    {
-
-                        continue;
-                    }
+                    if (IsTooCloseToIdentical(assetToSpawn, pos, 500f)) continue;
 
                     CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
                     itemsPlaced++;
                 }
             }
         }
+
         private bool IsTooCloseToIdentical(string assetName, Vector2 pos, float minDistance)
         {
             foreach (var obj in MapObjects)
             {
-                // 1. Is it the exact same object type?
                 if (obj.AssetName == assetName)
                 {
-                    // 2. Is it too close?
-                    if (Vector2.Distance(pos, obj.position) < minDistance)
-                    {
-                        return true; // Yes, reject this spawn
-                    }
+                    if (Vector2.Distance(pos, obj.position) < minDistance) return true;
                 }
             }
-            return false; // No twins found nearby
+            return false;
         }
+
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
         {
             Rectangle data = Helper.GetSourceRect(assetName);
-
             var obj = new WorldObject(_game, sheet, position, 1, isSolid);
-
             obj.AssetName = assetName;
-
             obj.SetSpriteSheetLocation(data);
             MapObjects.Add(obj);
         }
+
         private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
         {
             Rectangle data = Helper.GetSourceRect(assetName);
-
             var obj = new WorldObject(_game, sheet, position, frames, false);
-
             obj.SetSpriteSheetLocation(data);
-
             MapObjects.Add(obj);
-        }
-        private Vector2 GetRandomPosition()
-        {
-            int tx = CombatSystem.RandomInt(2, 28);
-            int ty = CombatSystem.RandomInt(2, 28);
-
-            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
         }
 
         public void Update(GameTime gameTime, Player player)
         {
-            // Update Enemies
             foreach (Enemy enemy in enemies)
             {
                 enemy.CurrentCombatPartner = player;
@@ -516,7 +220,6 @@ namespace Pale_Roots_1
             }
             enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
 
-            // Update Map Objects (Animations)
             foreach (var obj in MapObjects)
             {
                 obj.Update(gameTime);
@@ -525,8 +228,6 @@ namespace Pale_Roots_1
 
         public void Draw(SpriteBatch spriteBatch)
         {
-            // Only draw the floor tiles here. 
-            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
             if (CurrentLevel != null)
             {
                 CurrentLevel.Draw(spriteBatch);
