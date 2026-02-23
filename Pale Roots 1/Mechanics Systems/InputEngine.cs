@@ -12,11 +12,16 @@ using Microsoft.Devices.Sensors;
 namespace Pale_Roots_1
 {
     // InputEngine: centralizes input polling for keyboard, gamepad, mouse and (optionally) touch/accelerometer.
-    // - Added as a GameComponent so it's automatically updated by Game1.
-    // - Other systems call static helpers (IsKeyPressed, IsButtonHeld, MousePosition, etc.) instead of reading raw platform APIs.
-    // - Keeps previous/current states to detect presses vs holds vs releases.
+    // NOW FEATURING: Action-Based Input API for custom engine architecture.
     public class InputEngine : GameComponent
     {
+        // --- ENGINE FEATURE: ACTION MAPPING ---
+        // Maps a string name (e.g., "Jump") to a specific Key.
+        private static Dictionary<string, Keys> _keyBindings = new Dictionary<string, Keys>();
+
+        // Maps a string name to a Mouse Button (0=Left, 1=Right, 2=Middle)
+        private static Dictionary<string, int> _mouseBindings = new Dictionary<string, int>();
+
         // GamePad state tracking
         private static GamePadState previousPadState;
         private static GamePadState currentPadState;
@@ -32,14 +37,13 @@ namespace Pale_Roots_1
         private static MouseState currentMouseState;
 
 #if ANDROID
-        // Mobile-only input fields: accelerometer and touch gesture info
+        // Mobile-only input fields
         private static Vector2 previousAccelerometerReading;
         private static Accelerometer _acceleromter;
         private static Vector2 currentAcceleromoterReading;
         private static Point touchPoint;
         private static GestureType currentGestureType;
 
-        // Accelerometer event handler updates cached readings (orientation assumed landscape here).
         private void _acceleromter_CurrentValueChanged(object sender, SensorReadingEventArgs<AccelerometerReading> e)
         {
             previousAccelerometerReading = CurrentAcceleromoterReading;
@@ -48,7 +52,6 @@ namespace Pale_Roots_1
         }
 #endif
 
-        // Register the component and initialize current states.
         public InputEngine(Game _game)
             : base(_game)
         {
@@ -71,7 +74,6 @@ namespace Pale_Roots_1
             _game.Components.Add(this);
         }
 
-        // Reset cached states (useful when changing scenes or pausing).
         public static void ClearState()
         {
             previousMouseState = Mouse.GetState();
@@ -83,10 +85,6 @@ namespace Pale_Roots_1
 #endif
         }
 
-        // Called each frame by the GameComponent system.
-        // - Updates previous/current snapshots.
-        // - Collects simple text-key presses for UI input.
-        // - Handles touch input when compiled for Android.
         public override void Update(GameTime gametime)
         {
             previousPadState = currentPadState;
@@ -109,10 +107,8 @@ namespace Pale_Roots_1
             base.Update(gametime);
         }
 
-        // Simple list used by UI or consoles to obtain the first textual key pressed this frame.
         public List<string> KeysPressedInLastFrame = new List<string>();
 
-        // Scan all Keys and add the first pressed key (useful for single-key text input).
         private void CheckForTextInput()
         {
             foreach (var key in Enum.GetValues(typeof(Keys)) as Keys[])
@@ -125,25 +121,68 @@ namespace Pale_Roots_1
             }
         }
 
-        // GamePad helpers
+        // --- ACTION API METHODS (THE NEW ENGINE LOGIC) ---
+
+        // 1. Configuration: Call this in Game1.LoadContent to set up controls
+        public static void RegisterBinding(string actionName, Keys key)
+        {
+            if (_keyBindings.ContainsKey(actionName)) _keyBindings[actionName] = key;
+            else _keyBindings.Add(actionName, key);
+        }
+
+        public static void RegisterMouseBinding(string actionName, int mouseButtonIndex)
+        {
+            if (_mouseBindings.ContainsKey(actionName)) _mouseBindings[actionName] = mouseButtonIndex;
+            else _mouseBindings.Add(actionName, mouseButtonIndex);
+        }
+
+        // 2. Querying: Use these in Player/Scripts instead of checking Keys directly
+        // Returns true only on the frame the button is pressed down
+        public static bool IsActionPressed(string actionName)
+        {
+            if (_keyBindings.ContainsKey(actionName))
+            {
+                return IsKeyPressed(_keyBindings[actionName]);
+            }
+            if (_mouseBindings.ContainsKey(actionName))
+            {
+                int btn = _mouseBindings[actionName];
+                if (btn == 0) return IsMouseLeftClick();
+                if (btn == 1) return IsMouseRightClick();
+            }
+            return false;
+        }
+
+        // Returns true as long as the button is held down
+        public static bool IsActionHeld(string actionName)
+        {
+            if (_keyBindings.ContainsKey(actionName))
+            {
+                return IsKeyHeld(_keyBindings[actionName]);
+            }
+            if (_mouseBindings.ContainsKey(actionName))
+            {
+                int btn = _mouseBindings[actionName];
+                if (btn == 0) return IsMouseLeftHeld();
+                if (btn == 1) return IsMouseRightHeld();
+            }
+            return false;
+        }
+
+        // --- RAW HARDWARE HELPERS ---
+
         public static bool IsButtonPressed(Buttons buttonToCheck)
         {
-            // true when transitioned from down -> up in the last frame
             if (currentPadState.IsButtonUp(buttonToCheck) && previousPadState.IsButtonDown(buttonToCheck))
-            {
                 return true;
-            }
             else
-            {
                 return false;
-            }
         }
         public static bool IsButtonHeld(Buttons buttonToCheck)
         {
             return currentPadState.IsButtonDown(buttonToCheck);
         }
 
-        // Keyboard helpers
         public static bool IsKeyHeld(Keys buttonToCheck)
         {
             return currentKeyState.IsKeyDown(buttonToCheck);
@@ -151,18 +190,12 @@ namespace Pale_Roots_1
 
         public static bool IsKeyPressed(Keys keyToCheck)
         {
-            // Note: this implementation treats pressed as previous down -> current up (edge detection).
             if (currentKeyState.IsKeyUp(keyToCheck) && previousKeyState.IsKeyDown(keyToCheck))
-            {
                 return true;
-            }
             else
-            {
                 return false;
-            }
         }
 
-        // Expose raw current states to other systems when needed.
         public static GamePadState CurrentPadState
         {
             get { return currentPadState; }
@@ -184,7 +217,6 @@ namespace Pale_Roots_1
         }
 
 #if ANDROID
-        // Android touch/accelerometer accessors
         public static Point TouchPoint
         {
             get { return touchPoint; }
@@ -196,10 +228,9 @@ namespace Pale_Roots_1
             get
             {
                 GestureType ret = currentGestureType;
-                currentGestureType = GestureType.None; // consume once
+                currentGestureType = GestureType.None; 
                 return ret;
             }
-
             set
             {
                 currentGestureType = value;
@@ -212,7 +243,6 @@ namespace Pale_Roots_1
             set { currentAcceleromoterReading = value; }
         }
 
-        // Process queued touch gestures from TouchPanel and update touchPoint/currentGestureType.
         private void HandleTouchInput()
         {
             TouchCollection touches = TouchPanel.GetState();
@@ -241,29 +271,18 @@ namespace Pale_Roots_1
                     case GestureType.Flick:
                         break;
                     case GestureType.Pinch:
-                        // Example: compute scale change from pinch delta (not applied here).
-                        Vector2 a = gesture.Position;
-                        Vector2 aOld = gesture.Position - gesture.Delta;
-                        Vector2 b = gesture.Position2;
-                        Vector2 bOld = gesture.Position2 - gesture.Delta2;
-                        float d = Vector2.Distance(a, b);
-                        float dOld = Vector2.Distance(aOld, bOld);
-                        float scaleChange = (d - dOld) * .01f;
                         break;
                 }
             }
-
         }
-
 #endif
 
 #if WINDOWS
-        // Mouse helpers (edge detection using previous/current MouseState)
         public static bool IsMouseLeftClick()
         {
             if (currentMouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed)
                 return true;
-            else 
+            else
                 return false;
         }
 
@@ -291,14 +310,10 @@ namespace Pale_Roots_1
                 return false;
         }
 
-        // Current mouse position in screen coordinates (updated in Update).
         public static Vector2 MousePosition
         {
             get { return currentMousePos; }
         }
 #endif
-
-
-
     }
 }

@@ -94,6 +94,29 @@ namespace Pale_Roots_1
             CutsceneManager = new CutsceneManager(this);
             CutsceneLibrary.LoadAllCutscenes(CutsceneManager, this);
 
+            // --- INPUT CONFIGURATION (Engine Feature) ---
+            // This defines the "Control Scheme". In a full engine, this could be loaded from a JSON file.
+            InputEngine.RegisterBinding("MoveUp", Keys.W);
+            InputEngine.RegisterBinding("MoveDown", Keys.S);
+            InputEngine.RegisterBinding("MoveLeft", Keys.A);
+            InputEngine.RegisterBinding("MoveRight", Keys.D);
+
+            InputEngine.RegisterBinding("Dash", Keys.LeftShift);
+            InputEngine.RegisterBinding("Confirm", Keys.Space);
+            InputEngine.RegisterBinding("Exit", Keys.Escape);
+
+            // Spells
+            InputEngine.RegisterBinding("CastSpell1", Keys.D1);
+            InputEngine.RegisterBinding("CastSpell2", Keys.D2);
+            InputEngine.RegisterBinding("CastSpell3", Keys.D3);
+            InputEngine.RegisterBinding("CastSpell4", Keys.D4);
+            InputEngine.RegisterBinding("CastSpell5", Keys.D5);
+            InputEngine.RegisterBinding("CastSpell6", Keys.D6);
+
+            // Mouse Actions
+            InputEngine.RegisterMouseBinding("LightAttack", 0); // Left Click
+            InputEngine.RegisterMouseBinding("HeavyAttack", 1); // Right Click
+
             // Initialize the Gameplay Engine
             SoftResetGame();
 

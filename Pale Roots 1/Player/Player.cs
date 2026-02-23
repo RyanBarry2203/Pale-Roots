@@ -67,7 +67,7 @@ namespace Pale_Roots_1
         private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
 
         // Animation / direction
-        public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
+        public enum Direction { Down = 0, Left = 0, Right = 2, Up = 3 }
         private Direction _currentDirection = Direction.Down;
         private int _currentDirectionIndex = 2;
 
@@ -185,11 +185,10 @@ namespace Pale_Roots_1
         // Check input for combat actions (dash or mouse buttons)
         private void CheckForCombatInput(List<Enemy> enemies)
         {
-            KeyboardState kState = Keyboard.GetState();
-            MouseState mState = Mouse.GetState();
+            // REFACTORED: Decoupled from hardware using Action API
 
             // Dash input
-            if (IsDashUnlocked && kState.IsKeyDown(Keys.LeftShift))
+            if (IsDashUnlocked && InputEngine.IsActionPressed("Dash"))
             {
                 StartDash();
                 return;
@@ -197,12 +196,12 @@ namespace Pale_Roots_1
 
             if (_cooldownTimer > 0) return;
 
-            // Attack input: left = light, right = heavy (if unlocked)
-            if (mState.LeftButton == ButtonState.Pressed)
+            // Attack input
+            if (InputEngine.IsActionPressed("LightAttack"))
             {
                 StartAttack(enemies, 1);
             }
-            else if (IsHeavyAttackUnlocked && mState.RightButton == ButtonState.Pressed)
+            else if (IsHeavyAttackUnlocked && InputEngine.IsActionPressed("HeavyAttack"))
             {
                 StartAttack(enemies, 2);
             }
@@ -256,17 +255,17 @@ namespace Pale_Roots_1
             }
         }
 
-        // Read WASD, set velocity and attempt movement against the tile layer.
+        // Read Input API, set velocity and attempt movement against the tile layer.
         // updateState = false prevents state switches (used during attacks/hurt).
         private void HandleInput(TileLayer currentLayer, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
-            KeyboardState state = Keyboard.GetState();
 
-            if (state.IsKeyDown(Keys.W)) inputDirection.Y -= 1;
-            if (state.IsKeyDown(Keys.S)) inputDirection.Y += 1;
-            if (state.IsKeyDown(Keys.A)) inputDirection.X -= 1;
-            if (state.IsKeyDown(Keys.D)) inputDirection.X += 1;
+            // REFACTORED: Using InputEngine Action API instead of raw Keys
+            if (InputEngine.IsActionHeld("MoveUp")) inputDirection.Y -= 1;
+            if (InputEngine.IsActionHeld("MoveDown")) inputDirection.Y += 1;
+            if (InputEngine.IsActionHeld("MoveLeft")) inputDirection.X -= 1;
+            if (InputEngine.IsActionHeld("MoveRight")) inputDirection.X += 1;
 
             if (inputDirection != Vector2.Zero)
             {
@@ -274,7 +273,13 @@ namespace Pale_Roots_1
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
+                // Only update facing direction if we are NOT attacking.
+                // This ensures the hitbox stays locked to the mouse click direction 
+                // even if we strafe sideways during the swing.
+                if (CurrentState != PlayerState.Attack1 && CurrentState != PlayerState.Attack2)
+                {
+                    _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
+                }
 
                 Vector2 proposedPosition = position + _velocity;
                 if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
@@ -355,7 +360,10 @@ namespace Pale_Roots_1
 
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
             float frameSpeed = (attackNum == 1) ? 80f : 120f;
-            float duration = 10 * frameSpeed;
+
+            // Reduce duration to 7 frames instead of the full 10.
+            // This makes the hitbox active for less time and lets the player move/attack again sooner.
+            float duration = 7 * frameSpeed;
 
             CurrentState = (attackNum == 1) ? PlayerState.Attack1 : PlayerState.Attack2;
             _stateTimer = duration;

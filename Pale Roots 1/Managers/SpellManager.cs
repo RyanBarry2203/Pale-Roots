@@ -12,7 +12,6 @@ namespace Pale_Roots_1
 
         private bool[] _unlockedSpells;
 
-        // --- FIX IS HERE: NO "class" KEYWORD ---
         public SpellManager(ChaseAndFireEngine engine,
                             Texture2D smiteTx,
                             Texture2D novaTx,
@@ -45,19 +44,19 @@ namespace Pale_Roots_1
 
         private void HandleInput()
         {
-            KeyboardState kState = Keyboard.GetState();
+            // We still need mouse position for aiming, which is specific data, not just a button press.
             MouseState mState = Mouse.GetState();
             Vector2 mouseScreenPos = new Vector2(mState.X, mState.Y);
             Matrix inverseTransform = Matrix.Invert(_engine._camera.CurrentCameraTranslation);
             Vector2 mousePos = Vector2.Transform(mouseScreenPos, inverseTransform);
 
-
-            if (kState.IsKeyDown(Keys.D1)) CastSpell(0, mousePos);
-            if (kState.IsKeyDown(Keys.D2)) CastSpell(1, mousePos);
-            if (kState.IsKeyDown(Keys.D3)) CastSpell(2, mousePos);
-            if (kState.IsKeyDown(Keys.D4)) CastSpell(3, mousePos);
-            if (kState.IsKeyDown(Keys.D5)) CastSpell(4, mousePos);
-            if (kState.IsKeyDown(Keys.D6)) CastSpell(5, mousePos);
+            // REFACTORED: Using Action API
+            if (InputEngine.IsActionPressed("CastSpell1")) CastSpell(0, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell2")) CastSpell(1, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell3")) CastSpell(2, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell4")) CastSpell(3, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell5")) CastSpell(4, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell6")) CastSpell(5, mousePos);
         }
 
         private void CastSpell(int index, Vector2 target)

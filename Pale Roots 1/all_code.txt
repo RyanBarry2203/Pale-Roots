@@ -1,550 +1,3 @@
-using Microsoft.Xna.Framework.Graphics;
-
-namespace Pale_Roots_1
-{
-    public class Animation
-    {
-        public Texture2D Texture { get; private set; }
-        public int FrameCount { get; private set; }
-        public int SheetRow { get; private set; }
-        public float FrameSpeed { get; private set; }
-        public bool IsLooping { get; private set; }
-        public int TotalRows { get; private set; }
-
-        // NEW: Store the exact width of a single frame
-        public int FrameWidth { get; private set; }
-        public int FrameHeight { get; private set; }
-
-        public bool IsGrid { get; set; }
-
-        public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1, int customWidth = 0, bool isGrid = false)
-        {
-            Texture = texture;
-            FrameCount = frameCount;
-            SheetRow = sheetRow;
-            FrameSpeed = frameSpeed;
-            IsLooping = isLooping;
-            TotalRows = totalRows;
-            IsGrid = isGrid; // NEW: Stores if this is a directional sheet
-
-            if (customWidth > 0)
-                FrameWidth = customWidth;
-            else
-                FrameWidth = texture.Width / frameCount;
-
-            // If it's a grid, the height is the full texture divided by rows
-            FrameHeight = texture.Height / totalRows;
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System.Collections.Generic;
-
-namespace Pale_Roots_1
-{
-    public class AnimationManager
-    {
-        private Dictionary<string, Animation> _anims = new Dictionary<string, Animation>();
-        private Animation _currentAnimation;
-        private string _currentKey;
-
-        private float _timer;
-        public int CurrentFrame { get; private set; }
-
-        public float LayerDepth { get; set; }
-
-        public void AddAnimation(string key, Animation animation)
-        {
-            _anims[key] = animation;
-        }
-        public void Play(string key)
-        {
-            if (_currentKey == key) return;
-
-            if (_anims.ContainsKey(key))
-            {
-                _currentKey = key;
-                _currentAnimation = _anims[key];
-                CurrentFrame = 0;
-                _timer = 0;
-            }
-        }
-        public void Update(GameTime gameTime)
-        {
-            if (_currentAnimation == null) return;
-
-            _timer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-            if (_timer > _currentAnimation.FrameSpeed)
-            {
-                _timer = 0f;
-                CurrentFrame++;
-
-                if (CurrentFrame >= _currentAnimation.FrameCount)
-                {
-                    if (_currentAnimation.IsLooping)
-                    {
-                        CurrentFrame = 0;
-                    }
-                    else
-                    {
-                        CurrentFrame = _currentAnimation.FrameCount - 1;
-                    }
-                }
-            }
-        }
-        public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect, int direction = 0)
-        {
-            if (_currentAnimation == null) return;
-
-            int frameWidth = _currentAnimation.FrameWidth;
-            int frameHeight = _currentAnimation.FrameHeight;
-            int currentRow = _currentAnimation.SheetRow;
-
-            // POLYMORPHIC LOGIC:
-            // If it's a Grid (Enemy/Ally), we ignore the 'effect' flip and change the Y row instead.
-            // Assuming standard sheets: 0:Down, 1:Left, 2:Right, 3:Up (Adjust based on your asset)
-            if (_currentAnimation.IsGrid)
-            {
-                currentRow = direction;
-                effect = SpriteEffects.None; // Grid handles direction, so don't flip
-            }
-
-            Rectangle source = new Rectangle(
-                CurrentFrame * frameWidth,
-                currentRow * frameHeight,
-                frameWidth,
-                frameHeight
-            );
-
-            // Origin at Bottom Center (Feet)
-            Vector2 origin = new Vector2(frameWidth / 2f, frameHeight);
-
-            spriteBatch.Draw(
-                _currentAnimation.Texture,
-                position,
-                source,
-                Color.White,
-                0f,
-                origin,
-                scale,
-                effect,
-                LayerDepth
-            );
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Media;
-using System.Collections.Generic;
-
-namespace Pale_Roots_1
-{
-    public class AudioManager
-    {
-        // Configuration
-        private float _fadeSpeed = 0.5f;
-
-        // State
-        private float _currentVolume = 0f;
-        private float _targetVolume = 0f;
-
-        // Tracks
-        private Song _currentSong;
-        private Song _pendingSong;
-
-        // Playlists
-        public Song MenuSong { get; set; }
-        public Song IntroSong { get; set; }
-        public Song DeathSong { get; set; }
-        public Song OutroSong { get; set; } // Used for Victory/Outro/Credits
-
-        private List<Song> _combatSongs = new List<Song>();
-
-        public AudioManager()
-        {
-            // Initialize volume to silent so we fade in
-            MediaPlayer.Volume = 0f;
-        }
-
-        public void AddCombatSong(Song song)
-        {
-            _combatSongs.Add(song);
-        }
-
-        public void Update(GameTime gameTime)
-        {
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            // 1. Fading Logic
-            if (_currentVolume < _targetVolume)
-            {
-                _currentVolume += _fadeSpeed * dt;
-                if (_currentVolume > _targetVolume) _currentVolume = _targetVolume;
-            }
-            else if (_currentVolume > _targetVolume)
-            {
-                _currentVolume -= _fadeSpeed * dt;
-                if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
-            }
-
-            MediaPlayer.Volume = _currentVolume;
-
-            // 2. Cross-Fade Execution
-            if (_pendingSong != null && _currentVolume <= 0.01f)
-            {
-                try
-                {
-                    MediaPlayer.Stop();
-                    MediaPlayer.Play(_pendingSong);
-
-                    // Loop non-combat songs
-                    // If we are in combat, we don't loop (so we can shuffle)
-                    // If we are in menu/outro, we loop.
-                    // We handle this logic loosely here, or strictly in HandleMusicState
-
-                    _currentSong = _pendingSong;
-                    _pendingSong = null;
-                    _targetVolume = 0.5f; // Fade back in
-                }
-                catch { }
-            }
-        }
-
-        // The main interface for Game1 to ask for music
-        public void HandleMusicState(GameState state)
-        {
-            // If we are currently fading out (Pending exists), wait.
-            if (_pendingSong != null) return;
-
-            switch (state)
-            {
-                case GameState.Menu:
-                    RequestTrack(MenuSong, true);
-                    break;
-                case GameState.Intro:
-                    RequestTrack(IntroSong, false);
-                    break;
-                case GameState.GameOver:
-                    RequestTrack(DeathSong, false);
-                    break;
-                case GameState.Victory:
-                case GameState.Outro:
-                case GameState.Credits:
-                    RequestTrack(OutroSong, true);
-                    break;
-
-                case GameState.Gameplay:
-                case GameState.LevelUp:
-                    HandleCombatMusic();
-                    break;
-            }
-        }
-
-        private void HandleCombatMusic()
-        {
-            // Check if we are playing a "Theme" song that shouldn't be here
-            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong ||
-                                 _currentSong == DeathSong || _currentSong == OutroSong);
-
-            // Check if the current song has finished naturally
-            bool isSilence = (MediaPlayer.State == MediaState.Stopped);
-
-            if (isWrongTheme)
-            {
-                RequestTrack(GetRandomCombatTrack(), false);
-            }
-            else if (isSilence)
-            {
-                // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
-                Song next = GetRandomCombatTrack();
-                PlayImmediate(next);
-            }
-        }
-
-        private void RequestTrack(Song song, bool loop)
-        {
-            if (_currentSong == song && _pendingSong == null) return;
-            if (_pendingSong == song) return;
-
-            MediaPlayer.IsRepeating = loop;
-            _pendingSong = song;
-            _targetVolume = 0.0f; // Fade out current
-        }
-
-        private void PlayImmediate(Song song)
-        {
-            try
-            {
-                MediaPlayer.Play(song);
-                MediaPlayer.IsRepeating = false;
-                _currentSong = song;
-                _currentVolume = 0f;
-                _targetVolume = 0.5f;
-            }
-            catch { }
-        }
-
-        private Song GetRandomCombatTrack()
-        {
-            if (_combatSongs.Count == 0) return null;
-            Song candidate;
-            int attempts = 0;
-            do
-            {
-                int index = CombatSystem.RandomInt(0, _combatSongs.Count);
-                candidate = _combatSongs[index];
-                attempts++;
-            }
-            while (candidate == _currentSong && attempts < 5);
-            return candidate;
-        }
-
-        public void Stop()
-        {
-            MediaPlayer.Stop();
-            _currentSong = null;
-            _pendingSong = null;
-            _currentVolume = 0.5f;
-            _targetVolume = 0.5f;
-        }
-    }
-}
-using System;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-//using AnimatedSprite; // Needed to see the Sprite base class
-
-namespace Pale_Roots_1
-{
-    public class Collectible : Sprite
-    {
-        public int HealthValue { get; private set; }
-
-        // Static to share memory across all collectibles
-        private static Texture2D healthBarTexture;
-
-        public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
-            : base(game, texture, position, frameCount, 1)
-        {
-            Random r = new Random();
-            HealthValue = r.Next(50, 101);
-
-            // Lazy loading the texture once
-            if (healthBarTexture == null)
-            {
-                healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
-                healthBarTexture.SetData(new[] { Color.White });
-            }
-        }
-
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            base.Draw(spriteBatch);
-
-            // Draw health bar above it
-            Rectangle barRect = new Rectangle(
-                (int)position.X,
-                (int)position.Y - 10,
-                HealthValue / 2,
-                5
-            );
-
-            spriteBatch.Draw(healthBarTexture, barRect, Color.Green);
-
-            // Ensure you have a font named "NameID" in your Content pipeline, 
-            // otherwise this line will crash.
-            // spriteBatch.DrawString(
-            //    game.Content.Load<SpriteFont>("NameID"),
-            //    HealthValue.ToString(),
-            //    new Vector2(position.X, position.Y - 25),
-            //    Color.White
-            // );
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using System;
-using System.Collections.Generic;
-
-namespace Pale_Roots_1
-{
-    public class CutsceneManager
-    {
-
-        public class CutsceneSlide
-        {
-            public Texture2D Texture;
-            public string Text;
-            public float Duration;
-
-            // Movement Variables
-            public float ZoomStart;
-            public float ZoomEnd;
-            public Vector2 PanStart;
-            public Vector2 PanEnd;
-
-            private float _fadeAlpha = 1.0f;
-
-            public CutsceneSlide(Texture2D texture, string text, float duration, float zStart, float zEnd, Vector2 pStart, Vector2 pEnd)
-            {
-                Texture = texture;
-                Text = text;
-                Duration = duration;
-                ZoomStart = zStart;
-                ZoomEnd = zEnd;
-                PanStart = pStart;
-                PanEnd = pEnd;
-            }
-        }
-
-        private List<CutsceneSlide> _slides = new List<CutsceneSlide>();
-        private int _currentIndex = 0;
-        private float _timer = 0f;
-
-
-        private Texture2D _pixel;
-        private SpriteFont _font;
-
-        public bool IsFinished { get; private set; } = false;
-
-        public CutsceneManager(Game game)
-        {
-
-            _pixel = new Texture2D(game.GraphicsDevice, 1, 1);
-            _pixel.SetData(new[] { Color.White });
-
-
-            try
-            {
-                _font = game.Content.Load<SpriteFont>("cutsceneFont");
-            }
-            catch
-            {
-                
-            }
-
-
-            //_slides.Add(new CutsceneSlide("In the beginning, the roots were pale...", Color.Black, 3000f));
-            //_slides.Add(new CutsceneSlide("The war consumed everything.", Color.DarkRed, 3000f));
-            //_slides.Add(new CutsceneSlide("Now, only the Skeleton King remains.", Color.DarkSlateGray, 3000f));
-            //_slides.Add(new CutsceneSlide("Press SPACE to skip...", Color.Black, 2000f));
-        }
-        public void AddSlide(CutsceneSlide slide)
-        {
-            _slides.Add(slide);
-        }
-
-        public void Update(GameTime gameTime)
-        {
-            if (IsFinished) return;
-
-            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            _timer += dt;
-
-
-            if (Keyboard.GetState().IsKeyDown(Keys.Space) || Keyboard.GetState().IsKeyDown(Keys.Enter))
-            {
-                IsFinished = true;
-            }
-
-
-            if (_timer >= _slides[_currentIndex].Duration)
-            {
-                _timer = 0;
-                _currentIndex++;
-
-                if (_currentIndex >= _slides.Count)
-                {
-                    IsFinished = true;
-                }
-            }
-        }
-
-        public void ClearSlides()
-        {
-            _slides.Clear();
-            _currentIndex = 0;
-            _timer = 0f;
-            IsFinished = false;
-        }
-
-        public void Reset()
-        {
-            _currentIndex = 0;
-            _timer = 0f;
-            IsFinished = false;
-        }
-
-        public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
-        {
-            if (IsFinished) return;
-
-            CutsceneSlide slide = _slides[_currentIndex];
-
-            // 1. CALCULATE PROGRESS
-            float progress = _timer / slide.Duration;
-
-            // 2. CALCULATE CINEMATIC SCALE (FILL SCREEN)
-            // Determine how much we need to scale the image to cover the whole screen
-            float scaleX = (float)screenWidth / slide.Texture.Width;
-            float scaleY = (float)screenHeight / slide.Texture.Height;
-            float baseScale = Math.Max(scaleX, scaleY); // Use the larger scale to ensure coverage
-
-            // 3. APPLY ZOOM & PAN
-            float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
-            float finalScale = baseScale * currentZoom;
-
-            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
-
-            // 4. CALCULATE FADE
-            float fadeDuration = slide.Duration * 0.15f;
-            float alpha = 1.0f;
-
-            if (_timer < fadeDuration) alpha = _timer / fadeDuration;
-            else if (_timer > slide.Duration - fadeDuration)
-            {
-                float timeLeft = slide.Duration - _timer;
-                alpha = timeLeft / fadeDuration;
-            }
-
-            // 5. DRAW IMAGE (Centered origin)
-            Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
-            Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
-
-            spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha,
-                0f, origin, finalScale, SpriteEffects.None, 0f);
-
-            // 6. DRAW TEXT WITH BACKGROUND
-            if (_font != null)
-            {
-                // Main Story Text
-                Vector2 textSize = _font.MeasureString(slide.Text);
-                Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
-
-                // Draw Semi-Transparent Box behind text
-                Rectangle bgRect = new Rectangle(
-                    (int)textPos.X - 20,
-                    (int)textPos.Y - 10,
-                    (int)textSize.X + 40,
-                    (int)textSize.Y + 20
-                );
-                spriteBatch.Draw(_pixel, bgRect, Color.Black * 0.6f * alpha);
-                spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
-
-                // Skip Prompt (Bottom Right)
-                string skipMsg = "Press SPACE to Skip";
-                Vector2 skipSize = _font.MeasureString(skipMsg);
-                Vector2 skipPos = new Vector2(screenWidth - skipSize.X - 40, screenHeight - 60);
-
-                spriteBatch.DrawString(_font, skipMsg, skipPos, Color.Gray * alpha * 0.8f);
-            }
-        }
-    }
-}
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -556,73 +9,31 @@ namespace Pale_Roots_1
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
+        public SpriteBatch SpriteBatch { get; private set; }
 
-        private Texture2D _uiPixel;
-        private SpriteFont _uiFont;
+        // --- ENGINE MANAGERS (Custom APIs) ---
+        public GameStateManager StateManager { get; private set; }
+        public AudioManager AudioManager { get; private set; }
+        public UIManager UIManager { get; private set; }
+        public CutsceneManager CutsceneManager { get; private set; }
 
-        // NEW: Background Texture for the menu
-        private Texture2D _menuBackground;
+        // --- GAMEPLAY SYSTEMS ---
+        public ChaseAndFireEngine GameEngine { get; set; }
+        public UpgradeManager UpgradeManager { get; set; }
+        public List<UpgradeManager.UpgradeOption> CurrentUpgradeOptions { get; set; }
 
-        private ChaseAndFireEngine _gameEngine;
-        private CutsceneManager _cutsceneManager;
+        // --- GLOBAL ASSETS ---
+        public Texture2D UiPixel { get; private set; }
+        public SpriteFont UiFont { get; private set; }
+        public Texture2D MenuBackground { get; private set; }
+        public Texture2D[] SpellIcons { get; private set; }
+        public Texture2D DashIcon { get; private set; }
+        public Texture2D HeavyAttackIcon { get; private set; }
 
-        // Menu Buttons
-        private Rectangle _playBtnRect;
-        private Rectangle _quitBtnRect;
-
-        private List<Texture2D> _outroImages = new List<Texture2D>();
-
-        // Input Safety
-        private float _uiInputDelay = 0f;
-        private const float SAFETY_DELAY = 0.5f;
-
-        // --- NEW AUDIO MANAGER ---
-        private AudioManager _audioManager;
-
-        private int _nextLevelThreshold = 3;
-        private int _levelStep = 4;
-
-        private UpgradeManager _upgradeManager;
-        private List<UpgradeManager.UpgradeOption> _currentUpgradeOptions;
-
-        // Progression Logic
-        private const int WIN_CONDITION_KILLS = 1;
-
-        // Spell Icons
-        private Texture2D[] _spellIcons;
-        private Keys[] _spellKeys = { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6 };
-
-        private Texture2D _dashIcon;
-        private Texture2D _heavyAttackIcon;
-
-        // NEW: Outro List
-        private List<Texture2D> _outroSlides = new List<Texture2D>();
-
-        // UI Colors (Medieval Sci-Fantasy Theme)
-        Color _hudColor = new Color(10, 10, 15, 200);
-        Color _healthColor = new Color(180, 20, 20);
-        Color _staminaColor = new Color(50, 205, 50);
-
-        private float _creditsScrollY = 0f;
-        private string _creditsText =
-            "PALE ROOTS\n\n" +
-            "A Game by Ryan Barry\n\n" +
-            "PROGRAMMING\nRyan Barry\n\n" +
-            "ART ASSETS\nItch Artists\n\n" +
-            "MUSIC\nRyan Barry\n\n" +
-            "SPECIAL THANKS\nPaul Powell\nNeil Gannon\n\n\n" +
-            "Thank you for playing!";
-
-        // Button Styling
-        Color _btnNormal = new Color(20, 20, 30, 220);
-        Color _btnHover = new Color(40, 60, 100, 240);
-        Color _borderNormal = new Color(60, 60, 80);
-        Color _borderHover = Color.Cyan;
-
-        // GameState is now in GameState.cs (Global Enum)
-        private GameState _currentState = GameState.Menu;
-        private bool _hasStarted = false;
+        // --- GLOBAL STATE ---
+        public bool HasStarted { get; set; } = false;
+        public int NextLevelThreshold { get; set; } = 3;
+        public int LevelStep { get; set; } = 4;
 
         public Game1()
         {
@@ -630,9 +41,7 @@ namespace Pale_Roots_1
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
             new InputEngine(this);
-
-            // Initialize the Audio Manager
-            _audioManager = new AudioManager();
+            AudioManager = new AudioManager();
         }
 
         protected override void Initialize()
@@ -641,1310 +50,90 @@ namespace Pale_Roots_1
             _graphics.PreferredBackBufferHeight = 1080;
             _graphics.ApplyChanges();
 
-            // Setup Menu Buttons (Centered)
-            int centerW = _graphics.PreferredBackBufferWidth / 2;
-            int centerH = _graphics.PreferredBackBufferHeight / 2;
-
-            // Make buttons slightly wider and thinner for a sleeker look
-            _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
-            _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
+            StateManager = new GameStateManager();
 
             base.Initialize();
         }
 
         protected override void LoadContent()
         {
-            // --- AUDIO LOADING (Delegated to Manager) ---
-            _audioManager.MenuSong = Content.Load<Song>("PaleRootsMenu");
-            _audioManager.IntroSong = Content.Load<Song>("Whimsy");
-            _audioManager.DeathSong = Content.Load<Song>("Sad");
+            SpriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // Load Outro once, assign to Outro
-            Song outro = Content.Load<Song>("Ihavenoidea");
-            _audioManager.OutroSong = outro;
+            // Initialize UI Assets
+            UiPixel = new Texture2D(GraphicsDevice, 1, 1);
+            UiPixel.SetData(new[] { Color.White });
+            try { UiFont = Content.Load<SpriteFont>("cutsceneFont"); } catch { }
+            try { MenuBackground = Content.Load<Texture2D>("menu_background"); } catch { }
 
-            _audioManager.AddCombatSong(Content.Load<Song>("Guitar"));
-            _audioManager.AddCombatSong(Content.Load<Song>("MoreGuitar"));
-            _audioManager.AddCombatSong(Content.Load<Song>("Groovy"));
-            _audioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
-            _audioManager.AddCombatSong(Content.Load<Song>("uhm"));
-            // --------------------------------------------
+            // Load Audio
+            AudioManager.MenuSong = Content.Load<Song>("PaleRootsMenu");
+            AudioManager.IntroSong = Content.Load<Song>("Whimsy");
+            AudioManager.DeathSong = Content.Load<Song>("Sad");
+            AudioManager.OutroSong = Content.Load<Song>("Ihavenoidea");
+            AudioManager.AddCombatSong(Content.Load<Song>("Guitar"));
+            AudioManager.AddCombatSong(Content.Load<Song>("MoreGuitar"));
+            AudioManager.AddCombatSong(Content.Load<Song>("Groovy"));
+            AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
+            AudioManager.AddCombatSong(Content.Load<Song>("uhm"));
 
-            _spellIcons = new Texture2D[6];
-            _spellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
-            _spellIcons[1] = Content.Load<Texture2D>("Effects/HolyNovaIcon");
-            _spellIcons[2] = Content.Load<Texture2D>("Effects/HeavensFuryIcon");
-            _spellIcons[3] = Content.Load<Texture2D>("Effects/HolyShieldIcon");
-            _spellIcons[4] = Content.Load<Texture2D>("Effects/ElectricityIcon");
-            _spellIcons[5] = Content.Load<Texture2D>("Effects/SwordJusticeIcon");
+            // Load Spell Icons
+            SpellIcons = new Texture2D[6];
+            SpellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
+            SpellIcons[1] = Content.Load<Texture2D>("Effects/HolyNovaIcon");
+            SpellIcons[2] = Content.Load<Texture2D>("Effects/HeavensFuryIcon");
+            SpellIcons[3] = Content.Load<Texture2D>("Effects/HolyShieldIcon");
+            SpellIcons[4] = Content.Load<Texture2D>("Effects/ElectricityIcon");
+            SpellIcons[5] = Content.Load<Texture2D>("Effects/SwordJusticeIcon");
+            DashIcon = Content.Load<Texture2D>("Effects/DashIcon");
+            HeavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
 
-            _dashIcon = Content.Load<Texture2D>("Effects/DashIcon");
-            _heavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
+            // Initialize UI Manager
+            UIManager = new UIManager(UiPixel, UiFont);
 
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _gameEngine = new ChaseAndFireEngine(this);
+            // Initialize Cutscene Manager & Load Data
+            CutsceneManager = new CutsceneManager(this);
+            CutsceneLibrary.LoadAllCutscenes(CutsceneManager, this);
 
-            _upgradeManager = new UpgradeManager(
-               _gameEngine.GetPlayer(),
-               _gameEngine.GetSpellManager(),
-               _spellIcons,
-               _dashIcon,
-               _heavyAttackIcon,
-               GraphicsDevice
-           );
+            // Initialize the Gameplay Engine
+            SoftResetGame();
 
-            _cutsceneManager = new CutsceneManager(this);
-            Texture2D[] slides = new Texture2D[9];
-            for (int i = 1; i < 9; i++)
-            {
-                slides[i] = Content.Load<Texture2D>("cutscene_image_" + i);
-            }
+            // START THE ENGINE IN THE MENU STATE
+            StateManager.ChangeState(new MenuState(this));
+        }
 
-            for (int i = 1; i < 8; i++)
-            {
-                _outroSlides.Add(Content.Load<Texture2D>("outro_image_" + i));
-            }
-
-            _uiPixel = new Texture2D(GraphicsDevice, 1, 1);
-            _uiPixel.SetData(new[] { Color.White });
-
-            try { _uiFont = Content.Load<SpriteFont>("cutsceneFont"); }
-            catch { }
-
-            try { _menuBackground = Content.Load<Texture2D>("menu_background"); }
-            catch { }
-
-            // Cutscene Setup
-            float dur = 5500f;
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[1], "Decades ago Scholars discovered that the universe was not forged from nothing,\n it was brought to fruition by beings greater than our comprehension", dur + 2000, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[2], "One of these beings known as Atun created humanity, in hopes in return he would get their devoted undying love.", dur, 1.05f, 1.05f, new Vector2(-30, 0), new Vector2(30, 0)));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[3], "But soon after humanity discovered it was he who made civilisation the cruel unforgiving reality it was,\n a rancorous feeling was left souring their tounge.", dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[4], "Insulted, Atun withdrew any power he was yeilding to the world he once held so precious.", dur, 1.05f, 1.05f, new Vector2(0, 30), new Vector2(0, -30)));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[5], "The Roots of his power went Pale, and the love his people had for him turned to blaising rage as\n they were forsaken further.", dur, 1.0f, 1.08f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[6], "In news of a weakened civilisation, Predatory colonys smelled blood in the waters of the Galaxy.", dur, 1.05f, 1.05f, new Vector2(30, 0), new Vector2(-30, 0)));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[7], "Led by Nivellin, a war Hero with inexplicable power. He had came to take back ther land that was once his to Rule.", dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(slides[8], "War was set in Motion, as was the Justice for Humanity", dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
+        public void SoftResetGame()
+        {
+            GameEngine = new ChaseAndFireEngine(this);
+            UpgradeManager = new UpgradeManager(
+                GameEngine.GetPlayer(),
+                GameEngine.GetSpellManager(),
+                SpellIcons,
+                DashIcon,
+                HeavyAttackIcon,
+                GraphicsDevice
+            );
+            NextLevelThreshold = 3;
+            LevelStep = 4;
+            InputEngine.ClearState();
         }
 
         protected override void Update(GameTime gameTime)
         {
-            // --- UPDATE AUDIO MANAGER ---
-            _audioManager.HandleMusicState(_currentState);
-            _audioManager.Update(gameTime);
-            // ----------------------------
-
-            switch (_currentState)
-            {
-                case GameState.Intro:
-                    _cutsceneManager.Update(gameTime);
-                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _cutsceneManager.IsFinished)
-                    {
-                        _currentState = GameState.Gameplay;
-                        _hasStarted = true;
-                    }
-                    break;
-
-
-                case GameState.Outro:
-                    _cutsceneManager.Update(gameTime);
-
-                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _cutsceneManager.IsFinished)
-                    {
-                        _currentState = GameState.Credits;
-                        _creditsScrollY = GraphicsDevice.Viewport.Height;
-                    }
-                    break;
-
-                case GameState.Menu:
-                    IsMouseVisible = true;
-                    MouseState ms = Mouse.GetState();
-                    Point mousePoint = new Point(ms.X, ms.Y);
-
-                    if (ms.LeftButton == ButtonState.Pressed)
-                    {
-                        if (_playBtnRect.Contains(mousePoint))
-                        {
-                            if (!_hasStarted) _currentState = GameState.Intro;
-                            else _currentState = GameState.Gameplay;
-                        }
-                        else if (_quitBtnRect.Contains(mousePoint)) Exit();
-                    }
-                    break;
-
-                case GameState.Credits:
-                    // Scroll text upwards
-                    _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-                    // Check for Spacebar OR if text has scrolled off screen
-                    if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
-                    {
-                        // 1. Change State to Menu
-                        _currentState = GameState.Menu;
-                        _hasStarted = false;
-
-                        // 2. Perform Soft Reset (Reset gameplay, keep audio/assets alive)
-                        SoftResetGame();
-                    }
-                    break;
-
-                case GameState.Gameplay:
-                    if (InputEngine.IsKeyPressed(Keys.Escape)) _currentState = GameState.Menu;
-
-                    if (_gameEngine != null)
-                    {
-                        _gameEngine.Update(gameTime);
-
-                        // Win
-                        if (_gameEngine.EnemiesKilled >= WIN_CONDITION_KILLS) _currentState = GameState.Victory;
-
-                        // Loss
-                        if (!_gameEngine.GetPlayer().IsAlive) _currentState = GameState.GameOver;
-
-                        // Level Up
-                        if (_gameEngine.EnemiesKilled >= _nextLevelThreshold)
-                        {
-                            _currentUpgradeOptions = _upgradeManager.GetRandomOptions(3);
-                            if (_currentUpgradeOptions.Count > 0)
-                            {
-                                _currentState = GameState.LevelUp;
-                                _uiInputDelay = SAFETY_DELAY; // START THE DELAY TIMER
-                            }
-                            _levelStep += 4; // Smaller step (easier)
-                            _nextLevelThreshold += _levelStep;
-                        }
-                    }
-                    break;
-
-                case GameState.LevelUp:
-                    IsMouseVisible = true;
-                    // Decrement Timer
-                    if (_uiInputDelay > 0) _uiInputDelay -= (float)gameTime.ElapsedGameTime.TotalSeconds;
-                    else HandleLevelUpInput();
-                    break;
-
-                case GameState.Victory:
-                case GameState.GameOver:
-                    IsMouseVisible = true;
-                    HandleEndGameInput();
-                    break;
-            }
+            AudioManager.Update(gameTime);
+            StateManager.Update(gameTime);
             base.Update(gameTime);
-        }
-
-        private void SoftResetGame()
-        {
-            // Reset Game Engine (Player, Level, Enemies)
-            _gameEngine = new ChaseAndFireEngine(this);
-
-            // Re-link the UpgradeManager to the NEW Player/SpellManager
-            _upgradeManager = new UpgradeManager(
-                _gameEngine.GetPlayer(),
-                _gameEngine.GetSpellManager(),
-                _spellIcons,
-                _dashIcon,
-                _heavyAttackIcon,
-                GraphicsDevice
-            );
-
-            // Reset Progression Variables
-            _nextLevelThreshold = 3;
-            _levelStep = 4;
-
-            // Reset Input State so we don't accidentally click something immediately
-            InputEngine.ClearState();
-        }
-        private void HandleLevelUpInput()
-        {
-            if (InputEngine.IsMouseLeftClick())
-            {
-                MouseState ms = Mouse.GetState();
-
-                Rectangle screen = GraphicsDevice.Viewport.Bounds;
-                int cardWidth = 200;
-                int cardHeight = 300;
-                int spacing = 50;
-                int totalWidth = (_currentUpgradeOptions.Count * cardWidth) + ((_currentUpgradeOptions.Count - 1) * spacing);
-                int startX = (screen.Width / 2) - (totalWidth / 2);
-                int startY = (screen.Height / 2) - (cardHeight / 2);
-
-                for (int i = 0; i < _currentUpgradeOptions.Count; i++)
-                {
-                    Rectangle cardRect = new Rectangle(startX + (i * (cardWidth + spacing)), startY, cardWidth, cardHeight);
-
-                    if (cardRect.Contains(ms.Position))
-                    {
-                        _currentUpgradeOptions[i].ApplyAction.Invoke();
-                        _currentState = GameState.Gameplay;
-                        InputEngine.ClearState();
-                        break;
-                    }
-                }
-            }
-        }
-
-        private void HandleEndGameInput()
-        {
-            MouseState ms = Mouse.GetState();
-            int centerW = GraphicsDevice.Viewport.Width / 2;
-            int centerH = GraphicsDevice.Viewport.Height / 2;
-
-            Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
-            Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
-
-            if (InputEngine.IsMouseLeftClick())
-            {
-                if (playAgainRect.Contains(ms.Position))
-                {
-                    if (_currentState == GameState.Victory)
-                    {
-                        StartOutroSequence();
-                    }
-                    else
-                    {
-                        SoftResetGame();
-                        _currentState = GameState.Gameplay;
-                        _hasStarted = true;
-
-                        // Stop audio on death/restart so it resets
-                        _audioManager.Stop();
-                    }
-                    InputEngine.ClearState();
-                }
-                else if (quitRect.Contains(ms.Position))
-                {
-                    Exit();
-                }
-            }
-        }
-
-        private void StartOutroSequence()
-        {
-            _cutsceneManager.ClearSlides();
-            float dur = 6000f;
-
-            // Slide 1: Zoom In
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[0],
-                "The Skeleton King crumbles, his reign of bone and ash finally at an end.",
-                dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
-
-            // Slide 2: Pan Right
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[1],
-                "Without his dark magic, the Pale Roots begin to wither and retreat.",
-                dur, 1.1f, 1.1f, new Vector2(-50, 0), new Vector2(50, 0)));
-
-            // Slide 3: Zoom Out
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[2],
-                "Where death once choked the land, the first sprouts of green life return.",
-                dur, 1.2f, 1.0f, Vector2.Zero, Vector2.Zero));
-
-            // Slide 4: Pan Up
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[3],
-                "The survivors emerge from the ruins, looking up at a clear sky for the first time in years.",
-                dur, 1.1f, 1.1f, new Vector2(0, 50), new Vector2(0, -50)));
-
-            // Slide 5: Zoom In
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[4],
-                "We will rebuild. Not as subjects of a tyrant, but as free people.",
-                dur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
-
-            // Slide 6: Static -> Zoom
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[5],
-                "The scars of this war will remain, a reminder of what was lost.",
-                dur, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
-
-            // Slide 7: Slow Pan
-            _cutsceneManager.AddSlide(new CutsceneManager.CutsceneSlide(_outroSlides[6],
-                "But today... today we celebrate the dawn.",
-                dur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
-
-            _currentState = GameState.Outro;
-        }
-
-        private void DrawLevelUpScreen()
-        {
-            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.7f);
-
-            string title = "ALTERNATE PHYSICS WITH THE STRENGTH OF THE DEAD";
-            Vector2 size = _uiFont.MeasureString(title);
-            _spriteBatch.DrawString(_uiFont, title, new Vector2(GraphicsDevice.Viewport.Width / 2 - size.X / 2, 100), Color.Gold);
-
-            Rectangle screen = GraphicsDevice.Viewport.Bounds;
-            int cardWidth = 200;
-            int cardHeight = 300;
-            int spacing = 50;
-            int totalWidth = (_currentUpgradeOptions.Count * cardWidth) + ((_currentUpgradeOptions.Count - 1) * spacing);
-            int startX = (screen.Width / 2) - (totalWidth / 2);
-            int startY = (screen.Height / 2) - (cardHeight / 2);
-
-            Point mousePos = Mouse.GetState().Position;
-
-            for (int i = 0; i < _currentUpgradeOptions.Count; i++)
-            {
-                Rectangle cardRect = new Rectangle(startX + (i * (cardWidth + spacing)), startY, cardWidth, cardHeight);
-                bool hover = cardRect.Contains(mousePos);
-                _upgradeManager.DrawCard(_spriteBatch, cardRect, _currentUpgradeOptions[i], hover, _uiFont);
-            }
-        }
-
-        private void DrawEndScreen(bool victory)
-        {
-            _spriteBatch.Draw(_uiPixel, GraphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
-
-            string title = victory ? "VICTORY" : "YOU DIED";
-            Color color = victory ? Color.Gold : Color.Red;
-
-            Vector2 size = _uiFont.MeasureString(title);
-            Vector2 center = new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2);
-
-            _spriteBatch.DrawString(_uiFont, title, new Vector2(center.X - size.X, center.Y - 150), color, 0f, Vector2.Zero, 2.0f, SpriteEffects.None, 0f);
-
-            if (victory)
-            {
-                string lore = "The Skeleton King is defeated.\nThe Pale Roots recede.";
-                Vector2 loreSize = _uiFont.MeasureString(lore);
-                _spriteBatch.DrawString(_uiFont, lore, new Vector2(center.X - loreSize.X / 2, center.Y - 80), Color.White);
-            }
-
-            Rectangle btn1Rect = new Rectangle((int)center.X - 100, (int)center.Y, 200, 50);
-            Rectangle btn2Rect = new Rectangle((int)center.X - 100, (int)center.Y + 70, 200, 50);
-
-            Point mousePos = Mouse.GetState().Position;
-
-            void DrawBtn(Rectangle r, string t)
-            {
-                bool hover = r.Contains(mousePos);
-                _spriteBatch.Draw(_uiPixel, r, hover ? Color.Gray : Color.DarkGray);
-
-                int b = 2;
-                Color bc = hover ? Color.White : Color.Black;
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, r.Width, b), bc);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Bottom - b, r.Width, b), bc);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, b, r.Height), bc);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(r.Right - b, r.Y, b, r.Height), bc);
-
-                Vector2 ts = _uiFont.MeasureString(t);
-                _spriteBatch.DrawString(_uiFont, t, new Vector2(r.Center.X - ts.X / 2, r.Center.Y - ts.Y / 2), Color.White);
-            }
-
-            string btn1Text = victory ? "FINISH GAME" : "PLAY AGAIN";
-
-            DrawBtn(btn1Rect, btn1Text);
-            DrawBtn(btn2Rect, "QUIT");
         }
 
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);
-
-            switch (_currentState)
-            {
-                case GameState.Intro:
-                    _spriteBatch.Begin();
-                    _cutsceneManager.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-                    _spriteBatch.End();
-                    break;
-
-                case GameState.Gameplay:
-                    _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _gameEngine._camera.CurrentCameraTranslation);
-                    _gameEngine.Draw(gameTime, _spriteBatch);
-                    _spriteBatch.End();
-
-                    _spriteBatch.Begin();
-                    DrawHUD();
-                    _spriteBatch.End();
-                    break;
-
-                case GameState.Credits:
-                    _spriteBatch.Begin();
-                    GraphicsDevice.Clear(Color.Black);
-
-                    string[] lines = _creditsText.Split('\n');
-                    float currentY = _creditsScrollY;
-                    float lineHeight = _uiFont.LineSpacing;
-
-                    foreach (string line in lines)
-                    {
-                        if (!string.IsNullOrWhiteSpace(line))
-                        {
-                            Vector2 lineSize = _uiFont.MeasureString(line);
-                            Vector2 linePos = new Vector2(
-                                (GraphicsDevice.Viewport.Width / 2) - (lineSize.X / 2),
-                                currentY
-                            );
-                            _spriteBatch.DrawString(_uiFont, line, linePos, Color.White);
-                        }
-                        currentY += lineHeight;
-                    }
-                    _spriteBatch.End();
-                    break;
-
-                case GameState.LevelUp:
-                case GameState.Victory:
-                case GameState.GameOver:
-                    _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _gameEngine._camera.CurrentCameraTranslation);
-                    _gameEngine.Draw(gameTime, _spriteBatch);
-                    _spriteBatch.End();
-
-                    _spriteBatch.Begin();
-                    if (_currentState == GameState.LevelUp) DrawLevelUpScreen();
-                    else DrawEndScreen(_currentState == GameState.Victory);
-                    _spriteBatch.End();
-                    break;
-
-                case GameState.Outro:
-                    _spriteBatch.Begin();
-                    _cutsceneManager.Draw(_spriteBatch, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-                    _spriteBatch.End();
-                    break;
-
-                case GameState.Menu:
-                    _spriteBatch.Begin();
-                    if (_menuBackground != null)
-                    {
-                        _spriteBatch.Draw(_menuBackground, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.White);
-                    }
-                    else
-                    {
-                        _spriteBatch.End();
-                        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _gameEngine._camera.CurrentCameraTranslation);
-                        _gameEngine.Draw(gameTime, _spriteBatch);
-                        _spriteBatch.End();
-                        _spriteBatch.Begin();
-                    }
-                    DrawMenu();
-                    _spriteBatch.End();
-                    break;
-            }
+            StateManager.Draw(gameTime, SpriteBatch, GraphicsDevice);
             base.Draw(gameTime);
-        }
-
-        private void DrawHUD()
-        {
-            Player p = _gameEngine.GetPlayer();
-            if (p == null) return;
-
-            int padding = 20;
-            int barHeight = 25;
-            int barWidth = 300;
-
-            _spriteBatch.Draw(_uiPixel, new Rectangle(padding, padding, barWidth + 4, (barHeight * 2) + 15), _hudColor);
-
-            float hpPercent = (float)p.Health / p.MaxHealth;
-            _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, barWidth, barHeight), Color.Black * 0.5f);
-            _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
-
-            float dashRatio = 0f;
-            if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
-            else dashRatio = 1.0f;
-            dashRatio = MathHelper.Clamp(dashRatio, 0f, 1f);
-
-            int stamY = padding + barHeight + 8;
-            int stamH = barHeight / 2;
-            _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
-            Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
-            _spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
-
-            int screenW = GraphicsDevice.Viewport.Width;
-            int barW = 600;
-            int barH = 20;
-            int barX = (screenW / 2) - (barW / 2);
-            int barY = 20;
-
-            _spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
-            _spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
-
-            float progress = (float)_gameEngine.EnemiesKilled / WIN_CONDITION_KILLS;
-            if (progress > 1f) progress = 1f;
-            _spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
-
-            string warText = "WAR DOMINANCE";
-            Vector2 textSize = _uiFont.MeasureString(warText);
-            _spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
-
-            int iconSize = 64;
-            int spacing = 20;
-            int startY = GraphicsDevice.Viewport.Height - iconSize - 20;
-
-            int unlockedSpells = 0;
-            for (int i = 0; i < 6; i++) if (_gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
-
-            bool showDash = p.IsDashUnlocked;
-            bool showHeavy = p.IsHeavyAttackUnlocked;
-
-            int totalItems = unlockedSpells + (showDash ? 1 : 0) + (showHeavy ? 1 : 0);
-
-            if (totalItems > 0)
-            {
-                int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
-                int currentX = (screenW / 2) - (totalWidth / 2);
-
-                Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
-                _spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
-
-                if (showDash)
-                {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
-                    _spriteBatch.Draw(_dashIcon, dest, Color.White);
-                    _spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
-
-                    if (p.DashTimer > 0)
-                    {
-                        float ratio = p.DashTimer / p.DashDuration;
-                        int h = (int)(iconSize * ratio);
-                        Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
-                        _spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
-                    }
-                    currentX += iconSize + spacing;
-                }
-
-                if (showHeavy)
-                {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
-                    _spriteBatch.Draw(_heavyAttackIcon, dest, Color.White);
-                    _spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
-                    currentX += iconSize + spacing;
-                }
-
-                for (int i = 0; i < 6; i++)
-                {
-                    if (_gameEngine.GetSpellManager().IsSpellUnlocked(i))
-                    {
-                        Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
-
-                        if (_spellIcons[i] != null)
-                            _spriteBatch.Draw(_spellIcons[i], dest, Color.White);
-
-                        string key = (i + 1).ToString();
-                        _spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
-
-                        Spell s = _gameEngine.GetSpellManager().GetSpell(i);
-                        if (s != null && s.CurrentCooldown > 0)
-                        {
-                            float ratio = s.CurrentCooldown / s.CooldownDuration;
-                            int h = (int)(iconSize * ratio);
-
-                            Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
-                            _spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
-
-                            if (s.CurrentCooldown > 1000)
-                            {
-                                string sec = (s.CurrentCooldown / 1000).ToString("0");
-                                Vector2 sz = _uiFont.MeasureString(sec);
-                                _spriteBatch.DrawString(_uiFont, sec,
-                                    new Vector2(dest.Center.X - sz.X / 2, dest.Center.Y - sz.Y / 2), Color.White);
-                            }
-                        }
-
-                        currentX += iconSize + spacing;
-                    }
-                }
-            }
-        }
-
-        private void DrawMenu()
-        {
-            int screenW = GraphicsDevice.Viewport.Width;
-            int screenH = GraphicsDevice.Viewport.Height;
-
-            _spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, screenH), Color.Black * 0.6f);
-
-            Point mousePoint = new Point(Mouse.GetState().X, Mouse.GetState().Y);
-
-            void DrawFancyButton(Rectangle rect, string text, bool isHovered)
-            {
-                Color fillColor = isHovered ? _btnHover : _btnNormal;
-                Color borderColor = isHovered ? _borderHover : _borderNormal;
-
-                _spriteBatch.Draw(_uiPixel, rect, fillColor);
-
-                int borderThickness = 2;
-                _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, rect.Width, borderThickness), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Bottom - borderThickness, rect.Width, borderThickness), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, borderThickness, rect.Height), borderColor);
-                _spriteBatch.Draw(_uiPixel, new Rectangle(rect.Right - borderThickness, rect.Y, borderThickness, rect.Height), borderColor);
-
-                if (_uiFont != null)
-                {
-                    Vector2 size = _uiFont.MeasureString(text);
-                    Vector2 pos = new Vector2(rect.Center.X - size.X / 2, rect.Center.Y - size.Y / 2);
-                    _spriteBatch.DrawString(_uiFont, text, pos, Color.White);
-                }
-            }
-
-            bool playHover = _playBtnRect.Contains(mousePoint);
-            DrawFancyButton(_playBtnRect, _hasStarted ? "RESUME" : "PLAY", playHover);
-
-            bool quitHover = _quitBtnRect.Contains(mousePoint);
-            DrawFancyButton(_quitBtnRect, "QUIT", quitHover);
-
-            if (_uiFont != null)
-            {
-                string title = "PALE ROOTS";
-                Vector2 titleSize = _uiFont.MeasureString(title);
-                Vector2 titlePos = new Vector2(screenW / 2f, 200);
-                Vector2 origin = titleSize / 2f;
-
-                _spriteBatch.DrawString(_uiFont, title, titlePos + new Vector2(3, 3), Color.Black * 0.8f, 0f, origin, 2.5f, SpriteEffects.None, 0f);
-                _spriteBatch.DrawString(_uiFont, title, titlePos, Color.PaleGoldenrod, 0f, origin, 2.5f, SpriteEffects.None, 0f);
-            }
-        }
-    }
-}
-namespace Pale_Roots_1
-{
-    public enum GameState
-    {
-        Intro,
-        Menu,
-        Gameplay,
-        LevelUp,
-        Victory,
-        Outro,
-        Credits,
-        GameOver
-    }
-}
-using System.Collections.Generic;
-using Microsoft.Xna.Framework;
-
-namespace Pale_Roots_1
-{
-    public class Level
-    {
-        public int[,] MapLayout { get; set; }
-        public List<TileRef> TilePalette { get; set; }
-        public Vector2 PlayerStartPos { get; set; }
-
-        public enum TileType
-        {
-            Floor= 0,
-            Wall = 1,
-            Tree = 2,
-
-        }
-
-        public Level(int[,] map, List<TileRef> tiles, Vector2 startPos)
-        {
-            MapLayout = map;
-            TilePalette = tiles;
-            PlayerStartPos = startPos;
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections.Generic;
-
-namespace Pale_Roots_1
-{
-    public class LevelManager
-    {
-        private Game _game;
-        private List<Level> _allLevels = new List<Level>();
-
-        // --- ENTITY LISTS ---
-        public List<Enemy> enemies = new List<Enemy>();
-        public List<WorldObject> MapObjects = new List<WorldObject>();
-
-        // --- GRAPHICS ---
-        public TileLayer CurrentLevel { get; private set; }
-        private Texture2D _groundSheet;
-        private Texture2D _animatedObjectSheet;
-        private Texture2D _staticObjectSheet;
-
-
-        private string[] _natureObjects = {
-            "Dying_Tree", "Medium_Dying_Tree", "Small_Dying_Tree",
-            "Brambles_Large", "Brambles_Medium", "Brambles_Small",
-            "Brambles_Tiny", "Brambles_Very_Tiny"
-        };
-
-        private string[] _graveObjects = {
-            "Grave_1", "Grave_2", "Grave_3",
-            "Hand_In_Floor", "Hand_In_Floor_Medium", "Hand_In_Floor_Small"
-        };
-
-        private string[] _ruinObjects = {
-            "Ruins_Column", "Smaller_Ruin", "Big_Rock", "Shrine_Blue"
-        };
-
-        private string[] _boneObjects = {
-            "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull",
-            "Baby_Skellington"
-        };
-
-        public LevelManager(Game game)
-        {
-            _game = game;
-            // We don't initialize here anymore, we do it in LoadLevel to be safe
-        }
-
-        public void LoadLevel(int index)
-        {
-            _groundSheet = _game.Content.Load<Texture2D>("MainLev2.0");
-
-            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
-            _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
-
-            Helper.SpriteSheet = _groundSheet;
-
-            InitializeGameWorld();
-        }
-
-        private void InitializeGameWorld()
-        {
-
-            int width = 60;
-            int height = 34;
-            int[,] map = new int[height, width];
-
-            // 2. CREATE FLOOR
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    map[y, x] = 0;
-                }
-            }
-
-          
-            List<TileRef> palette = new List<TileRef>();
-            palette.Add(new TileRef(13, 41, 0));
-            palette.Add(new TileRef(14, 41, 0));
-            palette.Add(new TileRef(15, 41, 0));
-            palette.Add(new TileRef(16, 41, 0));
-            palette.Add(new TileRef(17, 41, 0));
-            palette.Add(new TileRef(13, 42, 0));
-            palette.Add(new TileRef(14, 42, 0));
-            palette.Add(new TileRef(15, 42, 0));
-            palette.Add(new TileRef(16, 42, 0));
-            palette.Add(new TileRef(17, 42, 0));
-            palette.Add(new TileRef(13, 43, 0));
-            palette.Add(new TileRef(14, 43, 0));
-            palette.Add(new TileRef(15, 43, 0));
-            palette.Add(new TileRef(16, 43, 0));
-            palette.Add(new TileRef(17, 43, 0));
-            palette.Add(new TileRef(13, 44, 0));
-            palette.Add(new TileRef(14, 44, 0));
-            palette.Add(new TileRef(15, 44, 0));
-            palette.Add(new TileRef(16, 44, 0));
-            palette.Add(new TileRef(17, 44, 0));
-            palette.Add(new TileRef(13, 45, 0));
-            palette.Add(new TileRef(14, 45, 0));
-            palette.Add(new TileRef(15, 45, 0));
-            palette.Add(new TileRef(16, 45, 0));
-            palette.Add(new TileRef(17, 45, 0));
-            palette.Add(new TileRef(13, 46, 0));
-            palette.Add(new TileRef(14, 46, 0));
-            palette.Add(new TileRef(15, 46, 0));
-            palette.Add(new TileRef(16, 46, 0));
-            palette.Add(new TileRef(17, 46, 0));
-            palette.Add(new TileRef(13, 47, 0));
-            palette.Add(new TileRef(14, 47, 0));
-            palette.Add(new TileRef(15, 47, 0));
-            palette.Add(new TileRef(16, 47, 0));
-            palette.Add(new TileRef(17, 47, 0));
-            palette.Add(new TileRef(13, 48, 0));
-            palette.Add(new TileRef(14, 48, 0));
-            palette.Add(new TileRef(15, 48, 0));
-            palette.Add(new TileRef(16, 48, 0));
-            palette.Add(new TileRef(17, 48, 0));
-
-            palette.Add(new TileRef(9, 42, 0));
-            palette.Add(new TileRef(10, 42, 0));
-            palette.Add(new TileRef(11, 42, 0));
-            palette.Add(new TileRef(12, 42, 0));
-            palette.Add(new TileRef(9, 43, 0));
-            palette.Add(new TileRef(10, 43, 0));
-            palette.Add(new TileRef(11, 43, 0));
-            palette.Add(new TileRef(12, 43, 0));
-            //palette.Add(new TileRef(9, 44, 0)); 
-            //palette.Add(new TileRef(10, 44, 0));
-            //palette.Add(new TileRef(11, 44, 0));
-            //palette.Add(new TileRef(12, 44, 0));
-
-            palette.Add(new TileRef(9, 46, 0));
-            palette.Add(new TileRef(10, 46, 0));
-            palette.Add(new TileRef(11, 46, 0));
-            palette.Add(new TileRef(12, 46, 0));
-            palette.Add(new TileRef(9, 47, 0));
-            palette.Add(new TileRef(10, 47, 0));
-            palette.Add(new TileRef(11, 47, 0));
-            palette.Add(new TileRef(12, 47, 0));
-            palette.Add(new TileRef(9, 48, 0));
-            palette.Add(new TileRef(10, 48, 0));
-            palette.Add(new TileRef(11, 48, 0));
-            palette.Add(new TileRef(12, 48, 0));
-
-
-            CurrentLevel = new TileLayer(map, palette, 64, 32);
-
-
-
-            float centerX = width / 2f;
-            float centerY = height / 2f;
-
-            float safeRadiusX = 22f;
-            float safeRadiusY = 11f;
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-
-                    float dx = Math.Abs(x - centerX);
-                    float dy = Math.Abs(y - centerY);
-
-                    float excessX = Math.Max(dx - safeRadiusX, 0);
-                    float excessY = Math.Max(dy - safeRadiusY, 0);
-
-                    float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
-
-                    if (distanceOutsideBox > 0)
-                    {
-                        float chance = distanceOutsideBox / 4.5f;
-
-
-                        chance += CombatSystem.RandomFloat(-0.2f, 0.2f);
-
-                        if (CombatSystem.RandomFloat() < chance)
-                        {
-                            Vector2 pos = new Vector2(x * 64, y * 64);
-
-   
-                            pos.X += CombatSystem.RandomInt(-24, 24);
-                            pos.Y += CombatSystem.RandomInt(-24, 24);
-
-
-                            string randomNature = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
-
-                            CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
-                        }
-                    }
-                }
-            }
-
-            PlaceLandMarks();
-        }
-        //private void PlaceLandMarks()
-        //{
-        //    // Animated objects are fine as they were
-        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
-        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
-
-        //    Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
-
-        //    // CHANGE: Columns and Rocks are solid (true)
-        //    CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet, true);
-        //    CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet, true);
-
-        //    Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
-        //    CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet, true);
-
-        //    Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
-        //    int radius = 150;
-        //    int skullCount = 8;
-
-        //    for (int i = 0; i < skullCount; i++)
-        //    {
-        //        float angle = i * (MathHelper.TwoPi / skullCount);
-        //        Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
-
-
-        //        CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet, false);
-        //    }
-
-        //    for (int i = 0; i < 15; i++)
-        //    {
-        //        int rx = CombatSystem.RandomInt(10, 50);
-        //        int ry = CombatSystem.RandomInt(5, 29);
-        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
-
-        //        if (CombatSystem.RandomInt(0, 100) > 50)
-
-        //            CreateStaticObject("Big_Rock", pos, _staticObjectSheet, true);
-        //        else
-
-        //            CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
-        //    }
-        //}
-        private bool IsSpaceOccupied(Vector2 pos, float minGap)
-        {
-            foreach (var obj in MapObjects)
-            {
-
-                float objectRadius = (obj.spriteWidth * (float)obj.Scale) / 2.5f;
-
-                float safeDistance = minGap + objectRadius;
-
-                // 3. Check distance
-                if (Vector2.Distance(pos, obj.position) < safeDistance)
-                {
-                    return true; // Too close!
-                }
-            }
-            return false;
-        }
-        //private void PlaceLandMarks()
-        //{
-        //    // ==========================================
-        //    // 1. FIXED LANDMARKS (Spawn these FIRST)
-        //    // ==========================================
-
-        //    // Center Tree
-        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
-        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
-
-        //    // Skeleton King (Right, slightly Up)
-        //    Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
-        //    CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
-
-        //    // Big Ruin (Top Right)
-        //    Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
-        //    CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
-        //    CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
-        //    CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
-
-        //    // Smaller Ruin (Bottom Right)
-        //    Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
-        //    CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
-
-
-        //    // ==========================================
-        //    // 2. THE GRAVEYARD (Left Side Only)
-        //    // ==========================================
-        //    int gravesPlaced = 0;
-        //    int attempts = 0;
-
-        //    while (gravesPlaced < 25 && attempts < 200)
-        //    {
-        //        attempts++;
-
-        //        // Random Position on Left Side
-        //        int gx = CombatSystem.RandomInt(4, 22);
-        //        int gy = CombatSystem.RandomInt(4, 30);
-        //        Vector2 gravePos = new Vector2(gx * 64, gy * 64);
-
-        //        // CHECK: Increased gap to 80f (more than 1 tile width)
-        //        if (IsSpaceOccupied(gravePos, 80f)) continue;
-
-        //        string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
-        //        CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
-        //        gravesPlaced++;
-        //    }
-
-
-        //    // ==========================================
-        //    // 3. SKELETAL REMAINS CIRCLE (Around Tree)
-        //    // ==========================================
-        //    string[] bones = { "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull" };
-        //    int boneCount = 12;
-        //    float radius = 400f;
-
-        //    for (int i = 0; i < boneCount; i++)
-        //    {
-        //        float angle = i * (MathHelper.TwoPi / boneCount);
-        //        float jitter = CombatSystem.RandomFloat(-0.5f, 0.5f);
-        //        float distJitter = CombatSystem.RandomInt(-50, 50);
-
-        //        Vector2 offset = new Vector2(
-        //            (float)Math.Cos(angle + jitter) * (radius + distJitter),
-        //            (float)Math.Sin(angle + jitter) * (radius + distJitter)
-        //        );
-        //        Vector2 finalPos = centerPos + offset;
-
-        //        // CHECK: Gap of 60f for bones
-        //        if (IsSpaceOccupied(finalPos, 60f)) continue;
-
-        //        string boneItem = bones[CombatSystem.RandomInt(0, bones.Length)];
-        //        CreateStaticObject(boneItem, finalPos, _staticObjectSheet, false);
-        //    }
-
-
-        //    // ==========================================
-        //    // 4. RANDOM SCATTER (Hands, Dead Trees)
-        //    // ==========================================
-        //    int scatterPlaced = 0;
-        //    attempts = 0;
-
-        //    while (scatterPlaced < 15 && attempts < 200)
-        //    {
-        //        attempts++;
-
-        //        int rx = CombatSystem.RandomInt(5, 55);
-        //        int ry = CombatSystem.RandomInt(5, 29);
-        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
-
-        //        // Don't spawn too close to center tree
-        //        if (Vector2.Distance(pos, centerPos) < 300) continue;
-
-        //        // CHECK: Increased gap to 100f so random trees don't clump
-        //        if (IsSpaceOccupied(pos, 100f)) continue;
-
-        //        if (CombatSystem.RandomInt(0, 100) > 50)
-        //        {
-        //            string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
-        //            CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
-        //        }
-        //        else
-        //        {
-        //            string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
-        //            CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
-        //        }
-
-
-        //        scatterPlaced++;
-        //    }
-        //}
-
-        private void PlaceLandMarks()
-        {
-
-            Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
-            CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
-
-            Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true); // Solid!
-
-
-            Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
-            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, true);
-
-            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
-            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
-
-            FillZones(centerPos);
-        }
-        private void FillZones(Vector2 centerPos)
-        {
-            int attempts = 0;
-            int maxItems = 60; 
-            int itemsPlaced = 0;
-
-            while (itemsPlaced < maxItems && attempts < 1000)
-            {
-                attempts++;
-
-                int tx = CombatSystem.RandomInt(6, 54);
-                int ty = CombatSystem.RandomInt(6, 28);
-                Vector2 pos = new Vector2(tx * 64, ty * 64);
-
-                pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-
-
-                float distToCenter = Vector2.Distance(pos, centerPos);
-
-                // 3. Check Collision (Don't spawn on top of the King or Ruins)
-                // We use a large gap (80f) to ensure objects aren't clumped
-                if (IsSpaceOccupied(pos, 80f)) continue;
-
-                string assetToSpawn = "";
-                bool isSolid = false;
-
-                // --- ZONE LOGIC ---
-
-                // ZONE A: The Bone Circle (Close to center tree)
-                if (distToCenter < 350 && distToCenter > 100)
-                {
-                    assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
-                }
-                // ZONE B: The Graveyard (Left side of map: X < 20)
-                else if (tx < 22)
-                {
-                    assetToSpawn = _graveObjects[CombatSystem.RandomInt(0, _graveObjects.Length)];
-                    // Graves are usually solid, hands are not. 
-                    // Simple check: if it starts with "Grave", it's solid.
-                    if (assetToSpawn.StartsWith("Grave")) isSolid = true;
-                }
-                // ZONE C: The Ruins/Scatter (Right side: X > 38)
-                else if (tx > 38)
-                {
-                    // Mix of rocks and ruins
-                    if (CombatSystem.RandomInt(0, 100) > 70)
-                        assetToSpawn = _ruinObjects[CombatSystem.RandomInt(0, _ruinObjects.Length)];
-                    else
-                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
-
-                    isSolid = true;
-                }
-                // ZONE D: General Open Space (Everywhere else)
-                else
-                {
-                    // Sparse random details (Bones or small plants)
-                    if (CombatSystem.RandomInt(0, 100) > 50)
-                        assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
-                    else
-                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
-                }
-
-                // 4. Create the object
-                if (assetToSpawn != "")
-                {
-
-                    if (IsTooCloseToIdentical(assetToSpawn, pos, 500f))
-                    {
-
-                        continue;
-                    }
-
-                    CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
-                    itemsPlaced++;
-                }
-            }
-        }
-        private bool IsTooCloseToIdentical(string assetName, Vector2 pos, float minDistance)
-        {
-            foreach (var obj in MapObjects)
-            {
-                // 1. Is it the exact same object type?
-                if (obj.AssetName == assetName)
-                {
-                    // 2. Is it too close?
-                    if (Vector2.Distance(pos, obj.position) < minDistance)
-                    {
-                        return true; // Yes, reject this spawn
-                    }
-                }
-            }
-            return false; // No twins found nearby
-        }
-        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
-        {
-            Rectangle data = Helper.GetSourceRect(assetName);
-
-            var obj = new WorldObject(_game, sheet, position, 1, isSolid);
-
-            obj.AssetName = assetName;
-
-            obj.SetSpriteSheetLocation(data);
-            MapObjects.Add(obj);
-        }
-        private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
-        {
-            Rectangle data = Helper.GetSourceRect(assetName);
-
-            var obj = new WorldObject(_game, sheet, position, frames, false);
-
-            obj.SetSpriteSheetLocation(data);
-
-            MapObjects.Add(obj);
-        }
-        private Vector2 GetRandomPosition()
-        {
-            int tx = CombatSystem.RandomInt(2, 28);
-            int ty = CombatSystem.RandomInt(2, 28);
-
-            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
-        }
-
-        public void Update(GameTime gameTime, Player player)
-        {
-            // Update Enemies
-            foreach (Enemy enemy in enemies)
-            {
-                enemy.CurrentCombatPartner = player;
-                enemy.Update(gameTime);
-            }
-            enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
-
-            // Update Map Objects (Animations)
-            foreach (var obj in MapObjects)
-            {
-                obj.Update(gameTime);
-            }
-        }
-
-        public void Draw(SpriteBatch spriteBatch)
-        {
-            // Only draw the floor tiles here. 
-            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
-            if (CurrentLevel != null)
-            {
-                CurrentLevel.Draw(spriteBatch);
-            }
         }
     }
 }
 using var game = new Pale_Roots_1.Game1();
 game.Run();
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-
-namespace Pale_Roots_1
-{
-    public abstract class Spell
-    {
-        public string Name { get; protected set; }
-        public float CooldownDuration { get; protected set; }
-        public float CurrentCooldown { get; set; } = 0f;
-
-        public float ActiveDuration { get; protected set; }
-        public float CurrentActiveTimer { get; set; } = 0f;
-        public bool IsActive { get; protected set; } = false;
-
-        // NEW: Allow spells to define their own size
-        public float Scale { get; set; } = 3.0f;
-
-        protected Game _game;
-        protected AnimationManager _animManager;
-        protected Vector2 _position;
-        protected ChaseAndFireEngine _engineRef;
-
-        public Spell(Game game)
-        {
-            _game = game;
-            _animManager = new AnimationManager();
-        }
-
-        public virtual void Update(GameTime gameTime)
-        {
-            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-            if (CurrentCooldown > 0) CurrentCooldown -= dt;
-
-            if (IsActive)
-            {
-                CurrentActiveTimer -= dt;
-                _animManager.Update(gameTime);
-                OnUpdateActive(gameTime);
-
-                if (CurrentActiveTimer <= 0)
-                {
-                    EndEffect();
-                }
-            }
-        }
-
-        public virtual void Draw(SpriteBatch spriteBatch)
-        {
-            if (IsActive)
-            {
-                // FIX: Use the variable Scale instead of hardcoded 3.0f
-                _animManager.Draw(spriteBatch, _position, Scale, SpriteEffects.None);
-            }
-        }
-
-        public bool Cast(ChaseAndFireEngine engine, Vector2 targetPos)
-        {
-            if (CurrentCooldown > 0 || IsActive) return false;
-
-            _engineRef = engine;
-            CurrentCooldown = CooldownDuration;
-            CurrentActiveTimer = ActiveDuration;
-            IsActive = true;
-            _position = targetPos;
-
-            OnCast(engine);
-            return true;
-        }
-
-        protected abstract void OnCast(ChaseAndFireEngine engine);
-        protected virtual void EndEffect() { IsActive = false; }
-        protected virtual void OnUpdateActive(GameTime gameTime) { }
-    }
-}
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
@@ -2218,449 +407,6 @@ namespace Pale_Roots_1
         {
             base.EndEffect();
             if (_engineRef != null) _engineRef.GlobalPlayerDamageMult = 1.0f;
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using System.Collections.Generic;
-
-namespace Pale_Roots_1
-{
-    public class SpellManager
-    {
-        private ChaseAndFireEngine _engine;
-        private List<Spell> _spells = new List<Spell>();
-
-        private bool[] _unlockedSpells;
-
-        // --- FIX IS HERE: NO "class" KEYWORD ---
-        public SpellManager(ChaseAndFireEngine engine,
-                            Texture2D smiteTx,
-                            Texture2D novaTx,
-                            Texture2D furyTx,
-                            Texture2D shieldTx,
-                            Texture2D electricTx,
-                            Texture2D justiceTx)
-        {
-            _engine = engine;
-
-            // Initialize Spells
-            _spells.Add(new SmiteSpell(engine._gameOwnedBy, smiteTx));
-            _spells.Add(new HolyNovaSpell(engine._gameOwnedBy, novaTx));
-            _spells.Add(new HeavensFurySpell(engine._gameOwnedBy, furyTx));
-            _spells.Add(new HolyShieldSpell(engine._gameOwnedBy, shieldTx));
-            _spells.Add(new ElectricitySpell(engine._gameOwnedBy, electricTx));
-            _spells.Add(new SwordOfJusticeSpell(engine._gameOwnedBy, justiceTx));
-
-            _unlockedSpells = new bool[_spells.Count];
-        }
-
-        public void Update(GameTime gameTime)
-        {
-            foreach (var spell in _spells)
-            {
-                spell.Update(gameTime);
-            }
-            HandleInput();
-        }
-
-        private void HandleInput()
-        {
-            KeyboardState kState = Keyboard.GetState();
-            MouseState mState = Mouse.GetState();
-            Vector2 mouseScreenPos = new Vector2(mState.X, mState.Y);
-            Matrix inverseTransform = Matrix.Invert(_engine._camera.CurrentCameraTranslation);
-            Vector2 mousePos = Vector2.Transform(mouseScreenPos, inverseTransform);
-
-
-            if (kState.IsKeyDown(Keys.D1)) CastSpell(0, mousePos);
-            if (kState.IsKeyDown(Keys.D2)) CastSpell(1, mousePos);
-            if (kState.IsKeyDown(Keys.D3)) CastSpell(2, mousePos);
-            if (kState.IsKeyDown(Keys.D4)) CastSpell(3, mousePos);
-            if (kState.IsKeyDown(Keys.D5)) CastSpell(4, mousePos);
-            if (kState.IsKeyDown(Keys.D6)) CastSpell(5, mousePos);
-        }
-
-        private void CastSpell(int index, Vector2 target)
-        {
-            if (index >= 0 && index < _spells.Count)
-            {
-                if (_unlockedSpells[index])
-                {
-                    _spells[index].Cast(_engine, target);
-                }
-            }
-        }
-        public void UnlockSpell(int index)
-        {
-            if (index >= 0 && index < _unlockedSpells.Length)
-            {
-                _unlockedSpells[index] = true;
-            }
-        }
-
-        public bool IsSpellUnlocked(int index)
-        {
-            if (index >= 0 && index < _unlockedSpells.Length) return _unlockedSpells[index];
-            return false;
-        }
-        public Spell GetSpell(int index)
-        {
-            if (index >= 0 && index < _spells.Count)
-            {
-                return _spells[index];
-            }
-            return null;
-        }
-
-        public void Draw(SpriteBatch spriteBatch)
-        {
-            foreach (var spell in _spells)
-            {
-                spell.Draw(spriteBatch);
-            }
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace Pale_Roots_1
-{
-    public class UpgradeManager
-    {
-        public enum UpgradeType { HeavyAttack, Dash, Spell }
-
-        public class UpgradeOption
-        {
-            public string Name;
-            public string Description;
-            public Texture2D Icon;
-            public Action ApplyAction;
-            public UpgradeType Type;
-        }
-
-        private Player _player;
-        private SpellManager _spellManager;
-        private Texture2D[] _spellIcons;
-
-        private Texture2D _dashIcon;
-        private Texture2D _heavyIcon;
-
-        private Texture2D _pixel; // For card backgrounds
-
-        // All possible upgrades in the game
-        private List<UpgradeOption> _allUpgrades = new List<UpgradeOption>();
-
-        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, GraphicsDevice gd)
-        {
-            _player = p;
-            _spellManager = sm;
-            _spellIcons = icons;
-
-            // Store the new icons
-            _dashIcon = dashIcon;
-            _heavyIcon = heavyIcon;
-
-            _pixel = new Texture2D(gd, 1, 1);
-            _pixel.SetData(new[] { Color.White });
-
-            InitializeUpgrades();
-        }
-
-        private void InitializeUpgrades()
-        {
-            // 1. Heavy Attack
-            _allUpgrades.Add(new UpgradeOption
-            {
-                Name = "Heavy Attack",
-                Description = "Right Click to deal double damage.",
-                Type = UpgradeType.HeavyAttack,
-                Icon = _heavyIcon,
-                ApplyAction = () => _player.IsHeavyAttackUnlocked = true
-            });
-
-            // 2. Dash
-            _allUpgrades.Add(new UpgradeOption
-            {
-                Name = "Dash",
-                Description = "Press Shift to dodge attacks.",
-                Type = UpgradeType.Dash,
-                Icon = _dashIcon,
-                ApplyAction = () => _player.IsDashUnlocked = true
-            });
-
-            // 3. Spells (Indices 0 to 5 based on SpellManager)
-            string[] spellNames = { "Smite", "Holy Nova", "Heaven's Fury", "Holy Shield", "Electricity", "Sword of Justice" };
-            string[] spellDescs = {
-                "Heal yourself to full HP.",
-                "Instakill AOE on your cursor",
-                "Half Enemy Healthbars",
-                "Double Ally Health",
-                "Stun Enemies and stop spawning",
-                "Double Damage"
-            };
-
-            for (int i = 0; i < 6; i++)
-            {
-                int index = i; // Capture for lambda
-                _allUpgrades.Add(new UpgradeOption
-                {
-                    Name = spellNames[i],
-                    Description = spellDescs[i],
-                    Type = UpgradeType.Spell,
-                    Icon = _spellIcons[i],
-                    ApplyAction = () => _spellManager.UnlockSpell(index)
-                });
-            }
-        }
-
-        public List<UpgradeOption> GetRandomOptions(int count)
-        {
-            // Filter out upgrades we already have
-            var available = _allUpgrades.Where(u => IsUpgradeAvailable(u)).ToList();
-
-            // Shuffle
-            var rng = new Random();
-            int n = available.Count;
-            while (n > 1)
-            {
-                n--;
-                int k = rng.Next(n + 1);
-                var value = available[k];
-                available[k] = available[n];
-                available[n] = value;
-            }
-
-            // Take top 3 (or fewer if we are running out)
-            return available.Take(count).ToList();
-        }
-
-        private bool IsUpgradeAvailable(UpgradeOption u)
-        {
-            if (u.Type == UpgradeType.HeavyAttack) return !_player.IsHeavyAttackUnlocked;
-            if (u.Type == UpgradeType.Dash) return !_player.IsDashUnlocked;
-
-            // For spells, we need to check if the specific spell index is unlocked
-            // We can infer the index from the name or store it. 
-            // Since we initialized them in order 0-5:
-            if (u.Type == UpgradeType.Spell)
-            {
-                // Find index in our spell list
-                string[] spellNames = { "Smite", "Holy Nova", "Heaven's Fury", "Holy Shield", "Electricity", "Sword of Justice" };
-                int idx = Array.IndexOf(spellNames, u.Name);
-                return !_spellManager.IsSpellUnlocked(idx);
-            }
-            return true;
-        }
-        private string ParseText(string text, SpriteFont font, int width)
-        {
-            string line = string.Empty;
-            string returnString = string.Empty;
-            string[] wordArray = text.Split(' ');
-
-            foreach (string word in wordArray)
-            {
-                if (font.MeasureString(line + word).X > width)
-                {
-                    returnString = returnString + line + "\n";
-                    line = string.Empty;
-                }
-
-                line = line + word + " ";
-            }
-
-            return returnString + line;
-        }
-
-
-        public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
-        {
-            // 1. Background & Border
-            Color bgColor = isHovered ? Color.DarkSlateBlue : Color.Black * 0.9f;
-            Color borderColor = isHovered ? Color.Cyan : Color.Gray;
-
-            sb.Draw(_pixel, rect, bgColor);
-
-            int b = 2;
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, b), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Bottom - b, rect.Width, b), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, b, rect.Height), borderColor);
-            sb.Draw(_pixel, new Rectangle(rect.Right - b, rect.Y, b, rect.Height), borderColor);
-
-            // 2. Icon (Fixed Position at top)
-            int iconSize = 64;
-            int iconY = rect.Y + 30;
-            if (option.Icon != null)
-            {
-                Rectangle iconRect = new Rectangle(rect.Center.X - (iconSize / 2), iconY, iconSize, iconSize);
-                sb.Draw(option.Icon, iconRect, Color.White);
-            }
-
-            if (font != null)
-            {
-                // 3. Title (Centered below icon)
-                string title = option.Name;
-                Vector2 titleSize = font.MeasureString(title);
-                // Ensure title fits width, scale down if massive
-                float titleScale = 1.0f;
-                if (titleSize.X > rect.Width - 20) titleScale = (rect.Width - 20) / titleSize.X;
-
-                Vector2 titlePos = new Vector2(
-                    rect.Center.X - (titleSize.X * titleScale) / 2,
-                    iconY + iconSize + 15
-                );
-
-                sb.DrawString(font, title, titlePos, Color.Gold, 0f, Vector2.Zero, titleScale, SpriteEffects.None, 0f);
-
-                // 4. Description (Perfectly Centered in remaining space)
-                // Calculate remaining vertical space
-                float startY = titlePos.Y + (titleSize.Y * titleScale) + 10;
-                float endY = rect.Bottom - 10;
-                float availableHeight = endY - startY;
-
-                // Wrap text
-                string wrappedDesc = ParseText(option.Description, font, rect.Width - 30);
-                Vector2 descSize = font.MeasureString(wrappedDesc);
-
-                // Center vertically in the available space
-                float descY = startY + (availableHeight / 2) - (descSize.Y / 2);
-
-                // Center horizontally
-                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, descY);
-
-                sb.DrawString(font, wrappedDesc, descPos, Color.White);
-            }
-        }
-    }
-}
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System;
-
-namespace Pale_Roots_1
-{
-    // WorldObject is a Sprite used for static and animated map objects (trees, rocks, ruins).
-    // Responsibilities:
-    // - Maintain collision footprint that tightly fits visible non-transparent pixels near the sprite's feet.
-    // - Provide a CollisionBox used by other actors for obstacle detection.
-    // - Render itself and optionally a debug collision box.
-    // Interactions:
-    // - CollisionBox is used by RotatingSprite.IsColliding and Player/Enemy movement logic to block movement.
-    // - Uses Helper.GetSourceRect to map asset keys to sheet locations when created by LevelManager.
-    public class WorldObject : Sprite
-    {
-        public bool IsSolid { get; set; }
-        public string AssetName { get; set; }
-        private static Texture2D _debugTexture;
-
-        // Percentages used when defaulting to simpler bounding box calculations.
-        public float BoxWidthPercentage { get; set; } = 0.5f;
-        public float BoxHeightPercentage { get; set; } = 0.2f;
-
-        private int _pixelOffsetX;
-        private int _pixelWidth;
-
-        // Construct a map object; frameCount allows animated variants.
-        public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
-            : base(g, texture, pos, frameCount, 1.0)
-        {
-            IsSolid = isSolid;
-            mililsecondsBetweenFrames = 200; // slower default for environmental animations
-            Scale = 3.0f; // chosen scale to match tile grid; adjustable by level creation code
-        }
-
-        // Collision box focuses on the feet area rather than the whole sprite to allow better depth/passability.
-        public Rectangle CollisionBox
-        {
-            get
-            {
-                float scale = (float)Scale;
-
-                int finalHeight = (int)(spriteHeight * scale * 0.2f);
-                int finalWidth = (int)(_pixelWidth * scale);
-
-                float leftEdge = position.X - (spriteWidth * scale / 2);
-                int x = (int)(leftEdge + (_pixelOffsetX * scale));
-
-                int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
-
-                return new Rectangle(x, y, finalWidth, finalHeight);
-            }
-        }
-
-        // Analyze the sprite's bottom area to determine a tight pixel footprint for collision.
-        // Stores pixel offsets so CollisionBox can be computed quickly later.
-        private void CalculatePixelTightBox()
-        {
-            Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
-            spriteImage.GetData(rawData);
-
-            Rectangle src = sourceRectangle;
-
-            int startY = src.Y + (int)(src.Height * 0.8f);
-            int endY = src.Y + src.Height;
-
-            int minX = src.Width;
-            int maxX = 0;
-            bool foundPixels = false;
-
-            for (int y = startY; y < endY; y++)
-            {
-                for (int x = src.X; x < src.X + src.Width; x++)
-                {
-                    int index = y * spriteImage.Width + x;
-                    if (rawData[index].A > 200)
-                    {
-                        int localX = x - src.X;
-                        if (localX < minX) minX = localX;
-                        if (localX > maxX) maxX = localX;
-                        foundPixels = true;
-                    }
-                }
-            }
-
-            if (foundPixels)
-            {
-                _pixelOffsetX = minX;
-                _pixelWidth = maxX - minX;
-            }
-            else
-            {
-                // fallback if bottom has no opaque pixels
-                _pixelOffsetX = (int)(src.Width * 0.25f);
-                _pixelWidth = (int)(src.Width * 0.5f);
-            }
-        }
-
-        // Override to compute tight collision box whenever the source rectangle is set.
-        public new void SetSpritesheetLocation(Rectangle source)
-        {
-            base.SetSpriteSheetLocation(source);
-            CalculatePixelTightBox();
-        }
-
-        // Draw red rectangle lines for debug; creates a shared 1x1 texture as needed.
-        public void DrawDebug(SpriteBatch spriteBatch)
-        {
-            if (_debugTexture == null)
-            {
-                _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
-                _debugTexture.SetData(new[] { Color.Red });
-            }
-
-            Rectangle box = CollisionBox;
-            int thickness = 2;
-
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
         }
     }
 }
@@ -3549,6 +1295,1999 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class CreditsState : IGameState
+    {
+        private Game1 _game;
+        private float _creditsScrollY;
+
+        private string _creditsText =
+            "PALE ROOTS\n\n" +
+            "A Game by Ryan Barry\n\n" +
+            "PROGRAMMING\nRyan Barry\n\n" +
+            "ART ASSETS\nItch Artists\n\n" +
+            "MUSIC\nRyan Barry\n\n" +
+            "SPECIAL THANKS\nPaul Powell\nNeil Gannon\n\n\n" +
+            "Thank you for playing!";
+
+        public CreditsState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            _creditsScrollY = _game.GraphicsDevice.Viewport.Height;
+            _game.AudioManager.HandleMusicState(GameState.Credits);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
+            {
+                _game.HasStarted = false;
+                _game.SoftResetGame();
+                _game.StateManager.ChangeState(new MenuState(_game));
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+            graphicsDevice.Clear(Color.Black);
+
+            string[] lines = _creditsText.Split('\n');
+            float currentY = _creditsScrollY;
+            float lineHeight = _game.UiFont.LineSpacing;
+
+            foreach (string line in lines)
+            {
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    Vector2 lineSize = _game.UiFont.MeasureString(line);
+                    Vector2 linePos = new Vector2((graphicsDevice.Viewport.Width / 2) - (lineSize.X / 2), currentY);
+                    spriteBatch.DrawString(_game.UiFont, line, linePos, Color.White);
+                }
+                currentY += lineHeight;
+            }
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class EndGameState : IGameState
+    {
+        private Game1 _game;
+        private bool _isVictory;
+
+        public EndGameState(Game1 game, bool isVictory)
+        {
+            _game = game;
+            _isVictory = isVictory;
+        }
+
+        public void LoadContent()
+        {
+            _game.AudioManager.HandleMusicState(_isVictory ? GameState.Victory : GameState.GameOver);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.IsMouseVisible = true;
+            MouseState ms = Mouse.GetState();
+            int centerW = _game.GraphicsDevice.Viewport.Width / 2;
+            int centerH = _game.GraphicsDevice.Viewport.Height / 2;
+
+            Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
+            Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
+
+            if (InputEngine.IsMouseLeftClick())
+            {
+                if (playAgainRect.Contains(ms.Position))
+                {
+                    if (_isVictory)
+                    {
+                        // The StartOutroSequence() call was removed here!
+                        // We just transition to the OutroState, which plays the cutscene automatically.
+                        _game.StateManager.ChangeState(new OutroState(_game));
+                    }
+                    else
+                    {
+                        _game.SoftResetGame();
+                        _game.HasStarted = true;
+                        _game.AudioManager.Stop();
+                        _game.StateManager.ChangeState(new GameplayState(_game));
+                    }
+                    InputEngine.ClearState();
+                }
+                else if (quitRect.Contains(ms.Position))
+                {
+                    _game.Exit();
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            // Draw background game engine
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
+            _game.GameEngine.Draw(gameTime, spriteBatch);
+            spriteBatch.End();
+
+            // Draw End Screen UI
+            spriteBatch.Begin();
+            _game.UIManager.DrawEndScreen(spriteBatch, graphicsDevice, _isVictory);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class GameplayState : IGameState
+    {
+        private Game1 _game;
+        private const int WIN_CONDITION_KILLS = 180;
+
+        public GameplayState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            _game.AudioManager.HandleMusicState(GameState.Gameplay);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            if (InputEngine.IsKeyPressed(Keys.Escape))
+            {
+                _game.StateManager.ChangeState(new MenuState(_game));
+                return;
+            }
+
+            if (_game.GameEngine != null)
+            {
+                _game.GameEngine.Update(gameTime);
+
+                // Win/Loss
+                if (_game.GameEngine.EnemiesKilled >= WIN_CONDITION_KILLS)
+                    _game.StateManager.ChangeState(new EndGameState(_game, true));
+                else if (!_game.GameEngine.GetPlayer().IsAlive)
+                    _game.StateManager.ChangeState(new EndGameState(_game, false));
+
+                // Level Up
+                if (_game.GameEngine.EnemiesKilled >= _game.NextLevelThreshold)
+                {
+                    _game.CurrentUpgradeOptions = _game.UpgradeManager.GetRandomOptions(3);
+                    if (_game.CurrentUpgradeOptions.Count > 0)
+                    {
+                        _game.StateManager.ChangeState(new LevelUpState(_game));
+                    }
+                    _game.LevelStep += 4;
+                    _game.NextLevelThreshold += _game.LevelStep;
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
+            _game.GameEngine.Draw(gameTime, spriteBatch);
+            spriteBatch.End();
+
+            spriteBatch.Begin();
+            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _game.GameEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, WIN_CONDITION_KILLS);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public interface IGameState
+    {
+        void LoadContent();
+        void Update(GameTime gameTime);
+        void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice);
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class IntroState : IGameState
+    {
+        private Game1 _game;
+
+        public IntroState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            _game.AudioManager.HandleMusicState(GameState.Intro);
+            _game.CutsceneManager.Play("Intro");
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.CutsceneManager.Update(gameTime);
+            if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
+            {
+                _game.HasStarted = true;
+                _game.StateManager.ChangeState(new GameplayState(_game));
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+            _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class LevelUpState : IGameState
+    {
+        private Game1 _game;
+        private float _inputDelay = 0.5f; // Safety delay so player doesn't instantly click
+
+        public LevelUpState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            _game.AudioManager.HandleMusicState(GameState.LevelUp);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.IsMouseVisible = true;
+
+            if (_inputDelay > 0)
+            {
+                _inputDelay -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+            }
+            else
+            {
+                HandleInput();
+            }
+        }
+
+        private void HandleInput()
+        {
+            if (InputEngine.IsMouseLeftClick())
+            {
+                MouseState ms = Mouse.GetState();
+                Rectangle screen = _game.GraphicsDevice.Viewport.Bounds;
+                int cardWidth = 200;
+                int cardHeight = 300;
+                int spacing = 50;
+                int totalWidth = (_game.CurrentUpgradeOptions.Count * cardWidth) + ((_game.CurrentUpgradeOptions.Count - 1) * spacing);
+                int startX = (screen.Width / 2) - (totalWidth / 2);
+                int startY = (screen.Height / 2) - (cardHeight / 2);
+
+                for (int i = 0; i < _game.CurrentUpgradeOptions.Count; i++)
+                {
+                    Rectangle cardRect = new Rectangle(startX + (i * (cardWidth + spacing)), startY, cardWidth, cardHeight);
+                    if (cardRect.Contains(ms.Position))
+                    {
+                        _game.CurrentUpgradeOptions[i].ApplyAction.Invoke();
+                        _game.StateManager.ChangeState(new GameplayState(_game));
+                        InputEngine.ClearState();
+                        break;
+                    }
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            // Draw the game frozen in the background
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
+            _game.GameEngine.Draw(gameTime, spriteBatch);
+            spriteBatch.End();
+
+            // Draw the UI on top
+            spriteBatch.Begin();
+            _game.UIManager.DrawLevelUpScreen(spriteBatch, graphicsDevice, _game.CurrentUpgradeOptions, _game.UpgradeManager);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class MenuState : IGameState
+    {
+        private Game1 _game;
+        private Rectangle _playBtnRect;
+        private Rectangle _quitBtnRect;
+
+        public MenuState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            int centerW = _game.GraphicsDevice.Viewport.Width / 2;
+            int centerH = _game.GraphicsDevice.Viewport.Height / 2;
+
+            _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
+            _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
+
+            // Tell the Audio Manager we are in the menu
+            _game.AudioManager.HandleMusicState(GameState.Menu);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.IsMouseVisible = true;
+            MouseState ms = Mouse.GetState();
+            Point mousePoint = new Point(ms.X, ms.Y);
+
+            if (InputEngine.IsMouseLeftClick())
+            {
+                if (_playBtnRect.Contains(mousePoint))
+                {
+                    
+                    if (!_game.HasStarted) 
+                    {
+                        _game.StateManager.ChangeState(new IntroState(_game)); 
+                    }
+                    else 
+                    {
+                        _game.StateManager.ChangeState(new GameplayState(_game)); 
+                    }
+                    
+                }
+                else if (_quitBtnRect.Contains(mousePoint))
+                {
+                    _game.Exit();
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+
+            if (_game.MenuBackground != null)
+            {
+                spriteBatch.Draw(_game.MenuBackground, new Rectangle(0, 0, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height), Color.White);
+            }
+            else
+            {
+                // If there's no background, draw the gameplay level engine behind the menu
+                spriteBatch.End();
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
+                _game.GameEngine.Draw(gameTime, spriteBatch);
+                spriteBatch.End();
+                spriteBatch.Begin();
+            }
+
+            // Let the UIManager handle the heavy lifting
+            _game.UIManager.DrawMenu(spriteBatch, graphicsDevice, _playBtnRect, _quitBtnRect, _game.HasStarted);
+
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+
+namespace Pale_Roots_1
+{
+    public class OutroState : IGameState
+    {
+        private Game1 _game;
+
+        public OutroState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            _game.AudioManager.HandleMusicState(GameState.Outro);
+            _game.CutsceneManager.Play("Outro");
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.CutsceneManager.Update(gameTime);
+            if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
+            {
+                _game.StateManager.ChangeState(new CreditsState(_game));
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+            _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class AnimationManager
+    {
+        private Dictionary<string, Animation> _anims = new Dictionary<string, Animation>();
+        private Animation _currentAnimation;
+        private string _currentKey;
+
+        private float _timer;
+        public int CurrentFrame { get; private set; }
+
+        public float LayerDepth { get; set; }
+
+        public void AddAnimation(string key, Animation animation)
+        {
+            _anims[key] = animation;
+        }
+        public void Play(string key)
+        {
+            if (_currentKey == key) return;
+
+            if (_anims.ContainsKey(key))
+            {
+                _currentKey = key;
+                _currentAnimation = _anims[key];
+                CurrentFrame = 0;
+                _timer = 0;
+            }
+        }
+        public void Update(GameTime gameTime)
+        {
+            if (_currentAnimation == null) return;
+
+            _timer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            if (_timer > _currentAnimation.FrameSpeed)
+            {
+                _timer = 0f;
+                CurrentFrame++;
+
+                if (CurrentFrame >= _currentAnimation.FrameCount)
+                {
+                    if (_currentAnimation.IsLooping)
+                    {
+                        CurrentFrame = 0;
+                    }
+                    else
+                    {
+                        CurrentFrame = _currentAnimation.FrameCount - 1;
+                    }
+                }
+            }
+        }
+        public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect, int direction = 0)
+        {
+            if (_currentAnimation == null) return;
+
+            int frameWidth = _currentAnimation.FrameWidth;
+            int frameHeight = _currentAnimation.FrameHeight;
+            int currentRow = _currentAnimation.SheetRow;
+
+            // POLYMORPHIC LOGIC:
+            // If it's a Grid (Enemy/Ally), we ignore the 'effect' flip and change the Y row instead.
+            // Assuming standard sheets: 0:Down, 1:Left, 2:Right, 3:Up (Adjust based on your asset)
+            if (_currentAnimation.IsGrid)
+            {
+                currentRow = direction;
+                effect = SpriteEffects.None; // Grid handles direction, so don't flip
+            }
+
+            Rectangle source = new Rectangle(
+                CurrentFrame * frameWidth,
+                currentRow * frameHeight,
+                frameWidth,
+                frameHeight
+            );
+
+            // Origin at Bottom Center (Feet)
+            Vector2 origin = new Vector2(frameWidth / 2f, frameHeight);
+
+            spriteBatch.Draw(
+                _currentAnimation.Texture,
+                position,
+                source,
+                Color.White,
+                0f,
+                origin,
+                scale,
+                effect,
+                LayerDepth
+            );
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Media;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class AudioManager
+    {
+        // Configuration
+        private float _fadeSpeed = 0.5f;
+
+        // State
+        private float _currentVolume = 0f;
+        private float _targetVolume = 0f;
+
+        // Tracks
+        private Song _currentSong;
+        private Song _pendingSong;
+
+        // Playlists
+        public Song MenuSong { get; set; }
+        public Song IntroSong { get; set; }
+        public Song DeathSong { get; set; }
+        public Song OutroSong { get; set; } // Used for Victory/Outro/Credits
+
+        private List<Song> _combatSongs = new List<Song>();
+
+        public AudioManager()
+        {
+            // Initialize volume to silent so we fade in
+            MediaPlayer.Volume = 0f;
+        }
+
+        public void AddCombatSong(Song song)
+        {
+            _combatSongs.Add(song);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // 1. Fading Logic
+            if (_currentVolume < _targetVolume)
+            {
+                _currentVolume += _fadeSpeed * dt;
+                if (_currentVolume > _targetVolume) _currentVolume = _targetVolume;
+            }
+            else if (_currentVolume > _targetVolume)
+            {
+                _currentVolume -= _fadeSpeed * dt;
+                if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
+            }
+
+            MediaPlayer.Volume = _currentVolume;
+
+            // 2. Cross-Fade Execution
+            if (_pendingSong != null && _currentVolume <= 0.01f)
+            {
+                try
+                {
+                    MediaPlayer.Stop();
+                    MediaPlayer.Play(_pendingSong);
+
+                    // Loop non-combat songs
+                    // If we are in combat, we don't loop (so we can shuffle)
+                    // If we are in menu/outro, we loop.
+                    // We handle this logic loosely here, or strictly in HandleMusicState
+
+                    _currentSong = _pendingSong;
+                    _pendingSong = null;
+                    _targetVolume = 0.5f; // Fade back in
+                }
+                catch { }
+            }
+        }
+
+        // The main interface for Game1 to ask for music
+        public void HandleMusicState(GameState state)
+        {
+            // If we are currently fading out (Pending exists), wait.
+            if (_pendingSong != null) return;
+
+            switch (state)
+            {
+                case GameState.Menu:
+                    RequestTrack(MenuSong, true);
+                    break;
+                case GameState.Intro:
+                    RequestTrack(IntroSong, false);
+                    break;
+                case GameState.GameOver:
+                    RequestTrack(DeathSong, false);
+                    break;
+                case GameState.Victory:
+                case GameState.Outro:
+                case GameState.Credits:
+                    RequestTrack(OutroSong, true);
+                    break;
+
+                case GameState.Gameplay:
+                case GameState.LevelUp:
+                    HandleCombatMusic();
+                    break;
+            }
+        }
+
+        private void HandleCombatMusic()
+        {
+            // Check if we are playing a "Theme" song that shouldn't be here
+            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong ||
+                                 _currentSong == DeathSong || _currentSong == OutroSong);
+
+            // Check if the current song has finished naturally
+            bool isSilence = (MediaPlayer.State == MediaState.Stopped);
+
+            if (isWrongTheme)
+            {
+                RequestTrack(GetRandomCombatTrack(), false);
+            }
+            else if (isSilence)
+            {
+                // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
+                Song next = GetRandomCombatTrack();
+                PlayImmediate(next);
+            }
+        }
+
+        private void RequestTrack(Song song, bool loop)
+        {
+            if (_currentSong == song && _pendingSong == null) return;
+            if (_pendingSong == song) return;
+
+            MediaPlayer.IsRepeating = loop;
+            _pendingSong = song;
+            _targetVolume = 0.0f; // Fade out current
+        }
+
+        private void PlayImmediate(Song song)
+        {
+            try
+            {
+                MediaPlayer.Play(song);
+                MediaPlayer.IsRepeating = false;
+                _currentSong = song;
+                _currentVolume = 0f;
+                _targetVolume = 0.5f;
+            }
+            catch { }
+        }
+
+        private Song GetRandomCombatTrack()
+        {
+            if (_combatSongs.Count == 0) return null;
+            Song candidate;
+            int attempts = 0;
+            do
+            {
+                int index = CombatSystem.RandomInt(0, _combatSongs.Count);
+                candidate = _combatSongs[index];
+                attempts++;
+            }
+            while (candidate == _currentSong && attempts < 5);
+            return candidate;
+        }
+
+        public void Stop()
+        {
+            MediaPlayer.Stop();
+            _currentSong = null;
+            _pendingSong = null;
+            _currentVolume = 0.5f;
+            _targetVolume = 0.5f;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class CutsceneManager
+    {
+        private Dictionary<string, Cutscene> _cutscenes = new Dictionary<string, Cutscene>();
+        private Cutscene _currentCutscene;
+
+        private int _currentIndex = 0;
+        private float _timer = 0f;
+        private Texture2D _pixel;
+        private SpriteFont _font;
+
+        public bool IsFinished { get; private set; } = false;
+
+        public CutsceneManager(Game game)
+        {
+            _pixel = new Texture2D(game.GraphicsDevice, 1, 1);
+            _pixel.SetData(new[] { Color.White });
+            try { _font = game.Content.Load<SpriteFont>("cutsceneFont"); } catch { }
+        }
+
+        public void AddCutscene(string key, Cutscene cutscene)
+        {
+            _cutscenes[key] = cutscene;
+        }
+
+        public void Play(string key)
+        {
+            if (_cutscenes.ContainsKey(key))
+            {
+                _currentCutscene = _cutscenes[key];
+                _currentIndex = 0;
+                _timer = 0f;
+                IsFinished = false;
+            }
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            if (IsFinished || _currentCutscene == null) return;
+
+            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            _timer += dt;
+
+            // Using InputEngine so a held spacebar doesn't instantly skip everything
+            if (InputEngine.IsKeyPressed(Keys.Space) || InputEngine.IsKeyPressed(Keys.Enter))
+            {
+                IsFinished = true;
+            }
+
+            if (_timer >= _currentCutscene.Slides[_currentIndex].Duration)
+            {
+                _timer = 0;
+                _currentIndex++;
+
+                if (_currentIndex >= _currentCutscene.Slides.Count)
+                {
+                    IsFinished = true;
+                }
+            }
+        }
+
+        public void Draw(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        {
+            if (IsFinished || _currentCutscene == null) return;
+
+            CutsceneSlide slide = _currentCutscene.Slides[_currentIndex];
+
+            float progress = _timer / slide.Duration;
+            float scaleX = (float)screenWidth / slide.Texture.Width;
+            float scaleY = (float)screenHeight / slide.Texture.Height;
+            float baseScale = Math.Max(scaleX, scaleY);
+
+            float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
+            float finalScale = baseScale * currentZoom;
+            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
+
+            float fadeDuration = slide.Duration * 0.15f;
+            float alpha = 1.0f;
+
+            if (_timer < fadeDuration) alpha = _timer / fadeDuration;
+            else if (_timer > slide.Duration - fadeDuration)
+            {
+                float timeLeft = slide.Duration - _timer;
+                alpha = timeLeft / fadeDuration;
+            }
+
+            Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
+            Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
+
+            spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha, 0f, origin, finalScale, SpriteEffects.None, 0f);
+
+            if (_font != null)
+            {
+                Vector2 textSize = _font.MeasureString(slide.Text);
+                Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
+
+                Rectangle bgRect = new Rectangle((int)textPos.X - 20, (int)textPos.Y - 10, (int)textSize.X + 40, (int)textSize.Y + 20);
+                spriteBatch.Draw(_pixel, bgRect, Color.Black * 0.6f * alpha);
+                spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
+
+                string skipMsg = "Press SPACE to Skip";
+                Vector2 skipSize = _font.MeasureString(skipMsg);
+                Vector2 skipPos = new Vector2(screenWidth - skipSize.X - 40, screenHeight - 60);
+                spriteBatch.DrawString(_font, skipMsg, skipPos, Color.Gray * alpha * 0.8f);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public class GameStateManager
+    {
+        private IGameState _currentState;
+
+        public void ChangeState(IGameState newState)
+        {
+            _currentState = newState;
+            _currentState.LoadContent(); // Initialize the new state
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            if (_currentState != null)
+            {
+                _currentState.Update(gameTime);
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            if (_currentState != null)
+            {
+                _currentState.Draw(gameTime, spriteBatch, graphicsDevice);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class LevelManager
+    {
+        private Game _game;
+        private List<Level> _allLevels = new List<Level>();
+
+        // --- ENTITY LISTS ---
+        public List<Enemy> enemies = new List<Enemy>();
+        public List<WorldObject> MapObjects = new List<WorldObject>();
+
+        // --- GRAPHICS ---
+        public TileLayer CurrentLevel { get; private set; }
+        private Texture2D _groundSheet;
+        private Texture2D _animatedObjectSheet;
+        private Texture2D _staticObjectSheet;
+
+
+        private string[] _natureObjects = {
+            "Dying_Tree", "Medium_Dying_Tree", "Small_Dying_Tree",
+            "Brambles_Large", "Brambles_Medium", "Brambles_Small",
+            "Brambles_Tiny", "Brambles_Very_Tiny"
+        };
+
+        private string[] _graveObjects = {
+            "Grave_1", "Grave_2", "Grave_3",
+            "Hand_In_Floor", "Hand_In_Floor_Medium", "Hand_In_Floor_Small"
+        };
+
+        private string[] _ruinObjects = {
+            "Ruins_Column", "Smaller_Ruin", "Big_Rock", "Shrine_Blue"
+        };
+
+        private string[] _boneObjects = {
+            "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull",
+            "Baby_Skellington"
+        };
+
+        public LevelManager(Game game)
+        {
+            _game = game;
+            // We don't initialize here anymore, we do it in LoadLevel to be safe
+        }
+
+        public void LoadLevel(int index)
+        {
+            _groundSheet = _game.Content.Load<Texture2D>("MainLev2.0");
+
+            _animatedObjectSheet = _game.Content.Load<Texture2D>("Objects_animated");
+            _staticObjectSheet = _game.Content.Load<Texture2D>("more Objects");
+
+            Helper.SpriteSheet = _groundSheet;
+
+            InitializeGameWorld();
+        }
+
+        private void InitializeGameWorld()
+        {
+
+            int width = 60;
+            int height = 34;
+            int[,] map = new int[height, width];
+
+            // 2. CREATE FLOOR
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    map[y, x] = 0;
+                }
+            }
+
+          
+            List<TileRef> palette = new List<TileRef>();
+            palette.Add(new TileRef(13, 41, 0));
+            palette.Add(new TileRef(14, 41, 0));
+            palette.Add(new TileRef(15, 41, 0));
+            palette.Add(new TileRef(16, 41, 0));
+            palette.Add(new TileRef(17, 41, 0));
+            palette.Add(new TileRef(13, 42, 0));
+            palette.Add(new TileRef(14, 42, 0));
+            palette.Add(new TileRef(15, 42, 0));
+            palette.Add(new TileRef(16, 42, 0));
+            palette.Add(new TileRef(17, 42, 0));
+            palette.Add(new TileRef(13, 43, 0));
+            palette.Add(new TileRef(14, 43, 0));
+            palette.Add(new TileRef(15, 43, 0));
+            palette.Add(new TileRef(16, 43, 0));
+            palette.Add(new TileRef(17, 43, 0));
+            palette.Add(new TileRef(13, 44, 0));
+            palette.Add(new TileRef(14, 44, 0));
+            palette.Add(new TileRef(15, 44, 0));
+            palette.Add(new TileRef(16, 44, 0));
+            palette.Add(new TileRef(17, 44, 0));
+            palette.Add(new TileRef(13, 45, 0));
+            palette.Add(new TileRef(14, 45, 0));
+            palette.Add(new TileRef(15, 45, 0));
+            palette.Add(new TileRef(16, 45, 0));
+            palette.Add(new TileRef(17, 45, 0));
+            palette.Add(new TileRef(13, 46, 0));
+            palette.Add(new TileRef(14, 46, 0));
+            palette.Add(new TileRef(15, 46, 0));
+            palette.Add(new TileRef(16, 46, 0));
+            palette.Add(new TileRef(17, 46, 0));
+            palette.Add(new TileRef(13, 47, 0));
+            palette.Add(new TileRef(14, 47, 0));
+            palette.Add(new TileRef(15, 47, 0));
+            palette.Add(new TileRef(16, 47, 0));
+            palette.Add(new TileRef(17, 47, 0));
+            palette.Add(new TileRef(13, 48, 0));
+            palette.Add(new TileRef(14, 48, 0));
+            palette.Add(new TileRef(15, 48, 0));
+            palette.Add(new TileRef(16, 48, 0));
+            palette.Add(new TileRef(17, 48, 0));
+
+            palette.Add(new TileRef(9, 42, 0));
+            palette.Add(new TileRef(10, 42, 0));
+            palette.Add(new TileRef(11, 42, 0));
+            palette.Add(new TileRef(12, 42, 0));
+            palette.Add(new TileRef(9, 43, 0));
+            palette.Add(new TileRef(10, 43, 0));
+            palette.Add(new TileRef(11, 43, 0));
+            palette.Add(new TileRef(12, 43, 0));
+            //palette.Add(new TileRef(9, 44, 0)); 
+            //palette.Add(new TileRef(10, 44, 0));
+            //palette.Add(new TileRef(11, 44, 0));
+            //palette.Add(new TileRef(12, 44, 0));
+
+            palette.Add(new TileRef(9, 46, 0));
+            palette.Add(new TileRef(10, 46, 0));
+            palette.Add(new TileRef(11, 46, 0));
+            palette.Add(new TileRef(12, 46, 0));
+            palette.Add(new TileRef(9, 47, 0));
+            palette.Add(new TileRef(10, 47, 0));
+            palette.Add(new TileRef(11, 47, 0));
+            palette.Add(new TileRef(12, 47, 0));
+            palette.Add(new TileRef(9, 48, 0));
+            palette.Add(new TileRef(10, 48, 0));
+            palette.Add(new TileRef(11, 48, 0));
+            palette.Add(new TileRef(12, 48, 0));
+
+
+            CurrentLevel = new TileLayer(map, palette, 64, 32);
+
+
+
+            float centerX = width / 2f;
+            float centerY = height / 2f;
+
+            float safeRadiusX = 22f;
+            float safeRadiusY = 11f;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+
+                    float dx = Math.Abs(x - centerX);
+                    float dy = Math.Abs(y - centerY);
+
+                    float excessX = Math.Max(dx - safeRadiusX, 0);
+                    float excessY = Math.Max(dy - safeRadiusY, 0);
+
+                    float distanceOutsideBox = (float)Math.Sqrt(excessX * excessX + excessY * excessY);
+
+                    if (distanceOutsideBox > 0)
+                    {
+                        float chance = distanceOutsideBox / 4.5f;
+
+
+                        chance += CombatSystem.RandomFloat(-0.2f, 0.2f);
+
+                        if (CombatSystem.RandomFloat() < chance)
+                        {
+                            Vector2 pos = new Vector2(x * 64, y * 64);
+
+   
+                            pos.X += CombatSystem.RandomInt(-24, 24);
+                            pos.Y += CombatSystem.RandomInt(-24, 24);
+
+
+                            string randomNature = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
+
+                            CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
+                        }
+                    }
+                }
+            }
+
+            PlaceLandMarks();
+        }
+        //private void PlaceLandMarks()
+        //{
+        //    // Animated objects are fine as they were
+        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+        //    Vector2 topRightPos = new Vector2(45 * 64, 5 * 64);
+
+        //    // CHANGE: Columns and Rocks are solid (true)
+        //    CreateStaticObject("Ruins_Column", topRightPos, _staticObjectSheet, true);
+        //    CreateStaticObject("Big_Rock", topRightPos + new Vector2(50, 50), _staticObjectSheet, true);
+
+        //    Vector2 bottomLeftPos = new Vector2(15 * 64, 28 * 64);
+        //    CreateStaticObject("Ruins_Column", bottomLeftPos, _staticObjectSheet, true);
+
+        //    Vector2 ringCenter = new Vector2(45 * 64, 25 * 64);
+        //    int radius = 150;
+        //    int skullCount = 8;
+
+        //    for (int i = 0; i < skullCount; i++)
+        //    {
+        //        float angle = i * (MathHelper.TwoPi / skullCount);
+        //        Vector2 offset = new Vector2((float)Math.Cos(angle) * radius, (float)Math.Sin(angle) * radius);
+
+
+        //        CreateStaticObject("Skull_Pile", ringCenter + offset, _staticObjectSheet, false);
+        //    }
+
+        //    for (int i = 0; i < 15; i++)
+        //    {
+        //        int rx = CombatSystem.RandomInt(10, 50);
+        //        int ry = CombatSystem.RandomInt(5, 29);
+        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+        //        if (CombatSystem.RandomInt(0, 100) > 50)
+
+        //            CreateStaticObject("Big_Rock", pos, _staticObjectSheet, true);
+        //        else
+
+        //            CreateStaticObject("Hand_In_Floor", pos, _staticObjectSheet, false);
+        //    }
+        //}
+        private bool IsSpaceOccupied(Vector2 pos, float minGap)
+        {
+            foreach (var obj in MapObjects)
+            {
+
+                float objectRadius = (obj.spriteWidth * (float)obj.Scale) / 2.5f;
+
+                float safeDistance = minGap + objectRadius;
+
+                // 3. Check distance
+                if (Vector2.Distance(pos, obj.position) < safeDistance)
+                {
+                    return true; // Too close!
+                }
+            }
+            return false;
+        }
+        //private void PlaceLandMarks()
+        //{
+        //    // ==========================================
+        //    // 1. FIXED LANDMARKS (Spawn these FIRST)
+        //    // ==========================================
+
+        //    // Center Tree
+        //    Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+        //    CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+        //    // Skeleton King (Right, slightly Up)
+        //    Vector2 kingPos = new Vector2(42 * 64, 14 * 64);
+        //    CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
+
+        //    // Big Ruin (Top Right)
+        //    Vector2 bigRuinPos = new Vector2(52 * 64, 6 * 64);
+        //    CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
+        //    CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(-60, 20), _staticObjectSheet, false);
+        //    CreateStaticObject("Ruins_Column", bigRuinPos + new Vector2(50, 40), _staticObjectSheet, false);
+
+        //    // Smaller Ruin (Bottom Right)
+        //    Vector2 smallRuinPos = new Vector2(50 * 64, 28 * 64);
+        //    CreateStaticObject("Smaller_Ruin", smallRuinPos, _staticObjectSheet, false);
+
+
+        //    // ==========================================
+        //    // 2. THE GRAVEYARD (Left Side Only)
+        //    // ==========================================
+        //    int gravesPlaced = 0;
+        //    int attempts = 0;
+
+        //    while (gravesPlaced < 25 && attempts < 200)
+        //    {
+        //        attempts++;
+
+        //        // Random Position on Left Side
+        //        int gx = CombatSystem.RandomInt(4, 22);
+        //        int gy = CombatSystem.RandomInt(4, 30);
+        //        Vector2 gravePos = new Vector2(gx * 64, gy * 64);
+
+        //        // CHECK: Increased gap to 80f (more than 1 tile width)
+        //        if (IsSpaceOccupied(gravePos, 80f)) continue;
+
+        //        string graveName = (CombatSystem.RandomInt(0, 2) == 0) ? "Grave_1" : "Grave_2";
+        //        CreateStaticObject(graveName, gravePos, _staticObjectSheet, false);
+        //        gravesPlaced++;
+        //    }
+
+
+        //    // ==========================================
+        //    // 3. SKELETAL REMAINS CIRCLE (Around Tree)
+        //    // ==========================================
+        //    string[] bones = { "Skull_Pile", "Ribcage", "Bone_In_Floor", "Bird_Skull" };
+        //    int boneCount = 12;
+        //    float radius = 400f;
+
+        //    for (int i = 0; i < boneCount; i++)
+        //    {
+        //        float angle = i * (MathHelper.TwoPi / boneCount);
+        //        float jitter = CombatSystem.RandomFloat(-0.5f, 0.5f);
+        //        float distJitter = CombatSystem.RandomInt(-50, 50);
+
+        //        Vector2 offset = new Vector2(
+        //            (float)Math.Cos(angle + jitter) * (radius + distJitter),
+        //            (float)Math.Sin(angle + jitter) * (radius + distJitter)
+        //        );
+        //        Vector2 finalPos = centerPos + offset;
+
+        //        // CHECK: Gap of 60f for bones
+        //        if (IsSpaceOccupied(finalPos, 60f)) continue;
+
+        //        string boneItem = bones[CombatSystem.RandomInt(0, bones.Length)];
+        //        CreateStaticObject(boneItem, finalPos, _staticObjectSheet, false);
+        //    }
+
+
+        //    // ==========================================
+        //    // 4. RANDOM SCATTER (Hands, Dead Trees)
+        //    // ==========================================
+        //    int scatterPlaced = 0;
+        //    attempts = 0;
+
+        //    while (scatterPlaced < 15 && attempts < 200)
+        //    {
+        //        attempts++;
+
+        //        int rx = CombatSystem.RandomInt(5, 55);
+        //        int ry = CombatSystem.RandomInt(5, 29);
+        //        Vector2 pos = new Vector2(rx * 64, ry * 64);
+
+        //        // Don't spawn too close to center tree
+        //        if (Vector2.Distance(pos, centerPos) < 300) continue;
+
+        //        // CHECK: Increased gap to 100f so random trees don't clump
+        //        if (IsSpaceOccupied(pos, 100f)) continue;
+
+        //        if (CombatSystem.RandomInt(0, 100) > 50)
+        //        {
+        //            string randomTree = _treeTypes[CombatSystem.RandomInt(0, _treeTypes.Length)];
+        //            CreateStaticObject(randomTree, pos, _staticObjectSheet, false);
+        //        }
+        //        else
+        //        {
+        //            string randomHand = _floorDetails[CombatSystem.RandomInt(0, _floorDetails.Length)];
+        //            CreateStaticObject(randomHand, pos, _staticObjectSheet, false);
+        //        }
+
+
+        //        scatterPlaced++;
+        //    }
+        //}
+
+        private void PlaceLandMarks()
+        {
+
+            Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
+            CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
+
+            Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true); // Solid!
+
+
+            Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
+            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, true);
+
+            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
+            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
+
+            FillZones(centerPos);
+        }
+        private void FillZones(Vector2 centerPos)
+        {
+            int attempts = 0;
+            int maxItems = 60; 
+            int itemsPlaced = 0;
+
+            while (itemsPlaced < maxItems && attempts < 1000)
+            {
+                attempts++;
+
+                int tx = CombatSystem.RandomInt(6, 54);
+                int ty = CombatSystem.RandomInt(6, 28);
+                Vector2 pos = new Vector2(tx * 64, ty * 64);
+
+                pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
+
+
+                float distToCenter = Vector2.Distance(pos, centerPos);
+
+                // 3. Check Collision (Don't spawn on top of the King or Ruins)
+                // We use a large gap (80f) to ensure objects aren't clumped
+                if (IsSpaceOccupied(pos, 80f)) continue;
+
+                string assetToSpawn = "";
+                bool isSolid = false;
+
+                // --- ZONE LOGIC ---
+
+                // ZONE A: The Bone Circle (Close to center tree)
+                if (distToCenter < 350 && distToCenter > 100)
+                {
+                    assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
+                }
+                // ZONE B: The Graveyard (Left side of map: X < 20)
+                else if (tx < 22)
+                {
+                    assetToSpawn = _graveObjects[CombatSystem.RandomInt(0, _graveObjects.Length)];
+                    // Graves are usually solid, hands are not. 
+                    // Simple check: if it starts with "Grave", it's solid.
+                    if (assetToSpawn.StartsWith("Grave")) isSolid = true;
+                }
+                // ZONE C: The Ruins/Scatter (Right side: X > 38)
+                else if (tx > 38)
+                {
+                    // Mix of rocks and ruins
+                    if (CombatSystem.RandomInt(0, 100) > 70)
+                        assetToSpawn = _ruinObjects[CombatSystem.RandomInt(0, _ruinObjects.Length)];
+                    else
+                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
+
+                    isSolid = true;
+                }
+                // ZONE D: General Open Space (Everywhere else)
+                else
+                {
+                    // Sparse random details (Bones or small plants)
+                    if (CombatSystem.RandomInt(0, 100) > 50)
+                        assetToSpawn = _boneObjects[CombatSystem.RandomInt(0, _boneObjects.Length)];
+                    else
+                        assetToSpawn = _natureObjects[CombatSystem.RandomInt(0, _natureObjects.Length)];
+                }
+
+                // 4. Create the object
+                if (assetToSpawn != "")
+                {
+
+                    if (IsTooCloseToIdentical(assetToSpawn, pos, 500f))
+                    {
+
+                        continue;
+                    }
+
+                    CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
+                    itemsPlaced++;
+                }
+            }
+        }
+        private bool IsTooCloseToIdentical(string assetName, Vector2 pos, float minDistance)
+        {
+            foreach (var obj in MapObjects)
+            {
+                // 1. Is it the exact same object type?
+                if (obj.AssetName == assetName)
+                {
+                    // 2. Is it too close?
+                    if (Vector2.Distance(pos, obj.position) < minDistance)
+                    {
+                        return true; // Yes, reject this spawn
+                    }
+                }
+            }
+            return false; // No twins found nearby
+        }
+        private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, 1, isSolid);
+
+            obj.AssetName = assetName;
+
+            obj.SetSpriteSheetLocation(data);
+            MapObjects.Add(obj);
+        }
+        private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
+        {
+            Rectangle data = Helper.GetSourceRect(assetName);
+
+            var obj = new WorldObject(_game, sheet, position, frames, false);
+
+            obj.SetSpriteSheetLocation(data);
+
+            MapObjects.Add(obj);
+        }
+        private Vector2 GetRandomPosition()
+        {
+            int tx = CombatSystem.RandomInt(2, 28);
+            int ty = CombatSystem.RandomInt(2, 28);
+
+            return new Vector2((tx * 64) + 32, (ty * 64) + 32);
+        }
+
+        public void Update(GameTime gameTime, Player player)
+        {
+            // Update Enemies
+            foreach (Enemy enemy in enemies)
+            {
+                enemy.CurrentCombatPartner = player;
+                enemy.Update(gameTime);
+            }
+            enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
+
+            // Update Map Objects (Animations)
+            foreach (var obj in MapObjects)
+            {
+                obj.Update(gameTime);
+            }
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            // Only draw the floor tiles here. 
+            // Objects are drawn in ChaseAndFireEngine to get the depth sorting!
+            if (CurrentLevel != null)
+            {
+                CurrentLevel.Draw(spriteBatch);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class SpellManager
+    {
+        private ChaseAndFireEngine _engine;
+        private List<Spell> _spells = new List<Spell>();
+
+        private bool[] _unlockedSpells;
+
+        // --- FIX IS HERE: NO "class" KEYWORD ---
+        public SpellManager(ChaseAndFireEngine engine,
+                            Texture2D smiteTx,
+                            Texture2D novaTx,
+                            Texture2D furyTx,
+                            Texture2D shieldTx,
+                            Texture2D electricTx,
+                            Texture2D justiceTx)
+        {
+            _engine = engine;
+
+            // Initialize Spells
+            _spells.Add(new SmiteSpell(engine._gameOwnedBy, smiteTx));
+            _spells.Add(new HolyNovaSpell(engine._gameOwnedBy, novaTx));
+            _spells.Add(new HeavensFurySpell(engine._gameOwnedBy, furyTx));
+            _spells.Add(new HolyShieldSpell(engine._gameOwnedBy, shieldTx));
+            _spells.Add(new ElectricitySpell(engine._gameOwnedBy, electricTx));
+            _spells.Add(new SwordOfJusticeSpell(engine._gameOwnedBy, justiceTx));
+
+            _unlockedSpells = new bool[_spells.Count];
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            foreach (var spell in _spells)
+            {
+                spell.Update(gameTime);
+            }
+            HandleInput();
+        }
+
+        private void HandleInput()
+        {
+            KeyboardState kState = Keyboard.GetState();
+            MouseState mState = Mouse.GetState();
+            Vector2 mouseScreenPos = new Vector2(mState.X, mState.Y);
+            Matrix inverseTransform = Matrix.Invert(_engine._camera.CurrentCameraTranslation);
+            Vector2 mousePos = Vector2.Transform(mouseScreenPos, inverseTransform);
+
+
+            if (kState.IsKeyDown(Keys.D1)) CastSpell(0, mousePos);
+            if (kState.IsKeyDown(Keys.D2)) CastSpell(1, mousePos);
+            if (kState.IsKeyDown(Keys.D3)) CastSpell(2, mousePos);
+            if (kState.IsKeyDown(Keys.D4)) CastSpell(3, mousePos);
+            if (kState.IsKeyDown(Keys.D5)) CastSpell(4, mousePos);
+            if (kState.IsKeyDown(Keys.D6)) CastSpell(5, mousePos);
+        }
+
+        private void CastSpell(int index, Vector2 target)
+        {
+            if (index >= 0 && index < _spells.Count)
+            {
+                if (_unlockedSpells[index])
+                {
+                    _spells[index].Cast(_engine, target);
+                }
+            }
+        }
+        public void UnlockSpell(int index)
+        {
+            if (index >= 0 && index < _unlockedSpells.Length)
+            {
+                _unlockedSpells[index] = true;
+            }
+        }
+
+        public bool IsSpellUnlocked(int index)
+        {
+            if (index >= 0 && index < _unlockedSpells.Length) return _unlockedSpells[index];
+            return false;
+        }
+        public Spell GetSpell(int index)
+        {
+            if (index >= 0 && index < _spells.Count)
+            {
+                return _spells[index];
+            }
+            return null;
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            foreach (var spell in _spells)
+            {
+                spell.Draw(spriteBatch);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class UIManager
+    {
+        private Texture2D _uiPixel;
+        private SpriteFont _uiFont;
+
+        // UI Colors (Medieval Sci-Fantasy Theme)
+        private Color _hudColor = new Color(10, 10, 15, 200);
+        private Color _healthColor = new Color(180, 20, 20);
+        private Color _staminaColor = new Color(50, 205, 50);
+        private Color _btnNormal = new Color(20, 20, 30, 220);
+        private Color _btnHover = new Color(40, 60, 100, 240);
+        private Color _borderNormal = new Color(60, 60, 80);
+        private Color _borderHover = Color.Cyan;
+
+        public UIManager(Texture2D uiPixel, SpriteFont uiFont)
+        {
+            _uiPixel = uiPixel;
+            _uiFont = uiFont;
+        }
+
+        public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills)
+        {
+            Player p = gameEngine.GetPlayer();
+            if (p == null) return;
+
+            int padding = 20;
+            int barHeight = 25;
+            int barWidth = 300;
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding, padding, barWidth + 4, (barHeight * 2) + 15), _hudColor);
+
+            float hpPercent = (float)p.Health / p.MaxHealth;
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, barWidth, barHeight), Color.Black * 0.5f);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
+
+            float dashRatio = 0f;
+            if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
+            else dashRatio = 1.0f;
+
+            dashRatio = MathHelper.Clamp(dashRatio, 0f, 1f);
+            int stamY = padding + barHeight + 8;
+            int stamH = barHeight / 2;
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
+            Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
+
+            int screenW = graphicsDevice.Viewport.Width;
+            int barW = 600;
+            int barH = 20;
+            int barX = (screenW / 2) - (barW / 2);
+            int barY = 20;
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
+            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
+
+            float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
+            if (progress > 1f) progress = 1f;
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+
+            string warText = "WAR DOMINANCE";
+            Vector2 textSize = _uiFont.MeasureString(warText);
+            spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+
+            int iconSize = 64;
+            int spacing = 20;
+            int startY = graphicsDevice.Viewport.Height - iconSize - 20;
+            int unlockedSpells = 0;
+
+            for (int i = 0; i < 6; i++) if (gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
+
+            bool showDash = p.IsDashUnlocked;
+            bool showHeavy = p.IsHeavyAttackUnlocked;
+            int totalItems = unlockedSpells + (showDash ? 1 : 0) + (showHeavy ? 1 : 0);
+
+            if (totalItems > 0)
+            {
+                int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
+                int currentX = (screenW / 2) - (totalWidth / 2);
+
+                Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
+                spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
+
+                if (showDash)
+                {
+                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    spriteBatch.Draw(dashIcon, dest, Color.White);
+                    spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    if (p.DashTimer > 0)
+                    {
+                        float ratio = p.DashTimer / p.DashDuration;
+                        int h = (int)(iconSize * ratio);
+                        Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
+                        spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
+                    }
+                    currentX += iconSize + spacing;
+                }
+
+                if (showHeavy)
+                {
+                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    spriteBatch.Draw(heavyAttackIcon, dest, Color.White);
+                    spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+                    currentX += iconSize + spacing;
+                }
+
+                for (int i = 0; i < 6; i++)
+                {
+                    if (gameEngine.GetSpellManager().IsSpellUnlocked(i))
+                    {
+                        Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                        if (spellIcons[i] != null)
+                            spriteBatch.Draw(spellIcons[i], dest, Color.White);
+
+                        string key = (i + 1).ToString();
+                        spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
+
+                        Spell s = gameEngine.GetSpellManager().GetSpell(i);
+                        if (s != null && s.CurrentCooldown > 0)
+                        {
+                            float ratio = s.CurrentCooldown / s.CooldownDuration;
+                            int h = (int)(iconSize * ratio);
+                            Rectangle cdRect = new Rectangle(dest.X, dest.Bottom - h, iconSize, h);
+                            spriteBatch.Draw(_uiPixel, cdRect, Color.Black * 0.7f);
+
+                            if (s.CurrentCooldown > 1000)
+                            {
+                                string sec = (s.CurrentCooldown / 1000).ToString("0");
+                                Vector2 sz = _uiFont.MeasureString(sec);
+                                spriteBatch.DrawString(_uiFont, sec, new Vector2(dest.Center.X - sz.X / 2, dest.Center.Y - sz.Y / 2), Color.White);
+                            }
+                        }
+                        currentX += iconSize + spacing;
+                    }
+                }
+            }
+        }
+
+        public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle quitBtnRect, bool hasStarted)
+        {
+            int screenW = graphicsDevice.Viewport.Width;
+            int screenH = graphicsDevice.Viewport.Height;
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, screenH), Color.Black * 0.6f);
+            Point mousePoint = new Point(Mouse.GetState().X, Mouse.GetState().Y);
+
+            void DrawFancyButton(Rectangle rect, string text, bool isHovered)
+            {
+                Color fillColor = isHovered ? _btnHover : _btnNormal;
+                Color borderColor = isHovered ? _borderHover : _borderNormal;
+
+                spriteBatch.Draw(_uiPixel, rect, fillColor);
+                int borderThickness = 2;
+
+                spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, rect.Width, borderThickness), borderColor);
+                spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Bottom - borderThickness, rect.Width, borderThickness), borderColor);
+                spriteBatch.Draw(_uiPixel, new Rectangle(rect.X, rect.Y, borderThickness, rect.Height), borderColor);
+                spriteBatch.Draw(_uiPixel, new Rectangle(rect.Right - borderThickness, rect.Y, borderThickness, rect.Height), borderColor);
+
+                if (_uiFont != null)
+                {
+                    Vector2 size = _uiFont.MeasureString(text);
+                    Vector2 pos = new Vector2(rect.Center.X - size.X / 2, rect.Center.Y - size.Y / 2);
+                    spriteBatch.DrawString(_uiFont, text, pos, Color.White);
+                }
+            }
+
+            bool playHover = playBtnRect.Contains(mousePoint);
+            DrawFancyButton(playBtnRect, hasStarted ? "RESUME" : "PLAY", playHover);
+
+            bool quitHover = quitBtnRect.Contains(mousePoint);
+            DrawFancyButton(quitBtnRect, "QUIT", quitHover);
+
+            if (_uiFont != null)
+            {
+                string title = "PALE ROOTS";
+                Vector2 titleSize = _uiFont.MeasureString(title);
+                Vector2 titlePos = new Vector2(screenW / 2f, 200);
+                Vector2 origin = titleSize / 2f;
+
+                spriteBatch.DrawString(_uiFont, title, titlePos + new Vector2(3, 3), Color.Black * 0.8f, 0f, origin, 2.5f, SpriteEffects.None, 0f);
+                spriteBatch.DrawString(_uiFont, title, titlePos, Color.PaleGoldenrod, 0f, origin, 2.5f, SpriteEffects.None, 0f);
+            }
+        }
+
+        public void DrawLevelUpScreen(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, List<UpgradeManager.UpgradeOption> currentUpgradeOptions, UpgradeManager upgradeManager)
+        {
+            spriteBatch.Draw(_uiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.7f);
+
+            string title = "ALTERNATE PHYSICS WITH THE STRENGTH OF THE DEAD";
+            Vector2 size = _uiFont.MeasureString(title);
+            spriteBatch.DrawString(_uiFont, title, new Vector2(graphicsDevice.Viewport.Width / 2 - size.X / 2, 100), Color.Gold);
+
+            Rectangle screen = graphicsDevice.Viewport.Bounds;
+            int cardWidth = 200;
+            int cardHeight = 300;
+            int spacing = 50;
+
+            if (currentUpgradeOptions != null)
+            {
+                int totalWidth = (currentUpgradeOptions.Count * cardWidth) + ((currentUpgradeOptions.Count - 1) * spacing);
+                int startX = (screen.Width / 2) - (totalWidth / 2);
+                int startY = (screen.Height / 2) - (cardHeight / 2);
+                Point mousePos = Mouse.GetState().Position;
+
+                for (int i = 0; i < currentUpgradeOptions.Count; i++)
+                {
+                    Rectangle cardRect = new Rectangle(startX + (i * (cardWidth + spacing)), startY, cardWidth, cardHeight);
+                    bool hover = cardRect.Contains(mousePos);
+                    upgradeManager.DrawCard(spriteBatch, cardRect, currentUpgradeOptions[i], hover, _uiFont);
+                }
+            }
+        }
+
+        public void DrawEndScreen(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, bool victory)
+        {
+            spriteBatch.Draw(_uiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
+
+            string title = victory ? "VICTORY" : "YOU DIED";
+            Color color = victory ? Color.Gold : Color.Red;
+            Vector2 size = _uiFont.MeasureString(title);
+            Vector2 center = new Vector2(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
+
+            spriteBatch.DrawString(_uiFont, title, new Vector2(center.X - size.X, center.Y - 150), color, 0f, Vector2.Zero, 2.0f, SpriteEffects.None, 0f);
+
+            if (victory)
+            {
+                string lore = "The Skeleton King is defeated.\nThe Pale Roots recede.";
+                Vector2 loreSize = _uiFont.MeasureString(lore);
+                spriteBatch.DrawString(_uiFont, lore, new Vector2(center.X - loreSize.X / 2, center.Y - 80), Color.White);
+            }
+
+            Rectangle btn1Rect = new Rectangle((int)center.X - 100, (int)center.Y, 200, 50);
+            Rectangle btn2Rect = new Rectangle((int)center.X - 100, (int)center.Y + 70, 200, 50);
+            Point mousePos = Mouse.GetState().Position;
+
+            void DrawBtn(Rectangle r, string t)
+            {
+                bool hover = r.Contains(mousePos);
+                spriteBatch.Draw(_uiPixel, r, hover ? Color.Gray : Color.DarkGray);
+
+                int b = 2;
+                Color bc = hover ? Color.White : Color.Black;
+
+                spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, r.Width, b), bc);
+                spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Bottom - b, r.Width, b), bc);
+                spriteBatch.Draw(_uiPixel, new Rectangle(r.X, r.Y, b, r.Height), bc);
+                spriteBatch.Draw(_uiPixel, new Rectangle(r.Right - b, r.Y, b, r.Height), bc);
+
+                Vector2 ts = _uiFont.MeasureString(t);
+                spriteBatch.DrawString(_uiFont, t, new Vector2(r.Center.X - ts.X / 2, r.Center.Y - ts.Y / 2), Color.White);
+            }
+
+            string btn1Text = victory ? "FINISH GAME" : "PLAY AGAIN";
+            DrawBtn(btn1Rect, btn1Text);
+            DrawBtn(btn2Rect, "QUIT");
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Pale_Roots_1
+{
+    public class UpgradeManager
+    {
+        public enum UpgradeType { HeavyAttack, Dash, Spell }
+
+        public class UpgradeOption
+        {
+            public string Name;
+            public string Description;
+            public Texture2D Icon;
+            public Action ApplyAction;
+            public UpgradeType Type;
+        }
+
+        private Player _player;
+        private SpellManager _spellManager;
+        private Texture2D[] _spellIcons;
+
+        private Texture2D _dashIcon;
+        private Texture2D _heavyIcon;
+
+        private Texture2D _pixel; // For card backgrounds
+
+        // All possible upgrades in the game
+        private List<UpgradeOption> _allUpgrades = new List<UpgradeOption>();
+
+        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, GraphicsDevice gd)
+        {
+            _player = p;
+            _spellManager = sm;
+            _spellIcons = icons;
+
+            // Store the new icons
+            _dashIcon = dashIcon;
+            _heavyIcon = heavyIcon;
+
+            _pixel = new Texture2D(gd, 1, 1);
+            _pixel.SetData(new[] { Color.White });
+
+            InitializeUpgrades();
+        }
+
+        private void InitializeUpgrades()
+        {
+            // 1. Heavy Attack
+            _allUpgrades.Add(new UpgradeOption
+            {
+                Name = "Heavy Attack",
+                Description = "Right Click to deal double damage.",
+                Type = UpgradeType.HeavyAttack,
+                Icon = _heavyIcon,
+                ApplyAction = () => _player.IsHeavyAttackUnlocked = true
+            });
+
+            // 2. Dash
+            _allUpgrades.Add(new UpgradeOption
+            {
+                Name = "Dash",
+                Description = "Press Shift to dodge attacks.",
+                Type = UpgradeType.Dash,
+                Icon = _dashIcon,
+                ApplyAction = () => _player.IsDashUnlocked = true
+            });
+
+            // 3. Spells (Indices 0 to 5 based on SpellManager)
+            string[] spellNames = { "Smite", "Holy Nova", "Heaven's Fury", "Holy Shield", "Electricity", "Sword of Justice" };
+            string[] spellDescs = {
+                "Heal yourself to full HP.",
+                "Instakill AOE on your cursor",
+                "Half Enemy Healthbars",
+                "Double Ally Health",
+                "Stun Enemies and stop spawning",
+                "Double Damage"
+            };
+
+            for (int i = 0; i < 6; i++)
+            {
+                int index = i; // Capture for lambda
+                _allUpgrades.Add(new UpgradeOption
+                {
+                    Name = spellNames[i],
+                    Description = spellDescs[i],
+                    Type = UpgradeType.Spell,
+                    Icon = _spellIcons[i],
+                    ApplyAction = () => _spellManager.UnlockSpell(index)
+                });
+            }
+        }
+
+        public List<UpgradeOption> GetRandomOptions(int count)
+        {
+            // Filter out upgrades we already have
+            var available = _allUpgrades.Where(u => IsUpgradeAvailable(u)).ToList();
+
+            // Shuffle
+            var rng = new Random();
+            int n = available.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = rng.Next(n + 1);
+                var value = available[k];
+                available[k] = available[n];
+                available[n] = value;
+            }
+
+            // Take top 3 (or fewer if we are running out)
+            return available.Take(count).ToList();
+        }
+
+        private bool IsUpgradeAvailable(UpgradeOption u)
+        {
+            if (u.Type == UpgradeType.HeavyAttack) return !_player.IsHeavyAttackUnlocked;
+            if (u.Type == UpgradeType.Dash) return !_player.IsDashUnlocked;
+
+            // For spells, we need to check if the specific spell index is unlocked
+            // We can infer the index from the name or store it. 
+            // Since we initialized them in order 0-5:
+            if (u.Type == UpgradeType.Spell)
+            {
+                // Find index in our spell list
+                string[] spellNames = { "Smite", "Holy Nova", "Heaven's Fury", "Holy Shield", "Electricity", "Sword of Justice" };
+                int idx = Array.IndexOf(spellNames, u.Name);
+                return !_spellManager.IsSpellUnlocked(idx);
+            }
+            return true;
+        }
+        private string ParseText(string text, SpriteFont font, int width)
+        {
+            string line = string.Empty;
+            string returnString = string.Empty;
+            string[] wordArray = text.Split(' ');
+
+            foreach (string word in wordArray)
+            {
+                if (font.MeasureString(line + word).X > width)
+                {
+                    returnString = returnString + line + "\n";
+                    line = string.Empty;
+                }
+
+                line = line + word + " ";
+            }
+
+            return returnString + line;
+        }
+
+
+        public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
+        {
+            // 1. Background & Border
+            Color bgColor = isHovered ? Color.DarkSlateBlue : Color.Black * 0.9f;
+            Color borderColor = isHovered ? Color.Cyan : Color.Gray;
+
+            sb.Draw(_pixel, rect, bgColor);
+
+            int b = 2;
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, b), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Bottom - b, rect.Width, b), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.X, rect.Y, b, rect.Height), borderColor);
+            sb.Draw(_pixel, new Rectangle(rect.Right - b, rect.Y, b, rect.Height), borderColor);
+
+            // 2. Icon (Fixed Position at top)
+            int iconSize = 64;
+            int iconY = rect.Y + 30;
+            if (option.Icon != null)
+            {
+                Rectangle iconRect = new Rectangle(rect.Center.X - (iconSize / 2), iconY, iconSize, iconSize);
+                sb.Draw(option.Icon, iconRect, Color.White);
+            }
+
+            if (font != null)
+            {
+                // 3. Title (Centered below icon)
+                string title = option.Name;
+                Vector2 titleSize = font.MeasureString(title);
+                // Ensure title fits width, scale down if massive
+                float titleScale = 1.0f;
+                if (titleSize.X > rect.Width - 20) titleScale = (rect.Width - 20) / titleSize.X;
+
+                Vector2 titlePos = new Vector2(
+                    rect.Center.X - (titleSize.X * titleScale) / 2,
+                    iconY + iconSize + 15
+                );
+
+                sb.DrawString(font, title, titlePos, Color.Gold, 0f, Vector2.Zero, titleScale, SpriteEffects.None, 0f);
+
+                // 4. Description (Perfectly Centered in remaining space)
+                // Calculate remaining vertical space
+                float startY = titlePos.Y + (titleSize.Y * titleScale) + 10;
+                float endY = rect.Bottom - 10;
+                float availableHeight = endY - startY;
+
+                // Wrap text
+                string wrappedDesc = ParseText(option.Description, font, rect.Width - 30);
+                Vector2 descSize = font.MeasureString(wrappedDesc);
+
+                // Center vertically in the available space
+                float descY = startY + (availableHeight / 2) - (descSize.Y / 2);
+
+                // Center horizontally
+                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, descY);
+
+                sb.DrawString(font, wrappedDesc, descPos, Color.White);
+            }
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
@@ -4195,6 +3934,8 @@ namespace Pale_Roots_1
 
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
+
+        public const int WinConditionKills = 180;
     }
 
     // Team tags used by CombatSystem and AI to decide friend/foe behavior.
@@ -4350,6 +4091,53 @@ namespace Pale_Roots_1
             OnDamageDealt = null;
             OnCombatantKilled = null;
             OnTargetAcquired = null;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public static class CutsceneLibrary
+    {
+        public static void LoadAllCutscenes(CutsceneManager manager, Game game)
+        {
+            // --- LOAD INTRO ---
+            Texture2D[] introSlides = new Texture2D[9];
+            for (int i = 1; i < 9; i++) introSlides[i] = game.Content.Load<Texture2D>("cutscene_image_" + i);
+
+            Cutscene intro = new Cutscene();
+            float dur = 5500f;
+
+            intro.AddSlide(new CutsceneSlide(introSlides[1], "Decades ago Scholars discovered that the universe was not forged from nothing,\n it was brought to fruition by beings greater than our comprehension", dur + 2000, 1.0f, 1.05f, Vector2.Zero, Vector2.Zero));
+            intro.AddSlide(new CutsceneSlide(introSlides[2], "One of these beings known as Atun created humanity, in hopes in return he would get their devoted undying love.", dur, 1.05f, 1.05f, new Vector2(-30, 0), new Vector2(30, 0)));
+            intro.AddSlide(new CutsceneSlide(introSlides[3], "But soon after humanity discovered it was he who made civilisation the cruel unforgiving reality it was,\n a rancorous feeling was left souring their tounge.", dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
+            intro.AddSlide(new CutsceneSlide(introSlides[4], "Insulted, Atun withdrew any power he was yeilding to the world he once held so precious.", dur, 1.05f, 1.05f, new Vector2(0, 30), new Vector2(0, -30)));
+            intro.AddSlide(new CutsceneSlide(introSlides[5], "The Roots of his power went Pale, and the love his people had for him turned to blaising rage as\n they were forsaken further.", dur, 1.0f, 1.08f, Vector2.Zero, Vector2.Zero));
+            intro.AddSlide(new CutsceneSlide(introSlides[6], "In news of a weakened civilisation, Predatory colonys smelled blood in the waters of the Galaxy.", dur, 1.05f, 1.05f, new Vector2(30, 0), new Vector2(-30, 0)));
+            intro.AddSlide(new CutsceneSlide(introSlides[7], "Led by Nivellin, a war Hero with inexplicable power. He had came to take back ther land that was once his to Rule.", dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
+            intro.AddSlide(new CutsceneSlide(introSlides[8], "War was set in Motion, as was the Justice for Humanity", dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
+
+            manager.AddCutscene("Intro", intro);
+
+            // --- LOAD OUTRO ---
+            Texture2D[] outroSlides = new Texture2D[8];
+            for (int i = 1; i < 8; i++) outroSlides[i] = game.Content.Load<Texture2D>("outro_image_" + i);
+
+            Cutscene outro = new Cutscene();
+            float outroDur = 6000f;
+
+            outro.AddSlide(new CutsceneSlide(outroSlides[1], "The Skeleton King crumbles, his reign of bone and ash finally at an end.", outroDur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[2], "Without his dark magic, the Pale Roots begin to wither and retreat.", outroDur, 1.1f, 1.1f, new Vector2(-50, 0), new Vector2(50, 0)));
+            outro.AddSlide(new CutsceneSlide(outroSlides[3], "Where death once choked the land, the first sprouts of green life return.", outroDur, 1.2f, 1.0f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[4], "The survivors emerge from the ruins, looking up at a clear sky for the first time in years.", outroDur, 1.1f, 1.1f, new Vector2(0, 50), new Vector2(0, -50)));
+            outro.AddSlide(new CutsceneSlide(outroSlides[5], "We will rebuild. Not as subjects of a tyrant, but as free people.", outroDur, 1.0f, 1.1f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[6], "The scars of this war will remain, a reminder of what was lost.", outroDur, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
+            outro.AddSlide(new CutsceneSlide(outroSlides[7], "But today... today we celebrate the dawn.", outroDur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
+
+            manager.AddCutscene("Outro", outro);
         }
     }
 }
@@ -4980,6 +4768,381 @@ namespace Pale_Roots_1
         }
     }
 }
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public class Animation
+    {
+        public Texture2D Texture { get; private set; }
+        public int FrameCount { get; private set; }
+        public int SheetRow { get; private set; }
+        public float FrameSpeed { get; private set; }
+        public bool IsLooping { get; private set; }
+        public int TotalRows { get; private set; }
+
+        // NEW: Store the exact width of a single frame
+        public int FrameWidth { get; private set; }
+        public int FrameHeight { get; private set; }
+
+        public bool IsGrid { get; set; }
+
+        public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1, int customWidth = 0, bool isGrid = false)
+        {
+            Texture = texture;
+            FrameCount = frameCount;
+            SheetRow = sheetRow;
+            FrameSpeed = frameSpeed;
+            IsLooping = isLooping;
+            TotalRows = totalRows;
+            IsGrid = isGrid; // NEW: Stores if this is a directional sheet
+
+            if (customWidth > 0)
+                FrameWidth = customWidth;
+            else
+                FrameWidth = texture.Width / frameCount;
+
+            // If it's a grid, the height is the full texture divided by rows
+            FrameHeight = texture.Height / totalRows;
+        }
+    }
+}
+using System;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+//using AnimatedSprite; // Needed to see the Sprite base class
+
+namespace Pale_Roots_1
+{
+    public class Collectible : Sprite
+    {
+        public int HealthValue { get; private set; }
+
+        // Static to share memory across all collectibles
+        private static Texture2D healthBarTexture;
+
+        public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
+            : base(game, texture, position, frameCount, 1)
+        {
+            Random r = new Random();
+            HealthValue = r.Next(50, 101);
+
+            // Lazy loading the texture once
+            if (healthBarTexture == null)
+            {
+                healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                healthBarTexture.SetData(new[] { Color.White });
+            }
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            base.Draw(spriteBatch);
+
+            // Draw health bar above it
+            Rectangle barRect = new Rectangle(
+                (int)position.X,
+                (int)position.Y - 10,
+                HealthValue / 2,
+                5
+            );
+
+            spriteBatch.Draw(healthBarTexture, barRect, Color.Green);
+
+            // Ensure you have a font named "NameID" in your Content pipeline, 
+            // otherwise this line will crash.
+            // spriteBatch.DrawString(
+            //    game.Content.Load<SpriteFont>("NameID"),
+            //    HealthValue.ToString(),
+            //    new Vector2(position.X, position.Y - 25),
+            //    Color.White
+            // );
+        }
+    }
+}
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class Cutscene
+    {
+        public List<CutsceneSlide> Slides { get; private set; } = new List<CutsceneSlide>();
+
+        public void AddSlide(CutsceneSlide slide)
+        {
+            Slides.Add(slide);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public class CutsceneSlide
+    {
+        public Texture2D Texture;
+        public string Text;
+        public float Duration;
+        public float ZoomStart;
+        public float ZoomEnd;
+        public Vector2 PanStart;
+        public Vector2 PanEnd;
+
+        public CutsceneSlide(Texture2D texture, string text, float duration, float zStart, float zEnd, Vector2 pStart, Vector2 pEnd)
+        {
+            Texture = texture;
+            Text = text;
+            Duration = duration;
+            ZoomStart = zStart;
+            ZoomEnd = zEnd;
+            PanStart = pStart;
+            PanEnd = pEnd;
+        }
+    }
+}
+namespace Pale_Roots_1
+{
+    public enum GameState
+    {
+        Intro,
+        Menu,
+        Gameplay,
+        LevelUp,
+        Victory,
+        Outro,
+        Credits,
+        GameOver
+    }
+}
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+
+namespace Pale_Roots_1
+{
+    public class Level
+    {
+        public int[,] MapLayout { get; set; }
+        public List<TileRef> TilePalette { get; set; }
+        public Vector2 PlayerStartPos { get; set; }
+
+        public enum TileType
+        {
+            Floor= 0,
+            Wall = 1,
+            Tree = 2,
+
+        }
+
+        public Level(int[,] map, List<TileRef> tiles, Vector2 startPos)
+        {
+            MapLayout = map;
+            TilePalette = tiles;
+            PlayerStartPos = startPos;
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace Pale_Roots_1
+{
+    public abstract class Spell
+    {
+        public string Name { get; protected set; }
+        public float CooldownDuration { get; protected set; }
+        public float CurrentCooldown { get; set; } = 0f;
+
+        public float ActiveDuration { get; protected set; }
+        public float CurrentActiveTimer { get; set; } = 0f;
+        public bool IsActive { get; protected set; } = false;
+
+        // NEW: Allow spells to define their own size
+        public float Scale { get; set; } = 3.0f;
+
+        protected Game _game;
+        protected AnimationManager _animManager;
+        protected Vector2 _position;
+        protected ChaseAndFireEngine _engineRef;
+
+        public Spell(Game game)
+        {
+            _game = game;
+            _animManager = new AnimationManager();
+        }
+
+        public virtual void Update(GameTime gameTime)
+        {
+            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            if (CurrentCooldown > 0) CurrentCooldown -= dt;
+
+            if (IsActive)
+            {
+                CurrentActiveTimer -= dt;
+                _animManager.Update(gameTime);
+                OnUpdateActive(gameTime);
+
+                if (CurrentActiveTimer <= 0)
+                {
+                    EndEffect();
+                }
+            }
+        }
+
+        public virtual void Draw(SpriteBatch spriteBatch)
+        {
+            if (IsActive)
+            {
+                // FIX: Use the variable Scale instead of hardcoded 3.0f
+                _animManager.Draw(spriteBatch, _position, Scale, SpriteEffects.None);
+            }
+        }
+
+        public bool Cast(ChaseAndFireEngine engine, Vector2 targetPos)
+        {
+            if (CurrentCooldown > 0 || IsActive) return false;
+
+            _engineRef = engine;
+            CurrentCooldown = CooldownDuration;
+            CurrentActiveTimer = ActiveDuration;
+            IsActive = true;
+            _position = targetPos;
+
+            OnCast(engine);
+            return true;
+        }
+
+        protected abstract void OnCast(ChaseAndFireEngine engine);
+        protected virtual void EndEffect() { IsActive = false; }
+        protected virtual void OnUpdateActive(GameTime gameTime) { }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+
+namespace Pale_Roots_1
+{
+    // WorldObject is a Sprite used for static and animated map objects (trees, rocks, ruins).
+    // Responsibilities:
+    // - Maintain collision footprint that tightly fits visible non-transparent pixels near the sprite's feet.
+    // - Provide a CollisionBox used by other actors for obstacle detection.
+    // - Render itself and optionally a debug collision box.
+    // Interactions:
+    // - CollisionBox is used by RotatingSprite.IsColliding and Player/Enemy movement logic to block movement.
+    // - Uses Helper.GetSourceRect to map asset keys to sheet locations when created by LevelManager.
+    public class WorldObject : Sprite
+    {
+        public bool IsSolid { get; set; }
+        public string AssetName { get; set; }
+        private static Texture2D _debugTexture;
+
+        // Percentages used when defaulting to simpler bounding box calculations.
+        public float BoxWidthPercentage { get; set; } = 0.5f;
+        public float BoxHeightPercentage { get; set; } = 0.2f;
+
+        private int _pixelOffsetX;
+        private int _pixelWidth;
+
+        // Construct a map object; frameCount allows animated variants.
+        public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
+            : base(g, texture, pos, frameCount, 1.0)
+        {
+            IsSolid = isSolid;
+            mililsecondsBetweenFrames = 200; // slower default for environmental animations
+            Scale = 3.0f; // chosen scale to match tile grid; adjustable by level creation code
+        }
+
+        // Collision box focuses on the feet area rather than the whole sprite to allow better depth/passability.
+        public Rectangle CollisionBox
+        {
+            get
+            {
+                float scale = (float)Scale;
+
+                int finalHeight = (int)(spriteHeight * scale * 0.2f);
+                int finalWidth = (int)(_pixelWidth * scale);
+
+                float leftEdge = position.X - (spriteWidth * scale / 2);
+                int x = (int)(leftEdge + (_pixelOffsetX * scale));
+
+                int y = (int)(position.Y + (spriteHeight * scale / 2) - finalHeight);
+
+                return new Rectangle(x, y, finalWidth, finalHeight);
+            }
+        }
+
+        // Analyze the sprite's bottom area to determine a tight pixel footprint for collision.
+        // Stores pixel offsets so CollisionBox can be computed quickly later.
+        private void CalculatePixelTightBox()
+        {
+            Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
+            spriteImage.GetData(rawData);
+
+            Rectangle src = sourceRectangle;
+
+            int startY = src.Y + (int)(src.Height * 0.8f);
+            int endY = src.Y + src.Height;
+
+            int minX = src.Width;
+            int maxX = 0;
+            bool foundPixels = false;
+
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = src.X; x < src.X + src.Width; x++)
+                {
+                    int index = y * spriteImage.Width + x;
+                    if (rawData[index].A > 200)
+                    {
+                        int localX = x - src.X;
+                        if (localX < minX) minX = localX;
+                        if (localX > maxX) maxX = localX;
+                        foundPixels = true;
+                    }
+                }
+            }
+
+            if (foundPixels)
+            {
+                _pixelOffsetX = minX;
+                _pixelWidth = maxX - minX;
+            }
+            else
+            {
+                // fallback if bottom has no opaque pixels
+                _pixelOffsetX = (int)(src.Width * 0.25f);
+                _pixelWidth = (int)(src.Width * 0.5f);
+            }
+        }
+
+        // Override to compute tight collision box whenever the source rectangle is set.
+        public new void SetSpritesheetLocation(Rectangle source)
+        {
+            base.SetSpriteSheetLocation(source);
+            CalculatePixelTightBox();
+        }
+
+        // Draw red rectangle lines for debug; creates a shared 1x1 texture as needed.
+        public void DrawDebug(SpriteBatch spriteBatch)
+        {
+            if (_debugTexture == null)
+            {
+                _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+                _debugTexture.SetData(new[] { Color.Red });
+            }
+
+            Rectangle box = CollisionBox;
+            int thickness = 2;
+
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
+            spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
+        }
+    }
+}
 // <autogenerated />
 using System;
 using System.Reflection;
@@ -5000,7 +5163,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fa171e5067a0ff5c553ad945b89e6aba84b7a7b4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a45daa9db02ee847fccd5195920832b85e9b313b")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
