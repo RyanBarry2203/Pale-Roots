@@ -94,6 +94,29 @@ namespace Pale_Roots_1
             CutsceneManager = new CutsceneManager(this);
             CutsceneLibrary.LoadAllCutscenes(CutsceneManager, this);
 
+            // --- INPUT CONFIGURATION (Engine Feature) ---
+            // This defines the "Control Scheme". In a full engine, this could be loaded from a JSON file.
+            InputEngine.RegisterBinding("MoveUp", Keys.W);
+            InputEngine.RegisterBinding("MoveDown", Keys.S);
+            InputEngine.RegisterBinding("MoveLeft", Keys.A);
+            InputEngine.RegisterBinding("MoveRight", Keys.D);
+
+            InputEngine.RegisterBinding("Dash", Keys.LeftShift);
+            InputEngine.RegisterBinding("Confirm", Keys.Space);
+            InputEngine.RegisterBinding("Exit", Keys.Escape);
+
+            // Spells
+            InputEngine.RegisterBinding("CastSpell1", Keys.D1);
+            InputEngine.RegisterBinding("CastSpell2", Keys.D2);
+            InputEngine.RegisterBinding("CastSpell3", Keys.D3);
+            InputEngine.RegisterBinding("CastSpell4", Keys.D4);
+            InputEngine.RegisterBinding("CastSpell5", Keys.D5);
+            InputEngine.RegisterBinding("CastSpell6", Keys.D6);
+
+            // Mouse Actions
+            InputEngine.RegisterMouseBinding("LightAttack", 0); // Left Click
+            InputEngine.RegisterMouseBinding("HeavyAttack", 1); // Right Click
+
             // Initialize the Gameplay Engine
             SoftResetGame();
 
@@ -2714,7 +2737,6 @@ namespace Pale_Roots_1
 
         private bool[] _unlockedSpells;
 
-        // --- FIX IS HERE: NO "class" KEYWORD ---
         public SpellManager(ChaseAndFireEngine engine,
                             Texture2D smiteTx,
                             Texture2D novaTx,
@@ -2747,19 +2769,19 @@ namespace Pale_Roots_1
 
         private void HandleInput()
         {
-            KeyboardState kState = Keyboard.GetState();
+            // We still need mouse position for aiming, which is specific data, not just a button press.
             MouseState mState = Mouse.GetState();
             Vector2 mouseScreenPos = new Vector2(mState.X, mState.Y);
             Matrix inverseTransform = Matrix.Invert(_engine._camera.CurrentCameraTranslation);
             Vector2 mousePos = Vector2.Transform(mouseScreenPos, inverseTransform);
 
-
-            if (kState.IsKeyDown(Keys.D1)) CastSpell(0, mousePos);
-            if (kState.IsKeyDown(Keys.D2)) CastSpell(1, mousePos);
-            if (kState.IsKeyDown(Keys.D3)) CastSpell(2, mousePos);
-            if (kState.IsKeyDown(Keys.D4)) CastSpell(3, mousePos);
-            if (kState.IsKeyDown(Keys.D5)) CastSpell(4, mousePos);
-            if (kState.IsKeyDown(Keys.D6)) CastSpell(5, mousePos);
+            // REFACTORED: Using Action API
+            if (InputEngine.IsActionPressed("CastSpell1")) CastSpell(0, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell2")) CastSpell(1, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell3")) CastSpell(2, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell4")) CastSpell(3, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell5")) CastSpell(4, mousePos);
+            if (InputEngine.IsActionPressed("CastSpell6")) CastSpell(5, mousePos);
         }
 
         private void CastSpell(int index, Vector2 target)
@@ -4294,11 +4316,16 @@ using Microsoft.Devices.Sensors;
 namespace Pale_Roots_1
 {
     // InputEngine: centralizes input polling for keyboard, gamepad, mouse and (optionally) touch/accelerometer.
-    // - Added as a GameComponent so it's automatically updated by Game1.
-    // - Other systems call static helpers (IsKeyPressed, IsButtonHeld, MousePosition, etc.) instead of reading raw platform APIs.
-    // - Keeps previous/current states to detect presses vs holds vs releases.
+    // NOW FEATURING: Action-Based Input API for custom engine architecture.
     public class InputEngine : GameComponent
     {
+        // --- ENGINE FEATURE: ACTION MAPPING ---
+        // Maps a string name (e.g., "Jump") to a specific Key.
+        private static Dictionary<string, Keys> _keyBindings = new Dictionary<string, Keys>();
+
+        // Maps a string name to a Mouse Button (0=Left, 1=Right, 2=Middle)
+        private static Dictionary<string, int> _mouseBindings = new Dictionary<string, int>();
+
         // GamePad state tracking
         private static GamePadState previousPadState;
         private static GamePadState currentPadState;
@@ -4314,14 +4341,13 @@ namespace Pale_Roots_1
         private static MouseState currentMouseState;
 
 #if ANDROID
-        // Mobile-only input fields: accelerometer and touch gesture info
+        // Mobile-only input fields
         private static Vector2 previousAccelerometerReading;
         private static Accelerometer _acceleromter;
         private static Vector2 currentAcceleromoterReading;
         private static Point touchPoint;
         private static GestureType currentGestureType;
 
-        // Accelerometer event handler updates cached readings (orientation assumed landscape here).
         private void _acceleromter_CurrentValueChanged(object sender, SensorReadingEventArgs<AccelerometerReading> e)
         {
             previousAccelerometerReading = CurrentAcceleromoterReading;
@@ -4330,7 +4356,6 @@ namespace Pale_Roots_1
         }
 #endif
 
-        // Register the component and initialize current states.
         public InputEngine(Game _game)
             : base(_game)
         {
@@ -4353,7 +4378,6 @@ namespace Pale_Roots_1
             _game.Components.Add(this);
         }
 
-        // Reset cached states (useful when changing scenes or pausing).
         public static void ClearState()
         {
             previousMouseState = Mouse.GetState();
@@ -4365,10 +4389,6 @@ namespace Pale_Roots_1
 #endif
         }
 
-        // Called each frame by the GameComponent system.
-        // - Updates previous/current snapshots.
-        // - Collects simple text-key presses for UI input.
-        // - Handles touch input when compiled for Android.
         public override void Update(GameTime gametime)
         {
             previousPadState = currentPadState;
@@ -4391,10 +4411,8 @@ namespace Pale_Roots_1
             base.Update(gametime);
         }
 
-        // Simple list used by UI or consoles to obtain the first textual key pressed this frame.
         public List<string> KeysPressedInLastFrame = new List<string>();
 
-        // Scan all Keys and add the first pressed key (useful for single-key text input).
         private void CheckForTextInput()
         {
             foreach (var key in Enum.GetValues(typeof(Keys)) as Keys[])
@@ -4407,25 +4425,68 @@ namespace Pale_Roots_1
             }
         }
 
-        // GamePad helpers
+        // --- ACTION API METHODS (THE NEW ENGINE LOGIC) ---
+
+        // 1. Configuration: Call this in Game1.LoadContent to set up controls
+        public static void RegisterBinding(string actionName, Keys key)
+        {
+            if (_keyBindings.ContainsKey(actionName)) _keyBindings[actionName] = key;
+            else _keyBindings.Add(actionName, key);
+        }
+
+        public static void RegisterMouseBinding(string actionName, int mouseButtonIndex)
+        {
+            if (_mouseBindings.ContainsKey(actionName)) _mouseBindings[actionName] = mouseButtonIndex;
+            else _mouseBindings.Add(actionName, mouseButtonIndex);
+        }
+
+        // 2. Querying: Use these in Player/Scripts instead of checking Keys directly
+        // Returns true only on the frame the button is pressed down
+        public static bool IsActionPressed(string actionName)
+        {
+            if (_keyBindings.ContainsKey(actionName))
+            {
+                return IsKeyPressed(_keyBindings[actionName]);
+            }
+            if (_mouseBindings.ContainsKey(actionName))
+            {
+                int btn = _mouseBindings[actionName];
+                if (btn == 0) return IsMouseLeftClick();
+                if (btn == 1) return IsMouseRightClick();
+            }
+            return false;
+        }
+
+        // Returns true as long as the button is held down
+        public static bool IsActionHeld(string actionName)
+        {
+            if (_keyBindings.ContainsKey(actionName))
+            {
+                return IsKeyHeld(_keyBindings[actionName]);
+            }
+            if (_mouseBindings.ContainsKey(actionName))
+            {
+                int btn = _mouseBindings[actionName];
+                if (btn == 0) return IsMouseLeftHeld();
+                if (btn == 1) return IsMouseRightHeld();
+            }
+            return false;
+        }
+
+        // --- RAW HARDWARE HELPERS ---
+
         public static bool IsButtonPressed(Buttons buttonToCheck)
         {
-            // true when transitioned from down -> up in the last frame
             if (currentPadState.IsButtonUp(buttonToCheck) && previousPadState.IsButtonDown(buttonToCheck))
-            {
                 return true;
-            }
             else
-            {
                 return false;
-            }
         }
         public static bool IsButtonHeld(Buttons buttonToCheck)
         {
             return currentPadState.IsButtonDown(buttonToCheck);
         }
 
-        // Keyboard helpers
         public static bool IsKeyHeld(Keys buttonToCheck)
         {
             return currentKeyState.IsKeyDown(buttonToCheck);
@@ -4433,18 +4494,12 @@ namespace Pale_Roots_1
 
         public static bool IsKeyPressed(Keys keyToCheck)
         {
-            // Note: this implementation treats pressed as previous down -> current up (edge detection).
             if (currentKeyState.IsKeyUp(keyToCheck) && previousKeyState.IsKeyDown(keyToCheck))
-            {
                 return true;
-            }
             else
-            {
                 return false;
-            }
         }
 
-        // Expose raw current states to other systems when needed.
         public static GamePadState CurrentPadState
         {
             get { return currentPadState; }
@@ -4466,7 +4521,6 @@ namespace Pale_Roots_1
         }
 
 #if ANDROID
-        // Android touch/accelerometer accessors
         public static Point TouchPoint
         {
             get { return touchPoint; }
@@ -4478,10 +4532,9 @@ namespace Pale_Roots_1
             get
             {
                 GestureType ret = currentGestureType;
-                currentGestureType = GestureType.None; // consume once
+                currentGestureType = GestureType.None; 
                 return ret;
             }
-
             set
             {
                 currentGestureType = value;
@@ -4494,7 +4547,6 @@ namespace Pale_Roots_1
             set { currentAcceleromoterReading = value; }
         }
 
-        // Process queued touch gestures from TouchPanel and update touchPoint/currentGestureType.
         private void HandleTouchInput()
         {
             TouchCollection touches = TouchPanel.GetState();
@@ -4523,29 +4575,18 @@ namespace Pale_Roots_1
                     case GestureType.Flick:
                         break;
                     case GestureType.Pinch:
-                        // Example: compute scale change from pinch delta (not applied here).
-                        Vector2 a = gesture.Position;
-                        Vector2 aOld = gesture.Position - gesture.Delta;
-                        Vector2 b = gesture.Position2;
-                        Vector2 bOld = gesture.Position2 - gesture.Delta2;
-                        float d = Vector2.Distance(a, b);
-                        float dOld = Vector2.Distance(aOld, bOld);
-                        float scaleChange = (d - dOld) * .01f;
                         break;
                 }
             }
-
         }
-
 #endif
 
 #if WINDOWS
-        // Mouse helpers (edge detection using previous/current MouseState)
         public static bool IsMouseLeftClick()
         {
             if (currentMouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed)
                 return true;
-            else 
+            else
                 return false;
         }
 
@@ -4573,15 +4614,11 @@ namespace Pale_Roots_1
                 return false;
         }
 
-        // Current mouse position in screen coordinates (updated in Update).
         public static Vector2 MousePosition
         {
             get { return currentMousePos; }
         }
 #endif
-
-
-
     }
 }
 using System;
@@ -5163,7 +5200,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a45daa9db02ee847fccd5195920832b85e9b313b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+29e277cf7d520d411ea6ab2ca16b9843faa8ec3f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -5499,7 +5536,7 @@ namespace Pale_Roots_1
         private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
 
         // Animation / direction
-        public enum Direction {Down = 0, Left = 0, Right = 2, Up = 3 }
+        public enum Direction { Down = 0, Left = 0, Right = 2, Up = 3 }
         private Direction _currentDirection = Direction.Down;
         private int _currentDirectionIndex = 2;
 
@@ -5617,11 +5654,10 @@ namespace Pale_Roots_1
         // Check input for combat actions (dash or mouse buttons)
         private void CheckForCombatInput(List<Enemy> enemies)
         {
-            KeyboardState kState = Keyboard.GetState();
-            MouseState mState = Mouse.GetState();
+            // REFACTORED: Decoupled from hardware using Action API
 
             // Dash input
-            if (IsDashUnlocked && kState.IsKeyDown(Keys.LeftShift))
+            if (IsDashUnlocked && InputEngine.IsActionPressed("Dash"))
             {
                 StartDash();
                 return;
@@ -5629,12 +5665,12 @@ namespace Pale_Roots_1
 
             if (_cooldownTimer > 0) return;
 
-            // Attack input: left = light, right = heavy (if unlocked)
-            if (mState.LeftButton == ButtonState.Pressed)
+            // Attack input
+            if (InputEngine.IsActionPressed("LightAttack"))
             {
                 StartAttack(enemies, 1);
             }
-            else if (IsHeavyAttackUnlocked && mState.RightButton == ButtonState.Pressed)
+            else if (IsHeavyAttackUnlocked && InputEngine.IsActionPressed("HeavyAttack"))
             {
                 StartAttack(enemies, 2);
             }
@@ -5688,17 +5724,17 @@ namespace Pale_Roots_1
             }
         }
 
-        // Read WASD, set velocity and attempt movement against the tile layer.
+        // Read Input API, set velocity and attempt movement against the tile layer.
         // updateState = false prevents state switches (used during attacks/hurt).
         private void HandleInput(TileLayer currentLayer, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
-            KeyboardState state = Keyboard.GetState();
 
-            if (state.IsKeyDown(Keys.W)) inputDirection.Y -= 1;
-            if (state.IsKeyDown(Keys.S)) inputDirection.Y += 1;
-            if (state.IsKeyDown(Keys.A)) inputDirection.X -= 1;
-            if (state.IsKeyDown(Keys.D)) inputDirection.X += 1;
+            // REFACTORED: Using InputEngine Action API instead of raw Keys
+            if (InputEngine.IsActionHeld("MoveUp")) inputDirection.Y -= 1;
+            if (InputEngine.IsActionHeld("MoveDown")) inputDirection.Y += 1;
+            if (InputEngine.IsActionHeld("MoveLeft")) inputDirection.X -= 1;
+            if (InputEngine.IsActionHeld("MoveRight")) inputDirection.X += 1;
 
             if (inputDirection != Vector2.Zero)
             {
@@ -5706,7 +5742,13 @@ namespace Pale_Roots_1
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
+                // Only update facing direction if we are NOT attacking.
+                // This ensures the hitbox stays locked to the mouse click direction 
+                // even if we strafe sideways during the swing.
+                if (CurrentState != PlayerState.Attack1 && CurrentState != PlayerState.Attack2)
+                {
+                    _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
+                }
 
                 Vector2 proposedPosition = position + _velocity;
                 if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
@@ -5787,7 +5829,10 @@ namespace Pale_Roots_1
 
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
             float frameSpeed = (attackNum == 1) ? 80f : 120f;
-            float duration = 10 * frameSpeed;
+
+            // Reduce duration to 7 frames instead of the full 10.
+            // This makes the hitbox active for less time and lets the player move/attack again sooner.
+            float duration = 7 * frameSpeed;
 
             CurrentState = (attackNum == 1) ? PlayerState.Attack1 : PlayerState.Attack2;
             _stateTimer = duration;

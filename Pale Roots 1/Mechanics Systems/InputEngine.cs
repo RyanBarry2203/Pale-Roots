@@ -190,7 +190,7 @@ namespace Pale_Roots_1
 
         public static bool IsKeyPressed(Keys keyToCheck)
         {
-            if (currentKeyState.IsKeyUp(keyToCheck) && previousKeyState.IsKeyDown(keyToCheck))
+            if (currentKeyState.IsKeyDown(keyToCheck) && previousKeyState.IsKeyUp(keyToCheck))
                 return true;
             else
                 return false;
@@ -280,7 +280,7 @@ namespace Pale_Roots_1
 #if WINDOWS
         public static bool IsMouseLeftClick()
         {
-            if (currentMouseState.LeftButton == ButtonState.Released && previousMouseState.LeftButton == ButtonState.Pressed)
+            if (currentMouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released)
                 return true;
             else
                 return false;
@@ -288,7 +288,7 @@ namespace Pale_Roots_1
 
         public static bool IsMouseRightClick()
         {
-            if (currentMouseState.RightButton == ButtonState.Released && previousMouseState.RightButton == ButtonState.Pressed)
+            if (currentMouseState.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 return true;
             else
                 return false;
