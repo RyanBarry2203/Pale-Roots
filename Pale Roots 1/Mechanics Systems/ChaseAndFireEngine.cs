@@ -20,11 +20,13 @@ namespace Pale_Roots_1
         public Camera _camera;
         public Game _gameOwnedBy;
 
+        // --- GRAPHICS PIPELINE ---
+        public RenderPipeline Renderer { get; private set; }
+
         // Runtime entity lists
         private Player _player;
         public List<Ally> _allies = new List<Ally>();
         public List<Enemy> _enemies = new List<Enemy>();
-
         private SpellManager _spellManager;
 
         // Battle state + spawn/origin positions
@@ -53,6 +55,9 @@ namespace Pale_Roots_1
 
             _levelManager = new LevelManager(game);
             _levelManager.LoadLevel(0);
+
+            // Initialize the dedicated rendering API
+            Renderer = new RenderPipeline();
 
             // Create player (textures are loaded from Content by Game1 and passed here)
             _player = new Player(
@@ -92,13 +97,11 @@ namespace Pale_Roots_1
             for (int i = 1; i <= 3; i++)
             {
                 var newOrcDict = new Dictionary<string, Texture2D>();
-
                 newOrcDict["Idle"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_idle_full");
                 newOrcDict["Walk"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_run_full");
                 newOrcDict["Attack"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_attack_full");
                 newOrcDict["Hurt"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_hurt_full");
                 newOrcDict["Death"] = _gameOwnedBy.Content.Load<Texture2D>($"RealEnemyFolder/orc{i}_death_full");
-
                 _allOrcTypes.Add(newOrcDict);
             }
 
@@ -134,7 +137,6 @@ namespace Pale_Roots_1
                 float xPos = _enemySpawnOrigin.X + (currentRow * spacingX);
                 float rowHeight = (enemiesInCurrentRow - 1) * spacingY;
                 float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
-
                 int typeIndex = 0;
 
                 // Leader is tougher, others randomized
@@ -167,8 +169,8 @@ namespace Pale_Roots_1
                 }
 
                 _enemies.Add(enemy);
-
                 currentSlotInRow++;
+
                 if (currentSlotInRow >= enemiesInCurrentRow)
                 {
                     currentRow++;
@@ -244,10 +246,8 @@ namespace Pale_Roots_1
             if (scanNow) _targetingTimer = 0;
 
             _spellManager.Update(gameTime);
-
             UpdateAllies(gameTime, scanNow);
             UpdateEnemies(gameTime, scanNow);
-
             CleanupDead();
 
             // Keep camera centered on the player this frame
@@ -270,7 +270,6 @@ namespace Pale_Roots_1
                         ally.CurrentAIState = Enemy.AISTATE.Chasing;
                     }
                 }
-
                 ally.Update(gameTime, _levelManager.MapObjects);
             }
         }
@@ -294,7 +293,6 @@ namespace Pale_Roots_1
                         enemy.CurrentAIState = Enemy.AISTATE.Chasing;
                     }
                 }
-
                 enemy.Update(gameTime, _levelManager.MapObjects);
             }
         }
@@ -327,7 +325,6 @@ namespace Pale_Roots_1
                     best = candidate;
                 }
             }
-
             return best;
         }
 
@@ -372,7 +369,6 @@ namespace Pale_Roots_1
                         // Immediately assign player as target so they behave aggressively on spawn
                         CombatSystem.AssignTarget(newEnemy, _player);
                         newEnemy.CurrentAIState = Enemy.AISTATE.Chasing;
-
                         _enemies.Add(newEnemy);
                     }
                     else if (team == CombatTeam.Player)
@@ -386,7 +382,6 @@ namespace Pale_Roots_1
                             CombatSystem.AssignTarget(newAlly, bestTarget);
                             newAlly.CurrentAIState = Enemy.AISTATE.Chasing;
                         }
-
                         _allies.Add(newAlly);
                     }
                 }
@@ -396,7 +391,7 @@ namespace Pale_Roots_1
         // Expose SpellManager for external UI or systems
         public SpellManager GetSpellManager() => _spellManager;
 
-        // Draw: level first, then gather sprites, sort by bottom-Y and draw in that order.
+        // Draw: level first, then gather sprites, use custom Rendering API to depth-sort and draw.
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
             _levelManager.Draw(spriteBatch);
@@ -408,7 +403,7 @@ namespace Pale_Roots_1
             foreach (var ally in _allies)
             {
                 if (ally.Visible) renderList.Add(ally);
-            }
+            } 
 
             foreach (var enemy in _enemies)
             {
@@ -420,18 +415,9 @@ namespace Pale_Roots_1
                 if (obj.Visible) renderList.Add(obj);
             }
 
-            // Painter's algorithm ordering by sprite bottom Y for simple depth illusion
-            renderList.Sort((a, b) =>
-            {
-                float aY = a.position.Y + (a.spriteHeight * (float)a.Scale);
-                float bY = b.position.Y + (b.spriteHeight * (float)b.Scale);
-                return aY.CompareTo(bY);
-            });
+            // Using our new Custom API to handle rendering/sorting!
+            Renderer.DrawDepthSorted(spriteBatch, renderList);
 
-            foreach (var sprite in renderList)
-            {
-                sprite.Draw(spriteBatch);
-            }
             _spellManager.Draw(spriteBatch);
         }
 
