@@ -21,6 +21,8 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
+            _game.AudioManager.HandleMusicState(GameState.Gameplay);
+
             if (InputEngine.IsKeyPressed(Keys.Escape))
             {
                 _game.StateManager.ChangeState(new MenuState(_game));

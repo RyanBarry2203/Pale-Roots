@@ -9,6 +9,7 @@ namespace Pale_Roots_1
     {
         // Configuration
         private float _fadeSpeed = 0.5f;
+        private const float MaxVolume = 1.0f;
 
         // State
         private float _currentVolume = 0f;
@@ -17,6 +18,7 @@ namespace Pale_Roots_1
         // Tracks
         private Song _currentSong;
         private Song _pendingSong;
+        private bool _isSwitchingTrack = false;
 
         // Playlists
         public Song MenuSong { get; set; }
@@ -41,7 +43,7 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. Fading Logic with Snapping
+            // --- 1. Fading Logic ---
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -53,28 +55,24 @@ namespace Pale_Roots_1
                 if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
             }
 
-            // SAFETY CHECK: Ensure we don't get stuck at near-zero volume
-            if (Math.Abs(_currentVolume - _targetVolume) < 0.01f)
-            {
-                _currentVolume = _targetVolume;
-            }
-
             MediaPlayer.Volume = _currentVolume;
 
-            // 2. Cross-Fade Execution
-            // Increased threshold from 0.01f to 0.05f to prevent floating point misses
-            if (_pendingSong != null && _currentVolume <= 0.05f)
+            // --- 2. State Management (The Fix for the Delay) ---
+            // Only allow new music checks once the hardware confirms it is actually playing.
+            if (MediaPlayer.State == MediaState.Playing)
             {
-                try
-                {
-                    MediaPlayer.Stop();
-                    MediaPlayer.Play(_pendingSong);
+                _isSwitchingTrack = false;
+            }
 
-                    _currentSong = _pendingSong;
-                    _pendingSong = null;
-                    _targetVolume = 0.5f; // Fade back in
-                }
-                catch { }
+            // --- 3. Cross-Fade Execution ---
+            bool songFinished = (MediaPlayer.State == MediaState.Stopped);
+            bool fadeComplete = (_currentVolume <= 0.05f);
+
+            // Only run this logic if we aren't already busy switching tracks
+            if (!_isSwitchingTrack && _pendingSong != null && (fadeComplete || songFinished))
+            {
+                // If we are cross-fading, we use PlayImmediate too!
+                PlayImmediate(_pendingSong);
             }
         }
 
@@ -110,33 +108,28 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // Check if we are playing a "Theme" song that shouldn't be here
+            // If we are currently loading a song, STOP checking. 
+            // This prevents the "restart loop" that causes the delay.
+            if (_isSwitchingTrack) return;
+
             bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong ||
                                  _currentSong == DeathSong || _currentSong == OutroSong);
 
-            // Check if the current song has finished naturally
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
             if (isWrongTheme)
             {
-                // This is a hard switch, so we fade out then in
                 RequestTrack(GetRandomCombatTrack(), false);
             }
             else if (isSilence)
             {
-                // Song ended naturally. Just play the next one.
-                // DO NOT set volume to 0 here, or you get a silence gap.
+                // Song finished? 
                 Song next = GetRandomCombatTrack();
-
-                try
+                if (next != null)
                 {
-                    MediaPlayer.Play(next);
-                    _currentSong = next;
-                    // Ensure volume is up
-                    _targetVolume = 0.5f;
-                    _currentVolume = 0.5f;
+                    // USE THE METHOD!
+                    PlayImmediate(next);
                 }
-                catch { }
             }
         }
 
@@ -154,11 +147,21 @@ namespace Pale_Roots_1
         {
             try
             {
+                // 1. Tell the hardware to play
                 MediaPlayer.Play(song);
                 MediaPlayer.IsRepeating = false;
+
+                // 2. Update internal tracking
                 _currentSong = song;
-                _currentVolume = 0f;
-                _targetVolume = 0.5f;
+                _pendingSong = null; // Clear any pending fades
+
+                // 3. Snap volume to MAX immediately
+                _targetVolume = MaxVolume;
+                _currentVolume = MaxVolume;
+                MediaPlayer.Volume = _currentVolume;
+
+                // 4. CRITICAL: Tell the engine "I am busy loading, don't bother me"
+                _isSwitchingTrack = true;
             }
             catch { }
         }
@@ -183,8 +186,8 @@ namespace Pale_Roots_1
             MediaPlayer.Stop();
             _currentSong = null;
             _pendingSong = null;
-            _currentVolume = 0.5f;
-            _targetVolume = 0.5f;
+            _currentVolume = MaxVolume; // Changed from 0.5f
+            _targetVolume = MaxVolume;  // Changed from 0.5f
         }
     }
 }
