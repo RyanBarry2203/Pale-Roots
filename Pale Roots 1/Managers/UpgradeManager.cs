@@ -73,13 +73,15 @@ namespace Pale_Roots_1
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Strange Omen",
-                Description = "I feel something's off...",
+                Description = "I feel something's off...do i give in?",
                 Type = UpgradeType.BossTrigger,
                 Icon = _bossIcon,
                 ApplyAction = () =>
                 {
                     Action<bool> onBossResult = (won) =>
                     {
+                        _player.Position = new Vector2(1920, 1080);
+
                         if (won)
                         {
                             BossDefeated = true;
@@ -89,12 +91,10 @@ namespace Pale_Roots_1
                         }
                         else
                         {
-
                             _player.IsDashUnlocked = false;
                             _player.IsHeavyAttackUnlocked = false;
                             _spellManager.LockAllSpells();
 
-                            // Grant exactly ONE random spell for survival
                             int randomSpellIndex = CombatSystem.RandomInt(0, 6);
                             _spellManager.UnlockSpell(randomSpellIndex);
                         }
@@ -102,7 +102,7 @@ namespace Pale_Roots_1
 
                     if (_player.Game is Game1 g)
                     {
-                        g.StateManager.ChangeState(new BossTransitionState(g, onBossResult));
+                        g.StateManager.ChangeState(new BossTransitionState(g, g.GameEngine, true, false, onBossResult));
                     }
                 }
             });

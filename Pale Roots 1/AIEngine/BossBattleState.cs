@@ -98,8 +98,7 @@ namespace Pale_Roots_1
         private void FinishFight(bool playerWon)
         {
             _fightOver = true;
-            // Transition out, passing the result
-            _game.StateManager.ChangeState(new BossTransitionState(_game, false, playerWon, _onBattleEnd));
+            _game.StateManager.ChangeState(new BossTransitionState(_game, _bossEngine, false, playerWon, _onBattleEnd));
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)

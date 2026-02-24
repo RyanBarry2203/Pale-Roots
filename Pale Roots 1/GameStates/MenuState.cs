@@ -37,16 +37,14 @@ namespace Pale_Roots_1
             {
                 if (_playBtnRect.Contains(mousePoint))
                 {
-                    
-                    if (!_game.HasStarted) 
+                    if (!_game.HasStarted)
                     {
-                        _game.StateManager.ChangeState(new IntroState(_game)); 
+                        _game.StateManager.ChangeState(new IntroState(_game));
                     }
-                    else 
+                    else
                     {
-                        _game.StateManager.ChangeState(new GameplayState(_game)); 
+                        _game.StateManager.PopState();
                     }
-                    
                 }
                 else if (_quitBtnRect.Contains(mousePoint))
                 {

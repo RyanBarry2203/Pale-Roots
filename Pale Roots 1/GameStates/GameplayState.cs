@@ -25,7 +25,7 @@ namespace Pale_Roots_1
 
             if (InputEngine.IsKeyPressed(Keys.Escape))
             {
-                _game.StateManager.ChangeState(new MenuState(_game));
+                _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
