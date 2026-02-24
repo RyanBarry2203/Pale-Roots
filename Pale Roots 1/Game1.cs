@@ -32,6 +32,7 @@ namespace Pale_Roots_1
         public Texture2D[] SpellIcons { get; private set; }
         public Texture2D DashIcon { get; private set; }
         public Texture2D HeavyAttackIcon { get; private set; }
+        public Texture2D BossIcon { get; private set; }
 
         // --- GLOBAL STATE ---
         public bool HasStarted { get; set; } = false;
@@ -89,6 +90,8 @@ namespace Pale_Roots_1
             SpellIcons[5] = Content.Load<Texture2D>("Effects/SwordJusticeIcon");
             DashIcon = Content.Load<Texture2D>("Effects/DashIcon");
             HeavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
+            BossIcon = Content.Load<Texture2D>("Effects/BossIcon");
+
 
             // Initialize UI Manager
             UIManager = new UIManager(UiPixel, UiFont);
@@ -136,6 +139,7 @@ namespace Pale_Roots_1
                 SpellIcons,
                 DashIcon,
                 HeavyAttackIcon,
+                BossIcon,
                 GraphicsDevice
             );
             NextLevelThreshold = 3;

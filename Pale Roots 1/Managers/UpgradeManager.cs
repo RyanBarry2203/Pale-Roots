@@ -26,17 +26,20 @@ namespace Pale_Roots_1
         private Texture2D[] _spellIcons;
         private Texture2D _dashIcon;
         private Texture2D _heavyIcon;
+        private Texture2D _bossIcon;
         private Texture2D _pixel;
+        public bool BossDefeated { get; set; } = false;
 
         private List<UpgradeOption> _allUpgrades = new List<UpgradeOption>();
 
-        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, GraphicsDevice gd)
+        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, Texture2D bossIcon, GraphicsDevice gd)
         {
             _player = p;
             _spellManager = sm;
             _spellIcons = icons;
             _dashIcon = dashIcon;
             _heavyIcon = heavyIcon;
+            _bossIcon = bossIcon;
 
             _pixel = new Texture2D(gd, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -72,13 +75,14 @@ namespace Pale_Roots_1
                 Name = "Strange Omen",
                 Description = "I feel something's off...",
                 Type = UpgradeType.BossTrigger,
-                Icon = _heavyIcon, // Placeholder icon
+                Icon = _bossIcon,
                 ApplyAction = () =>
                 {
                     Action<bool> onBossResult = (won) =>
                     {
                         if (won)
                         {
+                            BossDefeated = true;
                             _player.IsDashUnlocked = true;
                             _player.IsHeavyAttackUnlocked = true;
                             for (int i = 0; i < 6; i++) _spellManager.UnlockSpell(i);
@@ -143,9 +147,9 @@ namespace Pale_Roots_1
         {
             if (u.Type == UpgradeType.HeavyAttack) return !_player.IsHeavyAttackUnlocked;
             if (u.Type == UpgradeType.Dash) return !_player.IsDashUnlocked;
-
-            // Look how brilliantly simple this is now! No more Array.IndexOf hacks!
             if (u.Type == UpgradeType.Spell) return !_spellManager.IsSpellUnlocked(u.SpellIndex);
+
+            if (u.Type == UpgradeType.BossTrigger) return !BossDefeated;
 
             return true;
         }

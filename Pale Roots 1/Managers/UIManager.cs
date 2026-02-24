@@ -53,24 +53,26 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
 
             int screenW = graphicsDevice.Viewport.Width;
-            int barW = 600;
-            int barH = 20;
-            int barX = (screenW / 2) - (barW / 2);
-            int barY = 20;
-
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
-
-            float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
-            if (progress > 1f) progress = 1f;
 
             if (winConditionKills < 999)
             {
-                spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+                int barW = 600;
+                int barH = 20;
+                int barX = (screenW / 2) - (barW / 2);
+                int barY = 20;
 
-                string warText = "WAR DOMINANCE";
-                Vector2 textSize = _uiFont.MeasureString(warText);
-                spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
+
+                float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
+                if (progress > 1f) progress = 1f;
+
+            
+                    spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+
+                    string warText = "WAR DOMINANCE";
+                    Vector2 textSize = _uiFont.MeasureString(warText);
+                    spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
             }
 
             int iconSize = 64;
