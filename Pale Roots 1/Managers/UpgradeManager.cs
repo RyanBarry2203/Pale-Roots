@@ -8,7 +8,8 @@ namespace Pale_Roots_1
 {
     public class UpgradeManager
     {
-        public enum UpgradeType { HeavyAttack, Dash, Spell }
+
+        public enum UpgradeType { HeavyAttack, Dash, Spell, BossTrigger }
 
         public class UpgradeOption
         {
@@ -63,6 +64,43 @@ namespace Pale_Roots_1
                 Type = UpgradeType.Dash,
                 Icon = _dashIcon,
                 ApplyAction = () => _player.IsDashUnlocked = true
+            });
+
+            // THE CURSED CARD
+            _allUpgrades.Add(new UpgradeOption
+            {
+                Name = "Strange Omen",
+                Description = "I feel something's off...",
+                Type = UpgradeType.BossTrigger,
+                Icon = _heavyIcon, // Placeholder icon
+                ApplyAction = () =>
+                {
+                    Action<bool> onBossResult = (won) =>
+                    {
+                        if (won)
+                        {
+                            _player.IsDashUnlocked = true;
+                            _player.IsHeavyAttackUnlocked = true;
+                            for (int i = 0; i < 6; i++) _spellManager.UnlockSpell(i);
+                        }
+                        else
+                        {
+
+                            _player.IsDashUnlocked = false;
+                            _player.IsHeavyAttackUnlocked = false;
+                            _spellManager.LockAllSpells();
+
+                            // Grant exactly ONE random spell for survival
+                            int randomSpellIndex = CombatSystem.RandomInt(0, 6);
+                            _spellManager.UnlockSpell(randomSpellIndex);
+                        }
+                    };
+
+                    if (_player.Game is Game1 g)
+                    {
+                        g.StateManager.ChangeState(new BossTransitionState(g, onBossResult));
+                    }
+                }
             });
 
             // 3. DYNAMIC SPELL GENERATION (The Engine Flex!)

@@ -11,6 +11,9 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         public SpriteBatch SpriteBatch { get; private set; }
 
+        //// --- BOSS BATTLE STATE PRESERVATION ---
+        //public GameplayState SavedMainGameState { get; set; }
+
         // --- ENGINE MANAGERS (Custom APIs) ---
         public GameStateManager StateManager { get; private set; }
         public AudioManager AudioManager { get; private set; }
@@ -177,11 +180,13 @@ namespace Pale_Roots_1
             Scale = 2.0f; 
 
             _animManager.AddAnimation("Heal", new Animation(sheet, 11, 0, 100f, false, 1, 64));
-            _animManager.Play("Heal");
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Heal");
+
             Player p = engine.GetPlayer();
             p.Health += 100;
             if (p.Health > p.MaxHealth) p.Health = p.MaxHealth;
@@ -213,11 +218,13 @@ namespace Pale_Roots_1
             Scale = 5.0f; // Keep big
 
             _animManager.AddAnimation("Explode", new Animation(sheet, 10, 0, 100f, false, 1, 128));
-            _animManager.Play("Explode");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Explode");
             // Restored the generic <Enemy> type!
             List<Enemy> toKill = new List<Enemy>();
 
@@ -255,11 +262,14 @@ namespace Pale_Roots_1
             Scale = 3.0f; // Keep big
 
             _animManager.AddAnimation("Cast", new Animation(sheet, 12, 0, 100f, true, 1, 128));
-            _animManager.Play("Cast");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Cast");
+
             _strikeLocations.Clear();
             Vector2 center = engine.GetPlayer().Position;
 
@@ -309,11 +319,13 @@ namespace Pale_Roots_1
             Scale = 1.5f;
 
             _animManager.AddAnimation("Shield", new Animation(sheet, 11, 0, 100f, true, 1, 64));
-            _animManager.Play("Shield");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            _animManager.Play("Shield");
+
             foreach (var ally in engine._allies)
             {
                 if (ally.IsAlive) ally.Health *= 2;
@@ -347,11 +359,14 @@ namespace Pale_Roots_1
             Scale = 3.0f;
 
             _animManager.AddAnimation("Storm", new Animation(sheet, 5, 0, 100f, true, 1, 128));
-            _animManager.Play("Storm");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Storm");
+
             _strikeLocations.Clear();
             Vector2 center = engine.GetPlayer().Position;
 
@@ -407,14 +422,15 @@ namespace Pale_Roots_1
             Description = "Double Damage";
             CooldownDuration = 25000f;
             ActiveDuration = 15000f;
-            Scale = 1.5f;
+            Scale = 1f;
 
             _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
-            _animManager.Play("Justice");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            _animManager.Play("Justice");
             engine.GlobalPlayerDamageMult = 2.0f;
         }
 
@@ -711,6 +727,260 @@ namespace Pale_Roots_1
         }
     }
 }
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class BlackHoleBoss : Enemy
+    {
+        private float _gravityStrength = 500f;
+        private float _gravityRadius = 150f;
+
+        public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
+            : base(game, textures, pos, 4) // 1. Initialize with "Default" 4 frames (Good for Idle/Walk)
+        {
+            Name = "Event Horizon Golem";
+            MaxHealth = 5000;
+            Health = MaxHealth;
+            Scale = 4.0f;
+            AttackDamage = 50;
+            _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 12, 0, 150f, false, 1, 0, false));
+            _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 8, 0, 150f, true, 1, 0, false));
+            _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 10, 0, 150f, true, 1, 0, false));
+            _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 1, 0, false));
+
+
+            // 3. Set initial state
+            ChangeState(new BossIdleState());
+        }
+
+        public void UpdateBossLogic(GameTime gameTime, Player player)
+        {
+            // Gravity Logic
+            Vector2 pull = PhysicsGlobals.CalculateGravitationalForce(this.Center, player.Center, _gravityStrength, _gravityRadius);
+            player.ApplyExternalForce(pull * (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            base.Update(gameTime);
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class BossBattleState : IGameState
+    {
+        private Game1 _game;
+        private ChaseAndFireEngine _bossEngine;
+        private BlackHoleBoss _boss;
+        private bool _fightOver = false;
+
+        // The callback to run when the fight ends
+        private Action<bool> _onBattleEnd;
+
+        public BossBattleState(Game1 game, Action<bool> onBattleEnd)
+        {
+            _game = game;
+            _onBattleEnd = onBattleEnd;
+        }
+
+        public void LoadContent()
+        {
+            _bossEngine = new ChaseAndFireEngine(_game);
+            _bossEngine._enemies.Clear();
+            _bossEngine._allies.Clear();
+
+            // Generate the Organic Arena
+            _bossEngine._levelManager.GenerateBossArena();
+
+            // Load Boss Texture
+            // Ensure you have your Dictionary setup here from the previous step
+            var bossTextures = new Dictionary<string, Texture2D>();
+            bossTextures["Idle"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_idle");
+            bossTextures["Walk"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_walk");
+            bossTextures["Attack"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_attack");
+            bossTextures["Hurt"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_hurt");
+            bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
+
+            // CALCULATE CENTER OF MAP (60 tiles * 64px / 2 = 1920, 34 tiles * 64px / 2 = 1088)
+            Vector2 mapCenter = new Vector2(1920, 1088);
+
+            // Spawn Boss in exact center
+            _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
+            _bossEngine._enemies.Add(_boss);
+
+            // Spawn Player slightly to the left of center
+            _bossEngine.GetPlayer().Position = mapCenter - new Vector2(400, 0);
+
+            // Snap Camera to center immediately so we don't see the void for 1 frame
+            _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            // 1. MUSIC: Ensure the Audio Manager knows we are in Gameplay mode (Combat Music)
+            _game.AudioManager.HandleMusicState(GameState.Gameplay);
+
+            // 2. PAUSE: Check for Escape key to open Menu
+            if (InputEngine.IsKeyPressed(Microsoft.Xna.Framework.Input.Keys.Escape))
+            {
+                // Push the MenuState on top. 
+                // Because we use a Stack now, the Boss Fight will freeze exactly here.
+                _game.StateManager.PushState(new MenuState(_game));
+                return;
+            }
+
+            if (_fightOver) return;
+
+            _bossEngine.Update(gameTime);
+            _boss.UpdateBossLogic(gameTime, _bossEngine.GetPlayer());
+
+            // Win Condition
+            if (!_boss.IsAlive)
+            {
+                FinishFight(true);
+            }
+            // Lose Condition
+            else if (!_bossEngine.GetPlayer().IsAlive)
+            {
+                FinishFight(false);
+            }
+        }
+
+        private void FinishFight(bool playerWon)
+        {
+            _fightOver = true;
+            // Transition out, passing the result
+            _game.StateManager.ChangeState(new BossTransitionState(_game, false, playerWon, _onBattleEnd));
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _bossEngine._camera.CurrentCameraTranslation);
+            _bossEngine.Draw(gameTime, spriteBatch);
+            spriteBatch.End();
+
+            spriteBatch.Begin();
+            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999);
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    public class BossIdleState : IAIState
+    {
+        public void Enter(INpcActor npc)
+        {
+            // Optional: Play a roar sound?
+        }
+
+        public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
+        {
+
+            if (npc.CurrentTarget != null)
+            {
+                npc.SnapToFace(npc.CurrentTarget.Position);
+            }
+
+        }
+
+        public void Exit(INpcActor npc) { }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+
+namespace Pale_Roots_1
+{
+    public class BossTransitionState : IGameState
+    {
+        private Game1 _game;
+        private bool _isEntering;
+        private bool _playerWon;
+        private Action<bool> _onComplete; // Callback to run after transition
+
+        private float _timer = 0f;
+        private float _duration = 5f;
+        private string _text;
+
+        // Constructor for ENTERING the boss
+        public BossTransitionState(Game1 game, Action<bool> onComplete)
+        {
+            _game = game;
+            _isEntering = true;
+            _onComplete = onComplete;
+            _text = "I feel something's off...\nThe pull of gravity is getting stronger.";
+        }
+
+        // Constructor for LEAVING the boss
+        public BossTransitionState(Game1 game, bool entering, bool won, Action<bool> onComplete)
+        {
+            _game = game;
+            _isEntering = false;
+            _playerWon = won;
+            _onComplete = onComplete;
+
+            if (won) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
+            else _text = "The void consumes what you knew.\nOnly a fragment remains.";
+        }
+
+        public void LoadContent() { }
+
+        public void Update(GameTime gameTime)
+        {
+            _timer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_timer >= _duration)
+            {
+                if (_isEntering)
+                {
+                    // Done with intro text -> Go to Arena
+                    _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
+                }
+                else
+                {
+                    // Done with outro text -> Go back to Main Game
+                    _onComplete?.Invoke(_playerWon);
+
+                    // Resume the main game engine
+                    _game.StateManager.ChangeState(new GameplayState(_game));
+
+                    // Resume music
+                    _game.AudioManager.HandleMusicState(GameState.Gameplay);
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+            graphicsDevice.Clear(Color.Black);
+
+            float alpha = 1.0f;
+            if (_timer < 1.0f) alpha = _timer;
+            if (_timer > _duration - 1.0f) alpha = (_duration - _timer);
+
+            if (_game.UiFont != null)
+            {
+                Vector2 size = _game.UiFont.MeasureString(_text);
+                Vector2 center = new Vector2(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
+                spriteBatch.DrawString(_game.UiFont, _text, center - (size / 2), Color.Red * alpha);
+            }
+            spriteBatch.End();
+        }
+    }
+}
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
@@ -724,7 +994,7 @@ namespace Pale_Roots_1
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public bool IsStunned { get; set; }
 
-        private AnimationManager _animManager;
+        protected AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
         private SpriteEffects _flipEffect = SpriteEffects.None;
         private Vector2 _knockBackVelocity;
@@ -1025,7 +1295,10 @@ namespace Pale_Roots_1
             "PROGRAMMING\nRyan Barry\n\n" +
             "ART ASSETS\nItch Artists\n\n" +
             "MUSIC\nRyan Barry\n\n" +
-            "SPECIAL THANKS\nPaul Powell\nNeil Gannon\n\n\n" +
+            "LEVEL DESIGN\nRyan Barry\n\n" +
+            "UI DESIGN\nRyan Barry\n\n" +
+            "GAME DESIGN\nRyan Barry\n\n" +
+            "SPECIAL THANKS\nNeil Gannon\nPaul Powell\n\n\n" +
             "Thank you for playing!";
 
         public CreditsState(Game1 game)
@@ -1155,7 +1428,7 @@ namespace Pale_Roots_1
     public class GameplayState : IGameState
     {
         private Game1 _game;
-        private const int WIN_CONDITION_KILLS = 180;
+        private const int WIN_CONDITION_KILLS = 150;
 
         public GameplayState(Game1 game)
         {
@@ -1169,6 +1442,8 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
+            _game.AudioManager.HandleMusicState(GameState.Gameplay);
+
             if (InputEngine.IsKeyPressed(Keys.Escape))
             {
                 _game.StateManager.ChangeState(new MenuState(_game));
@@ -1316,7 +1591,12 @@ namespace Pale_Roots_1
                     if (cardRect.Contains(ms.Position))
                     {
                         _game.CurrentUpgradeOptions[i].ApplyAction.Invoke();
-                        _game.StateManager.ChangeState(new GameplayState(_game));
+
+                        if (_game.StateManager.CurrentState == this)
+                        {
+                            _game.StateManager.ChangeState(new GameplayState(_game));
+                        }
+
                         InputEngine.ClearState();
                         break;
                     }
@@ -1479,6 +1759,12 @@ namespace Pale_Roots_1
         {
             _anims[key] = animation;
         }
+        public void Reset()
+        {
+            _currentKey = null;
+            CurrentFrame = 0;
+            _timer = 0;
+        }
         public void Play(string key)
         {
             if (_currentKey == key) return;
@@ -1558,6 +1844,7 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Media;
+using System;
 using System.Collections.Generic;
 
 namespace Pale_Roots_1
@@ -1566,6 +1853,7 @@ namespace Pale_Roots_1
     {
         // Configuration
         private float _fadeSpeed = 0.5f;
+        private const float MaxVolume = 1.0f;
 
         // State
         private float _currentVolume = 0f;
@@ -1574,6 +1862,7 @@ namespace Pale_Roots_1
         // Tracks
         private Song _currentSong;
         private Song _pendingSong;
+        private bool _isSwitchingTrack = false;
 
         // Playlists
         public Song MenuSong { get; set; }
@@ -1598,7 +1887,7 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. Fading Logic
+            // --- 1. Fading Logic ---
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -1612,24 +1901,22 @@ namespace Pale_Roots_1
 
             MediaPlayer.Volume = _currentVolume;
 
-            // 2. Cross-Fade Execution
-            if (_pendingSong != null && _currentVolume <= 0.01f)
+            // --- 2. State Management (The Fix for the Delay) ---
+            // Only allow new music checks once the hardware confirms it is actually playing.
+            if (MediaPlayer.State == MediaState.Playing)
             {
-                try
-                {
-                    MediaPlayer.Stop();
-                    MediaPlayer.Play(_pendingSong);
+                _isSwitchingTrack = false;
+            }
 
-                    // Loop non-combat songs
-                    // If we are in combat, we don't loop (so we can shuffle)
-                    // If we are in menu/outro, we loop.
-                    // We handle this logic loosely here, or strictly in HandleMusicState
+            // --- 3. Cross-Fade Execution ---
+            bool songFinished = (MediaPlayer.State == MediaState.Stopped);
+            bool fadeComplete = (_currentVolume <= 0.05f);
 
-                    _currentSong = _pendingSong;
-                    _pendingSong = null;
-                    _targetVolume = 0.5f; // Fade back in
-                }
-                catch { }
+            // Only run this logic if we aren't already busy switching tracks
+            if (!_isSwitchingTrack && _pendingSong != null && (fadeComplete || songFinished))
+            {
+                // If we are cross-fading, we use PlayImmediate too!
+                PlayImmediate(_pendingSong);
             }
         }
 
@@ -1665,11 +1952,13 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // Check if we are playing a "Theme" song that shouldn't be here
+            // If we are currently loading a song, STOP checking. 
+            // This prevents the "restart loop" that causes the delay.
+            if (_isSwitchingTrack) return;
+
             bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong ||
                                  _currentSong == DeathSong || _currentSong == OutroSong);
 
-            // Check if the current song has finished naturally
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
             if (isWrongTheme)
@@ -1678,9 +1967,13 @@ namespace Pale_Roots_1
             }
             else if (isSilence)
             {
-                // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
+                // Song finished? 
                 Song next = GetRandomCombatTrack();
-                PlayImmediate(next);
+                if (next != null)
+                {
+                    // USE THE METHOD!
+                    PlayImmediate(next);
+                }
             }
         }
 
@@ -1698,11 +1991,21 @@ namespace Pale_Roots_1
         {
             try
             {
+                // 1. Tell the hardware to play
                 MediaPlayer.Play(song);
                 MediaPlayer.IsRepeating = false;
+
+                // 2. Update internal tracking
                 _currentSong = song;
-                _currentVolume = 0f;
-                _targetVolume = 0.5f;
+                _pendingSong = null; // Clear any pending fades
+
+                // 3. Snap volume to MAX immediately
+                _targetVolume = MaxVolume;
+                _currentVolume = MaxVolume;
+                MediaPlayer.Volume = _currentVolume;
+
+                // 4. CRITICAL: Tell the engine "I am busy loading, don't bother me"
+                _isSwitchingTrack = true;
             }
             catch { }
         }
@@ -1727,8 +2030,8 @@ namespace Pale_Roots_1
             MediaPlayer.Stop();
             _currentSong = null;
             _pendingSong = null;
-            _currentVolume = 0.5f;
-            _targetVolume = 0.5f;
+            _currentVolume = MaxVolume; // Changed from 0.5f
+            _targetVolume = MaxVolume;  // Changed from 0.5f
         }
     }
 }
@@ -1849,32 +2152,61 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Pale_Roots_1
 {
     public class GameStateManager
     {
-        private IGameState _currentState;
+        // We use a Stack now instead of just one variable
+        private Stack<IGameState> _stateStack = new Stack<IGameState>();
+
+        // The active state is always the one on top
+        public IGameState CurrentState => _stateStack.Count > 0 ? _stateStack.Peek() : null;
 
         public void ChangeState(IGameState newState)
         {
-            _currentState = newState;
-            _currentState.LoadContent(); // Initialize the new state
+            // Clear everything and start fresh (Normal behavior for Menu -> Game)
+            _stateStack.Clear();
+            _stateStack.Push(newState);
+            newState.LoadContent();
+        }
+
+        public void PushState(IGameState newState)
+        {
+            // Pause the current state (by simply not updating it anymore)
+            // Add the new state on top
+            _stateStack.Push(newState);
+            newState.LoadContent();
+        }
+
+        public void PopState()
+        {
+            // Remove the top state (The Boss Fight)
+            if (_stateStack.Count > 0)
+            {
+                _stateStack.Pop();
+            }
+            // The state below (Gameplay) is now the CurrentState again. 
+            // We do NOT call LoadContent() because it's already loaded and paused!
         }
 
         public void Update(GameTime gameTime)
         {
-            if (_currentState != null)
+            // Only update the top-most state
+            if (_stateStack.Count > 0)
             {
-                _currentState.Update(gameTime);
+                _stateStack.Peek().Update(gameTime);
             }
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            if (_currentState != null)
+            // Only draw the top-most state
+            if (_stateStack.Count > 0)
             {
-                _currentState.Draw(gameTime, spriteBatch, graphicsDevice);
+                _stateStack.Peek().Draw(gameTime, spriteBatch, graphicsDevice);
             }
         }
     }
@@ -2090,6 +2422,67 @@ namespace Pale_Roots_1
             var obj = new WorldObject(_game, sheet, position, frames, false);
             obj.SetSpriteSheetLocation(data);
             MapObjects.Add(obj);
+        }
+
+        public void GenerateBossArena()
+        {
+            // 1. Use the same dimensions as the main game so it looks "Big"
+            int width = 60;
+            int height = 34;
+            int[,] map = new int[height, width];
+
+            // 2. Fill the floor with standard grass (ID 0)
+            // This ensures no black void; the floor extends to the screen edges.
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    map[y, x] = 0;
+                }
+            }
+
+            // 3. Create the TileLayer
+            // We reuse the palette from Level 0 so the grass looks identical to the main game
+            List<TileRef> palette = LevelDataLibrary.GetLevelPalette(0);
+            CurrentLevel = new TileLayer(map, palette, 64, 32);
+
+            // 4. Clear old objects
+            MapObjects.Clear();
+
+            // 5. Create the "Dense Tree Line" (The Arena Walls)
+            // We will place trees in a circle or box to lock the player in.
+            Vector2 center = new Vector2(width * 64 / 2, height * 64 / 2);
+            float arenaRadius = 900f; // The fighting space radius
+
+            // Loop through the whole map area
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector2 tilePos = new Vector2(x * 64, y * 64);
+                    float dist = Vector2.Distance(tilePos, center);
+
+                    // If we are OUTSIDE the arena radius, place a tree.
+                    // We add some noise so it doesn't look like a perfect artificial circle.
+                    if (dist > arenaRadius)
+                    {
+                        // Density check: Don't place a tree on EVERY pixel, but make it dense.
+                        // 80% chance to place a tree if outside the circle.
+                        if (CombatSystem.RandomInt(0, 10) < 8)
+                        {
+                            // Pick a random tree asset
+                            string treeAsset = "Medium_Dying_Tree";
+                            if (CombatSystem.RandomInt(0, 2) == 0) treeAsset = "Dying_Tree";
+
+                            // Add offset so they aren't perfectly grid-aligned
+                            Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
+
+                            // Create the solid object
+                            CreateStaticObject(treeAsset, pos, _staticObjectSheet, true); // TRUE = Solid
+                        }
+                    }
+                }
+            }
         }
 
         public void Update(GameTime gameTime, Player player)
@@ -2497,7 +2890,8 @@ namespace Pale_Roots_1
 {
     public class UpgradeManager
     {
-        public enum UpgradeType { HeavyAttack, Dash, Spell }
+
+        public enum UpgradeType { HeavyAttack, Dash, Spell, BossTrigger }
 
         public class UpgradeOption
         {
@@ -2552,6 +2946,40 @@ namespace Pale_Roots_1
                 Type = UpgradeType.Dash,
                 Icon = _dashIcon,
                 ApplyAction = () => _player.IsDashUnlocked = true
+            });
+
+            // THE CURSED CARD
+            _allUpgrades.Add(new UpgradeOption
+            {
+                Name = "Strange Omen",
+                Description = "I feel something's off...",
+                Type = UpgradeType.BossTrigger,
+                Icon = _heavyIcon, // Placeholder icon
+                ApplyAction = () =>
+                {
+                    // 1. Define what happens when we return
+                    Action<bool> onBossResult = (won) =>
+                    {
+                        if (won)
+                        {
+                            _player.IsDashUnlocked = true;
+                            _player.IsHeavyAttackUnlocked = true;
+                            for (int i = 0; i < 6; i++) _spellManager.UnlockSpell(i);
+                        }
+                        else
+                        {
+                            _player.IsDashUnlocked = false;
+                            _player.IsHeavyAttackUnlocked = false;
+
+                        }
+                    };
+
+                    if (_player.Game is Game1 g)
+                    {
+                        // Use ChangeState to wipe the LevelUpState from memory and start the Boss Sequence
+                        g.StateManager.ChangeState(new BossTransitionState(g, onBossResult));
+                    }
+                }
             });
 
             // 3. DYNAMIC SPELL GENERATION (The Engine Flex!)
@@ -3302,7 +3730,7 @@ namespace Pale_Roots_1
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
 
-        public const int WinConditionKills = 180;
+        public const int WinConditionKills = 150;
     }
 
     // Team tags used by CombatSystem and AI to decide friend/foe behavior.
@@ -4025,6 +4453,33 @@ namespace Pale_Roots_1
         }
     }
 }
+using Microsoft.Xna.Framework;
+using System;
+
+namespace Pale_Roots_1
+{
+    public static class PhysicsGlobals
+    {
+        // Adapted from VelcroPhysics GravityController logic
+        public static Vector2 CalculateGravitationalForce(Vector2 targetPos, Vector2 objectPos, float strength, float maxRadius)
+        {
+            Vector2 d = targetPos - objectPos;
+            float r2 = d.LengthSquared();
+
+            // Ignore if outside radius or too close (prevent divide by zero)
+            if (r2 > maxRadius * maxRadius || r2 < 0.001f)
+                return Vector2.Zero;
+
+            float r = (float)Math.Sqrt(r2);
+
+            // F = Strength / r^2
+            float forceMagnitude = strength / r2;
+
+            // Normalize direction * magnitude
+            return (d / r) * forceMagnitude;
+        }
+    }
+}
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
@@ -4311,6 +4766,7 @@ namespace Pale_Roots_1
             CurrentActiveTimer = ActiveDuration;
             IsActive = true;
             _position = targetPos;
+            _animManager.Reset();
             OnCast(engine);
             return true;
         }
@@ -4465,7 +4921,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a1db4a181b54eb7f960f07449851d8e61ce68d47")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+14f19f1fbf9f988e50f6168452fa9f5d2751fef5")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -4505,7 +4961,14 @@ namespace Pale_Roots_1
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
-        public Vector2 Position => position;
+
+        public new Vector2 Position
+        {
+            get => position;
+            set => position = value;
+        }
+
+        public Game Game => game;
         public Vector2 CentrePos => Center;
 
         // Movement & state
@@ -4985,6 +5448,11 @@ namespace Pale_Roots_1
         {
             CurrentState = PlayerState.Dead;
             CombatSystem.ClearTarget(this);
+        }
+
+        public void ApplyExternalForce(Vector2 force)
+        {
+            position += force;
         }
 
         // -----------------------

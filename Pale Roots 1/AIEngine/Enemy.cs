@@ -11,9 +11,9 @@ namespace Pale_Roots_1
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public bool IsStunned { get; set; }
 
-        private AnimationManager _animManager;
+        protected AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
-        private SpriteEffects _flipEffect = SpriteEffects.None;
+        protected SpriteEffects _flipEffect = SpriteEffects.None;
         private Vector2 _knockBackVelocity;
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;

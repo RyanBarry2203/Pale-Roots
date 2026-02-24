@@ -64,11 +64,14 @@ namespace Pale_Roots_1
             float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
             if (progress > 1f) progress = 1f;
 
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+            if (winConditionKills < 999)
+            {
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
 
-            string warText = "WAR DOMINANCE";
-            Vector2 textSize = _uiFont.MeasureString(warText);
-            spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+                string warText = "WAR DOMINANCE";
+                Vector2 textSize = _uiFont.MeasureString(warText);
+                spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+            }
 
             int iconSize = 64;
             int spacing = 20;

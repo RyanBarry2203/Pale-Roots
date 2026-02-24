@@ -211,6 +211,62 @@ namespace Pale_Roots_1
             MapObjects.Add(obj);
         }
 
+        public void GenerateBossArena()
+        {
+            // 1. Use the same dimensions as the main game so it looks "Big"
+            int width = 60;
+            int height = 34;
+            int[,] map = new int[height, width];
+
+            // 2. Fill the floor with standard grass (ID 0)
+            // This ensures no black void; the floor extends to the screen edges.
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    map[y, x] = 0;
+                }
+            }
+
+            // 3. Create the TileLayer
+            // We reuse the palette from Level 0 so the grass looks identical to the main game
+            List<TileRef> palette = LevelDataLibrary.GetLevelPalette(0);
+            CurrentLevel = new TileLayer(map, palette, 64, 32);
+
+            // 4. Clear old objects
+            MapObjects.Clear();
+
+            // 5. Create the "Dense Tree Line" (The Arena Walls)
+            // We will place trees in a circle or box to lock the player in.
+            Vector2 center = new Vector2(width * 64 / 2, height * 64 / 2);
+            float arenaRadius = 900f; // The fighting space radius
+
+            // Loop through the whole map area
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector2 tilePos = new Vector2(x * 64, y * 64);
+                    float dist = Vector2.Distance(tilePos, center);
+
+                    // If we are OUTSIDE the arena radius, place a tree.
+                    // We add some noise so it doesn't look like a perfect artificial circle.
+                    if (dist > arenaRadius)
+                    {
+                        if (CombatSystem.RandomInt(0, 10) < 8)
+                        {
+
+                            string[] natureAssets = LevelDataLibrary.NatureObjects;
+                            string randomAsset = natureAssets[CombatSystem.RandomInt(0, natureAssets.Length)];
+
+                            Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
+                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, true);
+                        }
+                    }
+                }
+            }
+        }
+
         public void Update(GameTime gameTime, Player player)
         {
             foreach (Enemy enemy in enemies)

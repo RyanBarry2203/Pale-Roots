@@ -77,6 +77,13 @@ namespace Pale_Roots_1
                 _unlockedSpells[index] = true;
             }
         }
+        public void LockAllSpells()
+        {
+            for (int i = 0; i < _unlockedSpells.Length; i++)
+            {
+                _unlockedSpells[i] = false;
+            }
+        }
 
         public bool IsSpellUnlocked(int index)
         {

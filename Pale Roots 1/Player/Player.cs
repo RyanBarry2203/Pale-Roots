@@ -29,7 +29,14 @@ namespace Pale_Roots_1
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
-        public Vector2 Position => position;
+
+        public new Vector2 Position
+        {
+            get => position;
+            set => position = value;
+        }
+
+        public Game Game => game;
         public Vector2 CentrePos => Center;
 
         // Movement & state
@@ -509,6 +516,11 @@ namespace Pale_Roots_1
         {
             CurrentState = PlayerState.Dead;
             CombatSystem.ClearTarget(this);
+        }
+
+        public void ApplyExternalForce(Vector2 force)
+        {
+            position += force;
         }
 
         // -----------------------

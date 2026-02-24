@@ -11,6 +11,9 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         public SpriteBatch SpriteBatch { get; private set; }
 
+        //// --- BOSS BATTLE STATE PRESERVATION ---
+        //public GameplayState SavedMainGameState { get; set; }
+
         // --- ENGINE MANAGERS (Custom APIs) ---
         public GameStateManager StateManager { get; private set; }
         public AudioManager AudioManager { get; private set; }

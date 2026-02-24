@@ -52,7 +52,12 @@ namespace Pale_Roots_1
                     if (cardRect.Contains(ms.Position))
                     {
                         _game.CurrentUpgradeOptions[i].ApplyAction.Invoke();
-                        _game.StateManager.ChangeState(new GameplayState(_game));
+
+                        if (_game.StateManager.CurrentState == this)
+                        {
+                            _game.StateManager.ChangeState(new GameplayState(_game));
+                        }
+
                         InputEngine.ClearState();
                         break;
                     }
