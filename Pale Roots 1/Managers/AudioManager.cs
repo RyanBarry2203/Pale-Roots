@@ -112,9 +112,7 @@ namespace Pale_Roots_1
             // This prevents the "restart loop" that causes the delay.
             if (_isSwitchingTrack) return;
 
-            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong ||
-                                 _currentSong == DeathSong || _currentSong == OutroSong);
-
+            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong || _currentSong == OutroSong);
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
             if (isWrongTheme)
@@ -127,7 +125,6 @@ namespace Pale_Roots_1
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
-                    // USE THE METHOD!
                     PlayImmediate(next);
                 }
             }

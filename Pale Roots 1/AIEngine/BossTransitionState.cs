@@ -31,6 +31,8 @@ namespace Pale_Roots_1
             if (_isEntering) _text = "What is that...\nGreat power pulling me in.";
             else if (_playerWon) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
             else _text = "The void consumes what you knew.\nOnly a fragment remains.";
+
+            _game.AudioManager.HandleMusicState(GameState.GameOver);
         }
 
         public void LoadContent() { }

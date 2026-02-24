@@ -42,6 +42,7 @@ namespace Pale_Roots_1
         // Movement & state
         private float _speed;
         private Vector2 _velocity;
+        private Vector2 _externalVelocity = Vector2.Zero;
 
         // Player state machine for movement/combat/interrupts
         public enum PlayerState
@@ -146,6 +147,15 @@ namespace Pale_Roots_1
         // - enemies list used for attack collision tests
         public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
         {
+
+            if (_externalVelocity != Vector2.Zero)
+            {
+                position += _externalVelocity;
+                _externalVelocity *= GameConstants.KnockbackFriction; 
+
+                if (_externalVelocity.Length() < 0.1f)
+                    _externalVelocity = Vector2.Zero;
+            }
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             // Timers
@@ -520,7 +530,7 @@ namespace Pale_Roots_1
 
         public void ApplyExternalForce(Vector2 force)
         {
-            position += force;
+            _externalVelocity += force;
         }
 
         // -----------------------

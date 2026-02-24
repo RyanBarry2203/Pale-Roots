@@ -174,7 +174,7 @@ namespace Pale_Roots_1
             CurrentState?.Update(this, gameTime, obstacles);
         }
 
-        public void ApplyKnockback(Vector2 force)
+        public virtual void ApplyKnockback(Vector2 force)
         {
             _knockBackVelocity += force;
         }
