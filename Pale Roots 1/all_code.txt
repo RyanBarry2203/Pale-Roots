@@ -32,6 +32,7 @@ namespace Pale_Roots_1
         public Texture2D[] SpellIcons { get; private set; }
         public Texture2D DashIcon { get; private set; }
         public Texture2D HeavyAttackIcon { get; private set; }
+        public Texture2D BossIcon { get; private set; }
 
         // --- GLOBAL STATE ---
         public bool HasStarted { get; set; } = false;
@@ -89,6 +90,8 @@ namespace Pale_Roots_1
             SpellIcons[5] = Content.Load<Texture2D>("Effects/SwordJusticeIcon");
             DashIcon = Content.Load<Texture2D>("Effects/DashIcon");
             HeavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
+            BossIcon = Content.Load<Texture2D>("Effects/BossIcon");
+
 
             // Initialize UI Manager
             UIManager = new UIManager(UiPixel, UiFont);
@@ -136,6 +139,7 @@ namespace Pale_Roots_1
                 SpellIcons,
                 DashIcon,
                 HeavyAttackIcon,
+                BossIcon,
                 GraphicsDevice
             );
             NextLevelThreshold = 3;
@@ -735,16 +739,16 @@ namespace Pale_Roots_1
 {
     public class BlackHoleBoss : Enemy
     {
-        private float _gravityStrength = 500f;
-        private float _gravityRadius = 150f;
+        private float _gravityStrength = 5000f;
+        private float _gravityRadius = 300f;
 
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
-            : base(game, textures, pos, 4) // 1. Initialize with "Default" 4 frames (Good for Idle/Walk)
+            : base(game, textures, pos, 4)
         {
             Name = "Event Horizon Golem";
-            MaxHealth = 5000;
+            MaxHealth = 1000;
             Health = MaxHealth;
-            Scale = 4.0f;
+            Scale = 6.0f;
             AttackDamage = 50;
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 12, 0, 150f, false, 1, 0, false));
@@ -759,9 +763,22 @@ namespace Pale_Roots_1
 
         public void UpdateBossLogic(GameTime gameTime, Player player)
         {
-            // Gravity Logic
             Vector2 pull = PhysicsGlobals.CalculateGravitationalForce(this.Center, player.Center, _gravityStrength, _gravityRadius);
             player.ApplyExternalForce(pull * (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+
+            float xDifference = player.Center.X - this.Center.X;
+
+
+            if (xDifference < 0)
+            {
+                _flipEffect = SpriteEffects.FlipHorizontally;
+
+            }
+            else
+            {
+                _flipEffect = SpriteEffects.None;
+            }
 
             base.Update(gameTime);
         }
@@ -820,6 +837,17 @@ namespace Pale_Roots_1
 
             // Snap Camera to center immediately so we don't see the void for 1 frame
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
+
+            Player bossArenaPlayer = _bossEngine.GetPlayer();
+            SpellManager bossArenaSpells = _bossEngine.GetSpellManager();
+
+            // Grant Temporary God Mode for the Boss Fight
+            bossArenaPlayer.IsDashUnlocked = true;
+            bossArenaPlayer.IsHeavyAttackUnlocked = true;
+            for (int i = 0; i < 6; i++)
+            {
+                bossArenaSpells.UnlockSpell(i);
+            }
         }
 
         public void Update(GameTime gameTime)
@@ -856,8 +884,7 @@ namespace Pale_Roots_1
         private void FinishFight(bool playerWon)
         {
             _fightOver = true;
-            // Transition out, passing the result
-            _game.StateManager.ChangeState(new BossTransitionState(_game, false, playerWon, _onBattleEnd));
+            _game.StateManager.ChangeState(new BossTransitionState(_game, _bossEngine, false, playerWon, _onBattleEnd));
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
@@ -906,32 +933,29 @@ namespace Pale_Roots_1
     public class BossTransitionState : IGameState
     {
         private Game1 _game;
+        private ChaseAndFireEngine _frozenEngine; // The engine we want to render behind the fade
+        private Vector2 _blackHolePos;
+
         private bool _isEntering;
         private bool _playerWon;
-        private Action<bool> _onComplete; // Callback to run after transition
-
+        private Action<bool> _onComplete;
         private float _timer = 0f;
-        private float _duration = 5f;
+        private float _duration = 6f; // Extended slightly for cinematic pacing
         private string _text;
 
-        // Constructor for ENTERING the boss
-        public BossTransitionState(Game1 game, Action<bool> onComplete)
+        public BossTransitionState(Game1 game, ChaseAndFireEngine engineToFreeze, bool entering, bool won, Action<bool> onComplete)
         {
             _game = game;
-            _isEntering = true;
-            _onComplete = onComplete;
-            _text = "I feel something's off...\nThe pull of gravity is getting stronger.";
-        }
-
-        // Constructor for LEAVING the boss
-        public BossTransitionState(Game1 game, bool entering, bool won, Action<bool> onComplete)
-        {
-            _game = game;
-            _isEntering = false;
+            _frozenEngine = engineToFreeze;
+            _isEntering = entering;
             _playerWon = won;
             _onComplete = onComplete;
 
-            if (won) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
+            // Spawn the "cinematic black hole" 300 pixels above where the player was standing
+            _blackHolePos = _frozenEngine.GetPlayer().Position + new Vector2(0, -300);
+
+            if (_isEntering) _text = "What is that...\nGreat power pulling me in.";
+            else if (_playerWon) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
             else _text = "The void consumes what you knew.\nOnly a fragment remains.";
         }
 
@@ -939,24 +963,34 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
-            _timer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _timer += dt;
 
+            // --- THE CINEMATIC EFFECT ---
+            // Notice we DO NOT call _frozenEngine.Update(). This freezes the enemies!
+            Player p = _frozenEngine.GetPlayer();
+
+            // Apply massive physical suction to the player using your physics library
+            Vector2 pull = PhysicsGlobals.CalculateGravitationalForce(_blackHolePos, p.Center, 8000000f, 2000f);
+            p.ApplyExternalForce(pull * dt);
+
+            // Give them a cool shrinking effect as they get sucked into the void
+            p.Scale = MathHelper.Clamp((float)p.Scale - (dt * 0.5f), 0f, 3f);
+
+            // --- STATE SWITCHING ---
             if (_timer >= _duration)
             {
+                // Reset player scale for when they load into the next area
+                p.Scale = 3f;
+
                 if (_isEntering)
                 {
-                    // Done with intro text -> Go to Arena
                     _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
                 }
                 else
                 {
-                    // Done with outro text -> Go back to Main Game
                     _onComplete?.Invoke(_playerWon);
-
-                    // Resume the main game engine
                     _game.StateManager.ChangeState(new GameplayState(_game));
-
-                    // Resume music
                     _game.AudioManager.HandleMusicState(GameState.Gameplay);
                 }
             }
@@ -964,12 +998,21 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            spriteBatch.Begin();
-            graphicsDevice.Clear(Color.Black);
+            // 1. Draw the completely frozen game world
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _frozenEngine._camera.CurrentCameraTranslation);
+            _frozenEngine.Draw(gameTime, spriteBatch);
+            spriteBatch.End();
 
+            // 2. Draw the cinematic fade to black and text over the top
+            spriteBatch.Begin();
             float alpha = 1.0f;
             if (_timer < 1.0f) alpha = _timer;
             if (_timer > _duration - 1.0f) alpha = (_duration - _timer);
+
+            // Draw pure black fade overlay
+            Texture2D pixel = new Texture2D(graphicsDevice, 1, 1);
+            pixel.SetData(new[] { Color.Black });
+            spriteBatch.Draw(pixel, graphicsDevice.Viewport.Bounds, Color.Black * MathHelper.Clamp(_timer / 3f, 0f, 1f));
 
             if (_game.UiFont != null)
             {
@@ -996,7 +1039,7 @@ namespace Pale_Roots_1
 
         protected AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
-        private SpriteEffects _flipEffect = SpriteEffects.None;
+        protected SpriteEffects _flipEffect = SpriteEffects.None;
         private Vector2 _knockBackVelocity;
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
@@ -1446,7 +1489,7 @@ namespace Pale_Roots_1
 
             if (InputEngine.IsKeyPressed(Keys.Escape))
             {
-                _game.StateManager.ChangeState(new MenuState(_game));
+                _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
@@ -1657,16 +1700,14 @@ namespace Pale_Roots_1
             {
                 if (_playBtnRect.Contains(mousePoint))
                 {
-                    
-                    if (!_game.HasStarted) 
+                    if (!_game.HasStarted)
                     {
-                        _game.StateManager.ChangeState(new IntroState(_game)); 
+                        _game.StateManager.ChangeState(new IntroState(_game));
                     }
-                    else 
+                    else
                     {
-                        _game.StateManager.ChangeState(new GameplayState(_game)); 
+                        _game.StateManager.PopState();
                     }
-                    
                 }
                 else if (_quitBtnRect.Contains(mousePoint))
                 {
@@ -2466,19 +2507,14 @@ namespace Pale_Roots_1
                     // We add some noise so it doesn't look like a perfect artificial circle.
                     if (dist > arenaRadius)
                     {
-                        // Density check: Don't place a tree on EVERY pixel, but make it dense.
-                        // 80% chance to place a tree if outside the circle.
                         if (CombatSystem.RandomInt(0, 10) < 8)
                         {
-                            // Pick a random tree asset
-                            string treeAsset = "Medium_Dying_Tree";
-                            if (CombatSystem.RandomInt(0, 2) == 0) treeAsset = "Dying_Tree";
 
-                            // Add offset so they aren't perfectly grid-aligned
+                            string[] natureAssets = LevelDataLibrary.NatureObjects;
+                            string randomAsset = natureAssets[CombatSystem.RandomInt(0, natureAssets.Length)];
+
                             Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-
-                            // Create the solid object
-                            CreateStaticObject(treeAsset, pos, _staticObjectSheet, true); // TRUE = Solid
+                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, true);
                         }
                     }
                 }
@@ -2588,6 +2624,13 @@ namespace Pale_Roots_1
                 _unlockedSpells[index] = true;
             }
         }
+        public void LockAllSpells()
+        {
+            for (int i = 0; i < _unlockedSpells.Length; i++)
+            {
+                _unlockedSpells[i] = false;
+            }
+        }
 
         public bool IsSpellUnlocked(int index)
         {
@@ -2667,22 +2710,27 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
 
             int screenW = graphicsDevice.Viewport.Width;
-            int barW = 600;
-            int barH = 20;
-            int barX = (screenW / 2) - (barW / 2);
-            int barY = 20;
 
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
+            if (winConditionKills < 999)
+            {
+                int barW = 600;
+                int barH = 20;
+                int barX = (screenW / 2) - (barW / 2);
+                int barY = 20;
 
-            float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
-            if (progress > 1f) progress = 1f;
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX - 2, barY - 2, barW + 4, barH + 4), Color.Black);
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, barW, barH), Color.DarkGray * 0.5f);
 
-            spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+                float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
+                if (progress > 1f) progress = 1f;
 
-            string warText = "WAR DOMINANCE";
-            Vector2 textSize = _uiFont.MeasureString(warText);
-            spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+            
+                    spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+
+                    string warText = "WAR DOMINANCE";
+                    Vector2 textSize = _uiFont.MeasureString(warText);
+                    spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+            }
 
             int iconSize = 64;
             int spacing = 20;
@@ -2908,17 +2956,20 @@ namespace Pale_Roots_1
         private Texture2D[] _spellIcons;
         private Texture2D _dashIcon;
         private Texture2D _heavyIcon;
+        private Texture2D _bossIcon;
         private Texture2D _pixel;
+        public bool BossDefeated { get; set; } = false;
 
         private List<UpgradeOption> _allUpgrades = new List<UpgradeOption>();
 
-        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, GraphicsDevice gd)
+        public UpgradeManager(Player p, SpellManager sm, Texture2D[] icons, Texture2D dashIcon, Texture2D heavyIcon, Texture2D bossIcon, GraphicsDevice gd)
         {
             _player = p;
             _spellManager = sm;
             _spellIcons = icons;
             _dashIcon = dashIcon;
             _heavyIcon = heavyIcon;
+            _bossIcon = bossIcon;
 
             _pixel = new Texture2D(gd, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -2952,16 +3003,18 @@ namespace Pale_Roots_1
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Strange Omen",
-                Description = "I feel something's off...",
+                Description = "I feel something's off...do i give in?",
                 Type = UpgradeType.BossTrigger,
-                Icon = _heavyIcon, // Placeholder icon
+                Icon = _bossIcon,
                 ApplyAction = () =>
                 {
-                    // 1. Define what happens when we return
                     Action<bool> onBossResult = (won) =>
                     {
+                        _player.Position = new Vector2(1920, 1080);
+
                         if (won)
                         {
+                            BossDefeated = true;
                             _player.IsDashUnlocked = true;
                             _player.IsHeavyAttackUnlocked = true;
                             for (int i = 0; i < 6; i++) _spellManager.UnlockSpell(i);
@@ -2970,14 +3023,16 @@ namespace Pale_Roots_1
                         {
                             _player.IsDashUnlocked = false;
                             _player.IsHeavyAttackUnlocked = false;
+                            _spellManager.LockAllSpells();
 
+                            int randomSpellIndex = CombatSystem.RandomInt(0, 6);
+                            _spellManager.UnlockSpell(randomSpellIndex);
                         }
                     };
 
                     if (_player.Game is Game1 g)
                     {
-                        // Use ChangeState to wipe the LevelUpState from memory and start the Boss Sequence
-                        g.StateManager.ChangeState(new BossTransitionState(g, onBossResult));
+                        g.StateManager.ChangeState(new BossTransitionState(g, g.GameEngine, true, false, onBossResult));
                     }
                 }
             });
@@ -3022,9 +3077,9 @@ namespace Pale_Roots_1
         {
             if (u.Type == UpgradeType.HeavyAttack) return !_player.IsHeavyAttackUnlocked;
             if (u.Type == UpgradeType.Dash) return !_player.IsDashUnlocked;
-
-            // Look how brilliantly simple this is now! No more Array.IndexOf hacks!
             if (u.Type == UpgradeType.Spell) return !_spellManager.IsSpellUnlocked(u.SpellIndex);
+
+            if (u.Type == UpgradeType.BossTrigger) return !BossDefeated;
 
             return true;
         }
@@ -4921,7 +4976,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+14f19f1fbf9f988e50f6168452fa9f5d2751fef5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fad6d7205867df2a1a067bbb5d4bd0701287c763")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

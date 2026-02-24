@@ -6,16 +6,16 @@ namespace Pale_Roots_1
 {
     public class BlackHoleBoss : Enemy
     {
-        private float _gravityStrength = 500f;
-        private float _gravityRadius = 150f;
+        private float _gravityStrength = 5000f;
+        private float _gravityRadius = 300f;
 
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
             : base(game, textures, pos, 4)
         {
             Name = "Event Horizon Golem";
-            MaxHealth = 5000;
+            MaxHealth = 1000;
             Health = MaxHealth;
-            Scale = 4.0f;
+            Scale = 7.0f;
             AttackDamage = 50;
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 12, 0, 150f, false, 1, 0, false));
