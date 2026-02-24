@@ -61,6 +61,7 @@ namespace Pale_Roots_1
             CurrentActiveTimer = ActiveDuration;
             IsActive = true;
             _position = targetPos;
+            _animManager.Reset();
             OnCast(engine);
             return true;
         }

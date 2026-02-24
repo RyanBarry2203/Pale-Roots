@@ -15,7 +15,10 @@ namespace Pale_Roots_1
             "PROGRAMMING\nRyan Barry\n\n" +
             "ART ASSETS\nItch Artists\n\n" +
             "MUSIC\nRyan Barry\n\n" +
-            "SPECIAL THANKS\nPaul Powell\nNeil Gannon\n\n\n" +
+            "LEVEL DESIGN\nRyan Barry\n\n" +
+            "UI DESIGN\nRyan Barry\n\n" +
+            "GAME DESIGN\nRyan Barry\n\n" +
+            "SPECIAL THANKS\nNeil Gannon\nPaul Powell\n\n\n" +
             "Thank you for playing!";
 
         public CreditsState(Game1 game)

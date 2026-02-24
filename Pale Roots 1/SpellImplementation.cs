@@ -18,11 +18,13 @@ namespace Pale_Roots_1
             Scale = 2.0f; 
 
             _animManager.AddAnimation("Heal", new Animation(sheet, 11, 0, 100f, false, 1, 64));
-            _animManager.Play("Heal");
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Heal");
+
             Player p = engine.GetPlayer();
             p.Health += 100;
             if (p.Health > p.MaxHealth) p.Health = p.MaxHealth;
@@ -54,11 +56,13 @@ namespace Pale_Roots_1
             Scale = 5.0f; // Keep big
 
             _animManager.AddAnimation("Explode", new Animation(sheet, 10, 0, 100f, false, 1, 128));
-            _animManager.Play("Explode");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Explode");
             // Restored the generic <Enemy> type!
             List<Enemy> toKill = new List<Enemy>();
 
@@ -96,11 +100,14 @@ namespace Pale_Roots_1
             Scale = 3.0f; // Keep big
 
             _animManager.AddAnimation("Cast", new Animation(sheet, 12, 0, 100f, true, 1, 128));
-            _animManager.Play("Cast");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Cast");
+
             _strikeLocations.Clear();
             Vector2 center = engine.GetPlayer().Position;
 
@@ -150,11 +157,13 @@ namespace Pale_Roots_1
             Scale = 1.5f;
 
             _animManager.AddAnimation("Shield", new Animation(sheet, 11, 0, 100f, true, 1, 64));
-            _animManager.Play("Shield");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            _animManager.Play("Shield");
+
             foreach (var ally in engine._allies)
             {
                 if (ally.IsAlive) ally.Health *= 2;
@@ -188,11 +197,14 @@ namespace Pale_Roots_1
             Scale = 3.0f;
 
             _animManager.AddAnimation("Storm", new Animation(sheet, 5, 0, 100f, true, 1, 128));
-            _animManager.Play("Storm");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+
+            _animManager.Play("Storm");
+
             _strikeLocations.Clear();
             Vector2 center = engine.GetPlayer().Position;
 
@@ -248,14 +260,15 @@ namespace Pale_Roots_1
             Description = "Double Damage";
             CooldownDuration = 25000f;
             ActiveDuration = 15000f;
-            Scale = 1.5f;
+            Scale = 1f;
 
             _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
-            _animManager.Play("Justice");
+            
         }
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            _animManager.Play("Justice");
             engine.GlobalPlayerDamageMult = 2.0f;
         }
 

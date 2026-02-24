@@ -19,6 +19,12 @@ namespace Pale_Roots_1
         {
             _anims[key] = animation;
         }
+        public void Reset()
+        {
+            _currentKey = null;
+            CurrentFrame = 0;
+            _timer = 0;
+        }
         public void Play(string key)
         {
             if (_currentKey == key) return;

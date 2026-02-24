@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Media;
+using System;
 using System.Collections.Generic;
 
 namespace Pale_Roots_1
@@ -40,7 +41,7 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. Fading Logic
+            // 1. Fading Logic with Snapping
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -52,20 +53,22 @@ namespace Pale_Roots_1
                 if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
             }
 
+            // SAFETY CHECK: Ensure we don't get stuck at near-zero volume
+            if (Math.Abs(_currentVolume - _targetVolume) < 0.01f)
+            {
+                _currentVolume = _targetVolume;
+            }
+
             MediaPlayer.Volume = _currentVolume;
 
             // 2. Cross-Fade Execution
-            if (_pendingSong != null && _currentVolume <= 0.01f)
+            // Increased threshold from 0.01f to 0.05f to prevent floating point misses
+            if (_pendingSong != null && _currentVolume <= 0.05f)
             {
                 try
                 {
                     MediaPlayer.Stop();
                     MediaPlayer.Play(_pendingSong);
-
-                    // Loop non-combat songs
-                    // If we are in combat, we don't loop (so we can shuffle)
-                    // If we are in menu/outro, we loop.
-                    // We handle this logic loosely here, or strictly in HandleMusicState
 
                     _currentSong = _pendingSong;
                     _pendingSong = null;
@@ -116,13 +119,24 @@ namespace Pale_Roots_1
 
             if (isWrongTheme)
             {
+                // This is a hard switch, so we fade out then in
                 RequestTrack(GetRandomCombatTrack(), false);
             }
             else if (isSilence)
             {
-                // Song ended naturally. Pick next, start immediately at 0 vol, fade in.
+                // Song ended naturally. Just play the next one.
+                // DO NOT set volume to 0 here, or you get a silence gap.
                 Song next = GetRandomCombatTrack();
-                PlayImmediate(next);
+
+                try
+                {
+                    MediaPlayer.Play(next);
+                    _currentSong = next;
+                    // Ensure volume is up
+                    _targetVolume = 0.5f;
+                    _currentVolume = 0.5f;
+                }
+                catch { }
             }
         }
 
