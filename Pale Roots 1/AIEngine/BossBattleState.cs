@@ -28,6 +28,7 @@ namespace Pale_Roots_1
         public void LoadContent()
         {
             _bossEngine = new ChaseAndFireEngine(_game);
+            _bossEngine.IsBossArena = true;
             _bossEngine._enemies.Clear();
             _bossEngine._allies.Clear();
 

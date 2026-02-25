@@ -14,6 +14,7 @@ namespace Pale_Roots_1
         public bool SpawningBlocked { get; set; } = false;
         public float GlobalPlayerDamageMult { get; set; } = 1.0f;
         public float GlobalEnemyHealthMult { get; set; } = 1.0f;
+        public bool IsBossArena { get; set; } = false;
 
         // Major subsystems (public so Game1 can access camera matrix before drawing)
         public LevelManager _levelManager;

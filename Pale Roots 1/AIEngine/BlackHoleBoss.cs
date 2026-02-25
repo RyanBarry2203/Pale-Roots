@@ -8,10 +8,11 @@ namespace Pale_Roots_1
     {
         // --- THE NEW BRAIN VARIABLES ---
         private float _gravityCooldownTimer = 0f;
-        private const float GravityCooldownDuration = 6000f; // 4 seconds between uses
+        private const float GravityCooldownDuration = 6000f;
 
         private int _damageTakenSinceLastGravity = 0;
-        private const int RepelDamageThreshold = 200; // How much damage triggers a defensive repel
+        private const int RepelDamageThreshold = 200;
+        public float GravityMultiplier { get; set; } = 1.0f;
 
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
     : base(game, textures, pos, 4)
@@ -86,7 +87,7 @@ namespace Pale_Roots_1
 
                 // MATH WIN: 30f velocity * 0.9f friction = ~300 pixels of total smooth sliding
                 // -45f velocity * 0.9f friction = ~450 pixels of total smooth repel sliding
-                float forceAmount = isSucking ? 30f : -45f;
+                float forceAmount = (isSucking ? 30f : -45f) * GravityMultiplier;
 
                 p.ApplyExternalForce(direction * forceAmount);
 

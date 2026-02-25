@@ -61,7 +61,7 @@ namespace Pale_Roots_1
 
                 if (_isEntering)
                 {
-                    _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
+                    _game.StateManager.ChangeState(new BossLoreState(_game, _onComplete));
                 }
                 else
                 {

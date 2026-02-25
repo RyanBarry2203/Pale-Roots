@@ -75,10 +75,12 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 2. Deal massive damage
+            int damage = engine.IsBossArena ? 200 : 9999;
+            CooldownDuration = engine.IsBossArena ? 15000f : 10000f;
+
             foreach (var enemy in toKill)
             {
-                CombatSystem.DealDamage(engine.GetPlayer(), enemy, 9999);
+                CombatSystem.DealDamage(engine.GetPlayer(), enemy, damage);
             }
         }
     }
@@ -118,11 +120,21 @@ namespace Pale_Roots_1
                 _strikeLocations.Add(center + new Vector2(offX, offY));
             }
 
-            foreach (var enemy in engine._enemies)
+            if (engine.IsBossArena)
             {
-                if (enemy.IsAlive) enemy.Health /= 2;
+                foreach (var enemy in engine._enemies)
+                {
+                    if (enemy is BlackHoleBoss boss) boss.GravityMultiplier = 0.5f;
+                }
             }
-            engine.GlobalEnemyHealthMult = 0.5f;
+            else
+            {
+                foreach (var enemy in engine._enemies)
+                {
+                    if (enemy.IsAlive) enemy.Health /= 2;
+                }
+                engine.GlobalEnemyHealthMult = 0.5f;
+            }
         }
 
         public override void Draw(SpriteBatch spriteBatch)
@@ -139,7 +151,18 @@ namespace Pale_Roots_1
         protected override void EndEffect()
         {
             base.EndEffect();
-            if (_engineRef != null) _engineRef.GlobalEnemyHealthMult = 1.0f;
+            if (_engineRef != null)
+            {
+                _engineRef.GlobalEnemyHealthMult = 1.0f;
+
+                if (_engineRef.IsBossArena)
+                {
+                    foreach (var enemy in _engineRef._enemies)
+                    {
+                        if (enemy is BlackHoleBoss boss) boss.GravityMultiplier = 1.0f;
+                    }
+                }
+            }
         }
     }
 
@@ -168,6 +191,11 @@ namespace Pale_Roots_1
             {
                 if (ally.IsAlive) ally.Health *= 2;
             }
+
+
+            Player p = engine.GetPlayer();
+            p.MaxHealth *= 2;
+            p.Health *= 2;
         }
 
         protected override void OnUpdateActive(GameTime gameTime)

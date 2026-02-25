@@ -24,7 +24,7 @@ namespace Pale_Roots_1
         public float DashDuration => _dashCooldownDuration;
 
         // Health / combat members (MaxHealth/Health from Sprite base)
-        public int MaxHealth { get; protected set; }
+        public int MaxHealth { get; set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
