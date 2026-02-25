@@ -36,6 +36,7 @@ namespace Pale_Roots_1
 
         // --- GLOBAL STATE ---
         public bool HasStarted { get; set; } = false;
+        public int PreviousLevelThreshold { get; set; } = 0;
         public int NextLevelThreshold { get; set; } = 3;
         public int LevelStep { get; set; } = 4;
 
@@ -142,6 +143,7 @@ namespace Pale_Roots_1
                 BossIcon,
                 GraphicsDevice
             );
+            PreviousLevelThreshold = 0;
             NextLevelThreshold = 3;
             LevelStep = 4;
             InputEngine.ClearState();
@@ -241,10 +243,12 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 2. Deal massive damage
+            int damage = engine.IsBossArena ? 200 : 9999;
+            CooldownDuration = engine.IsBossArena ? 15000f : 10000f;
+
             foreach (var enemy in toKill)
             {
-                CombatSystem.DealDamage(engine.GetPlayer(), enemy, 9999);
+                CombatSystem.DealDamage(engine.GetPlayer(), enemy, damage);
             }
         }
     }
@@ -284,11 +288,21 @@ namespace Pale_Roots_1
                 _strikeLocations.Add(center + new Vector2(offX, offY));
             }
 
-            foreach (var enemy in engine._enemies)
+            if (engine.IsBossArena)
             {
-                if (enemy.IsAlive) enemy.Health /= 2;
+                foreach (var enemy in engine._enemies)
+                {
+                    if (enemy is BlackHoleBoss boss) boss.GravityMultiplier = 0.5f;
+                }
             }
-            engine.GlobalEnemyHealthMult = 0.5f;
+            else
+            {
+                foreach (var enemy in engine._enemies)
+                {
+                    if (enemy.IsAlive) enemy.Health /= 2;
+                }
+                engine.GlobalEnemyHealthMult = 0.5f;
+            }
         }
 
         public override void Draw(SpriteBatch spriteBatch)
@@ -305,7 +319,18 @@ namespace Pale_Roots_1
         protected override void EndEffect()
         {
             base.EndEffect();
-            if (_engineRef != null) _engineRef.GlobalEnemyHealthMult = 1.0f;
+            if (_engineRef != null)
+            {
+                _engineRef.GlobalEnemyHealthMult = 1.0f;
+
+                if (_engineRef.IsBossArena)
+                {
+                    foreach (var enemy in _engineRef._enemies)
+                    {
+                        if (enemy is BlackHoleBoss boss) boss.GravityMultiplier = 1.0f;
+                    }
+                }
+            }
         }
     }
 
@@ -334,6 +359,11 @@ namespace Pale_Roots_1
             {
                 if (ally.IsAlive) ally.Health *= 2;
             }
+
+
+            Player p = engine.GetPlayer();
+            p.MaxHealth *= 2;
+            p.Health *= 2;
         }
 
         protected override void OnUpdateActive(GameTime gameTime)
@@ -342,6 +372,30 @@ namespace Pale_Roots_1
             {
                 _position = _engineRef.GetPlayer().Position;
                 _position.Y -= 30;
+            }
+        }
+        // ENGINE POLISH: Clean up the buff when the spell duration ends!
+        protected override void EndEffect()
+        {
+            base.EndEffect();
+            if (_engineRef != null)
+            {
+                // 1. Revert Player Health
+                Player p = _engineRef.GetPlayer();
+                p.MaxHealth /= 2;
+
+                // Cap current health so they don't have 200/100 HP
+                if (p.Health > p.MaxHealth) p.Health = p.MaxHealth;
+
+                // 2. Revert Ally Health (ensure it doesn't drop below 1 and kill them)
+                foreach (var ally in _engineRef._allies)
+                {
+                    if (ally.IsAlive)
+                    {
+                        ally.Health /= 2;
+                        if (ally.Health < 1) ally.Health = 1;
+                    }
+                }
             }
         }
     }
@@ -741,23 +795,24 @@ namespace Pale_Roots_1
     {
         // --- THE NEW BRAIN VARIABLES ---
         private float _gravityCooldownTimer = 0f;
-        private const float GravityCooldownDuration = 6000f; // 4 seconds between uses
+        private const float GravityCooldownDuration = 6000f;
 
         private int _damageTakenSinceLastGravity = 0;
-        private const int RepelDamageThreshold = 200; // How much damage triggers a defensive repel
+        private const int RepelDamageThreshold = 200;
+        public float GravityMultiplier { get; set; } = 1.0f;
 
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
     : base(game, textures, pos, 4)
         {
 
             Name = "Event Horizon Golem";
-            MaxHealth = 1000;
+            MaxHealth = 3000;
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 50;
 
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
-            _animManager.AddAnimation("Death", new Animation(textures["Death"], 12, 0, 150f, false, 1, 0, false));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 13, 0, 150f, false, 1, 0, false));
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 8, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 10, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 1, 0, false));
@@ -819,7 +874,7 @@ namespace Pale_Roots_1
 
                 // MATH WIN: 30f velocity * 0.9f friction = ~300 pixels of total smooth sliding
                 // -45f velocity * 0.9f friction = ~450 pixels of total smooth repel sliding
-                float forceAmount = isSucking ? 30f : -45f;
+                float forceAmount = (isSucking ? 30f : -45f) * GravityMultiplier;
 
                 p.ApplyExternalForce(direction * forceAmount);
 
@@ -832,6 +887,11 @@ namespace Pale_Roots_1
         public override void ApplyKnockback(Vector2 force)
         {
             base.ApplyKnockback(force * 0.05f);
+        }
+        public override void Die()
+        {
+            base.Die();
+            _deathCountdown = 150;
         }
     }
 }
@@ -849,6 +909,10 @@ namespace Pale_Roots_1
         private BlackHoleBoss _boss;
         private bool _fightOver = false;
 
+        private float _endTimer = 0f;
+        private const float END_DELAY = 2.5f;
+        private bool _playerWon = false;
+
         // The callback to run when the fight ends
         private Action<bool> _onBattleEnd;
 
@@ -861,6 +925,7 @@ namespace Pale_Roots_1
         public void LoadContent()
         {
             _bossEngine = new ChaseAndFireEngine(_game);
+            _bossEngine.IsBossArena = true;
             _bossEngine._enemies.Clear();
             _bossEngine._allies.Clear();
 
@@ -909,26 +974,34 @@ namespace Pale_Roots_1
             // 2. PAUSE: Check for Escape key to open Menu
             if (InputEngine.IsKeyPressed(Microsoft.Xna.Framework.Input.Keys.Escape))
             {
-                // Push the MenuState on top. 
-                // Because we use a Stack now, the Boss Fight will freeze exactly here.
+
                 _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
-            if (_fightOver) return;
-
             _bossEngine.Update(gameTime);
             _boss.UpdateBossLogic(gameTime, _bossEngine.GetPlayer());
 
-            // Win Condition
-            if (!_boss.IsAlive)
+            if (!_fightOver)
             {
-                FinishFight(true);
+                if (!_boss.IsAlive)
+                {
+                    _fightOver = true;
+                    _playerWon = true;
+                }
+                else if (!_bossEngine.GetPlayer().IsAlive)
+                {
+                    _fightOver = true;
+                    _playerWon = false;
+                }
             }
-            // Lose Condition
-            else if (!_bossEngine.GetPlayer().IsAlive)
+            else
             {
-                FinishFight(false);
+                _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_endTimer >= END_DELAY)
+                {
+                    FinishFight(_playerWon);
+                }
             }
         }
 
@@ -945,7 +1018,7 @@ namespace Pale_Roots_1
             spriteBatch.End();
 
             spriteBatch.Begin();
-            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999);
+            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999, 0f);
             spriteBatch.End();
         }
     }
@@ -1038,7 +1111,7 @@ namespace Pale_Roots_1
 
                 if (_isEntering)
                 {
-                    _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
+                    _game.StateManager.ChangeState(new BossLoreState(_game, _onComplete));
                 }
                 else
                 {
@@ -1130,7 +1203,8 @@ namespace Pale_Roots_1
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
         public float AttackCooldown { get; set; }
-        private int _deathCountdown;
+
+        protected int _deathCountdown;
 
         // --- THE ENGINE FLEX: POLYMORPHIC STATE MACHINE ---
         public IAIState CurrentState { get; private set; }
@@ -1376,6 +1450,84 @@ namespace Pale_Roots_1
 }
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
+
+namespace Pale_Roots_1
+{
+    public class BossLoreState : IGameState
+    {
+        private Game1 _game;
+        private Action<bool> _onComplete;
+        private string _text;
+
+        // Fade out variables
+        private bool _isFadingOut = false;
+        private float _fadeTimer = 0f;
+        private const float FADE_DURATION = 1.5f;
+
+        public BossLoreState(Game1 game, Action<bool> onComplete)
+        {
+            _game = game;
+            _onComplete = onComplete;
+
+            _text = "Gravity has pulled you into a split realm of spacetime\n" +
+                    "where certain beings thrive on manipulating the fabrics of physics.\n\n" +
+                    "You have access to all your physics alternating abilities here,\n" +
+                    "but they won't work the same on a being as powerful as this.\n\n\n" +
+                    "Press SPACE or CLICK to face your destiny...";
+        }
+
+        public void LoadContent() { }
+
+        public void Update(GameTime gameTime)
+        {
+            _game.IsMouseVisible = true;
+
+            if (!_isFadingOut)
+            {
+                if (InputEngine.IsActionPressed("Confirm") || InputEngine.IsMouseLeftClick())
+                {
+                    _isFadingOut = true;
+                    InputEngine.ClearState();
+                }
+            }
+            else
+            {
+                _fadeTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_fadeTimer >= FADE_DURATION)
+                {
+                    _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            graphicsDevice.Clear(Color.Black);
+            spriteBatch.Begin();
+
+            if (_game.UiFont != null)
+            {
+                // Calculate transparency (1.0 is fully visible, 0.0 is invisible)
+                float alpha = 1.0f;
+                if (_isFadingOut)
+                {
+                    alpha = 1.0f - (_fadeTimer / FADE_DURATION);
+                }
+
+                Vector2 size = _game.UiFont.MeasureString(_text);
+                Vector2 center = new Vector2(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
+
+                // Multiply Color.White by the alpha to fade it out smoothly
+                spriteBatch.DrawString(_game.UiFont, _text, center - (size / 2), Color.White * alpha);
+            }
+
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
@@ -1526,6 +1678,11 @@ namespace Pale_Roots_1
         private Game1 _game;
         private const int WIN_CONDITION_KILLS = 150;
 
+        private bool _isEnding = false;
+        private bool _isVictory = false;
+        private float _endTimer = 0f;
+        private const float END_DELAY = 2.5f;
+
         public GameplayState(Game1 game)
         {
             _game = game;
@@ -1551,21 +1708,39 @@ namespace Pale_Roots_1
                 _game.GameEngine.Update(gameTime);
 
                 // Win/Loss
-                if (_game.GameEngine.EnemiesKilled >= WIN_CONDITION_KILLS)
-                    _game.StateManager.ChangeState(new EndGameState(_game, true));
-                else if (!_game.GameEngine.GetPlayer().IsAlive)
-                    _game.StateManager.ChangeState(new EndGameState(_game, false));
-
-                // Level Up
-                if (_game.GameEngine.EnemiesKilled >= _game.NextLevelThreshold)
+                if (!_isEnding)
                 {
-                    _game.CurrentUpgradeOptions = _game.UpgradeManager.GetRandomOptions(3);
-                    if (_game.CurrentUpgradeOptions.Count > 0)
+                    if (_game.GameEngine.EnemiesKilled >= WIN_CONDITION_KILLS)
                     {
-                        _game.StateManager.ChangeState(new LevelUpState(_game));
+                        _isEnding = true;
+                        _isVictory = true;
                     }
-                    _game.LevelStep += 4;
-                    _game.NextLevelThreshold += _game.LevelStep;
+                    else if (!_game.GameEngine.GetPlayer().IsAlive)
+                    {
+                        _isEnding = true;
+                        _isVictory = false;
+                    }
+
+                    if (!_isEnding && _game.GameEngine.EnemiesKilled >= _game.NextLevelThreshold)
+                    {
+                        _game.CurrentUpgradeOptions = _game.UpgradeManager.GetRandomOptions(3);
+                        if (_game.CurrentUpgradeOptions.Count > 0)
+                        {
+                            _game.StateManager.ChangeState(new LevelUpState(_game));
+                        }
+                        _game.PreviousLevelThreshold = _game.NextLevelThreshold;
+                        _game.LevelStep += 4;
+                        _game.NextLevelThreshold += _game.LevelStep;
+                    }
+                }
+                else
+                {
+                    // 3. The game is over, but we keep updating the engine to play animations!
+                    _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    if (_endTimer >= END_DELAY)
+                    {
+                        _game.StateManager.ChangeState(new EndGameState(_game, _isVictory));
+                    }
                 }
             }
         }
@@ -1577,7 +1752,17 @@ namespace Pale_Roots_1
             spriteBatch.End();
 
             spriteBatch.Begin();
-            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _game.GameEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, WIN_CONDITION_KILLS);
+
+            float levelProgress = 0f;
+            int killsNeeded = _game.NextLevelThreshold - _game.PreviousLevelThreshold;
+            int killsEarned = _game.GameEngine.EnemiesKilled - _game.PreviousLevelThreshold;
+
+            if (killsNeeded > 0)
+            {
+                levelProgress = MathHelper.Clamp((float)killsEarned / killsNeeded, 0f, 1f);
+            }
+
+            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _game.GameEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, WIN_CONDITION_KILLS, levelProgress);
             spriteBatch.End();
         }
     }
@@ -2732,20 +2917,29 @@ namespace Pale_Roots_1
             _uiFont = uiFont;
         }
 
-        public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills)
+        public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills, float levelProgress)
         {
             Player p = gameEngine.GetPlayer();
             if (p == null) return;
 
-            int padding = 20;
-            int barHeight = 25;
-            int barWidth = 300;
+            int screenW = graphicsDevice.Viewport.Width;
+            int xpBarHeight = 12;
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, xpBarHeight), Color.Black * 0.8f);
+            int filledWidth = (int)(screenW * levelProgress);
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, filledWidth, xpBarHeight), Color.DeepSkyBlue);
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, xpBarHeight, screenW, 2), Color.DarkBlue * 0.8f);
 
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding, padding, barWidth + 4, (barHeight * 2) + 15), _hudColor);
+            // --- EXISTING HUD ---
+            int padding = 20;
+            int startY = padding + xpBarHeight;
+            int barHeight = 25;
+            int barWidth = (int)(300 * (p.MaxHealth / 100f));
+
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding, startY, barWidth + 4, (barHeight * 2) + 15), _hudColor);
 
             float hpPercent = (float)p.Health / p.MaxHealth;
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, barWidth, barHeight), Color.Black * 0.5f);
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, barWidth, barHeight), Color.Black * 0.5f);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
 
             float dashRatio = 0f;
             if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
@@ -2758,8 +2952,6 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
             Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
-
-            int screenW = graphicsDevice.Viewport.Width;
 
             if (winConditionKills < 999)
             {
@@ -2784,7 +2976,7 @@ namespace Pale_Roots_1
 
             int iconSize = 64;
             int spacing = 20;
-            int startY = graphicsDevice.Viewport.Height - iconSize - 20;
+            int startingY = graphicsDevice.Viewport.Height - iconSize - 20;
             int unlockedSpells = 0;
 
             for (int i = 0; i < 6; i++) if (gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
@@ -2798,12 +2990,12 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
+                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 20);
                 spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
                 if (showDash)
                 {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(dashIcon, dest, Color.White);
                     spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
@@ -2819,7 +3011,7 @@ namespace Pale_Roots_1
 
                 if (showHeavy)
                 {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(heavyAttackIcon, dest, Color.White);
                     spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
                     currentX += iconSize + spacing;
@@ -2829,7 +3021,7 @@ namespace Pale_Roots_1
                 {
                     if (gameEngine.GetSpellManager().IsSpellUnlocked(i))
                     {
-                        Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                        Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                         if (spellIcons[i] != null)
                             spriteBatch.Draw(spellIcons[i], dest, Color.White);
 
@@ -3061,6 +3253,7 @@ namespace Pale_Roots_1
                     Action<bool> onBossResult = (won) =>
                     {
                         _player.Position = new Vector2(1920, 1080);
+                        _player.ClearExternalForces();
 
                         if (won)
                         {
@@ -3314,6 +3507,7 @@ namespace Pale_Roots_1
         public bool SpawningBlocked { get; set; } = false;
         public float GlobalPlayerDamageMult { get; set; } = 1.0f;
         public float GlobalEnemyHealthMult { get; set; } = 1.0f;
+        public bool IsBossArena { get; set; } = false;
 
         // Major subsystems (public so Game1 can access camera matrix before drawing)
         public LevelManager _levelManager;
@@ -3549,6 +3743,11 @@ namespace Pale_Roots_1
             UpdateAllies(gameTime, scanNow);
             UpdateEnemies(gameTime, scanNow);
             CleanupDead();
+
+            if (_enemies.Count == 0 && !SpawningBlocked)
+            {
+                SpawnReinforcements(CombatTeam.Enemy, 5);
+            }
 
             // Keep camera centered on the player this frame
             _camera.follow(_player.CentrePos, vp);
@@ -5026,7 +5225,36 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a470735e0b3bf1ba1eede8de425e86d3001238ae")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9125f9256a66650ecdf907dcba2882ae11f53000")]
+[assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
+[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.42000
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+79f3fe6895e5924833301ea979bea45003b0063c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -5061,7 +5289,7 @@ namespace Pale_Roots_1
         public float DashDuration => _dashCooldownDuration;
 
         // Health / combat members (MaxHealth/Health from Sprite base)
-        public int MaxHealth { get; protected set; }
+        public int MaxHealth { get; set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
@@ -5188,10 +5416,12 @@ namespace Pale_Roots_1
             if (_externalVelocity != Vector2.Zero)
             {
                 position += _externalVelocity;
-                _externalVelocity *= GameConstants.KnockbackFriction; 
+                _externalVelocity *= GameConstants.KnockbackFriction;
 
                 if (_externalVelocity.Length() < 0.1f)
                     _externalVelocity = Vector2.Zero;
+
+                ClampToMap();
             }
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -5568,6 +5798,10 @@ namespace Pale_Roots_1
         public void ApplyExternalForce(Vector2 force)
         {
             _externalVelocity += force;
+        }
+        public void ClearExternalForces()
+        {
+            _externalVelocity = Vector2.Zero;
         }
 
         // -----------------------

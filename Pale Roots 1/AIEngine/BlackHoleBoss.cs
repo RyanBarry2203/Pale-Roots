@@ -19,10 +19,10 @@ namespace Pale_Roots_1
         {
 
             Name = "Event Horizon Golem";
-            MaxHealth = 3000;
+            MaxHealth = 2000;
             Health = MaxHealth;
             Scale = 7.0f;
-            AttackDamage = 50;
+            AttackDamage = 40;
 
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 13, 0, 150f, false, 1, 0, false));
