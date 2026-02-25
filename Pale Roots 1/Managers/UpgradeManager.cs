@@ -81,6 +81,7 @@ namespace Pale_Roots_1
                     Action<bool> onBossResult = (won) =>
                     {
                         _player.Position = new Vector2(1920, 1080);
+                        _player.ClearExternalForces();
 
                         if (won)
                         {

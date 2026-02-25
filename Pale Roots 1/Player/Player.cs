@@ -151,10 +151,12 @@ namespace Pale_Roots_1
             if (_externalVelocity != Vector2.Zero)
             {
                 position += _externalVelocity;
-                _externalVelocity *= GameConstants.KnockbackFriction; 
+                _externalVelocity *= GameConstants.KnockbackFriction;
 
                 if (_externalVelocity.Length() < 0.1f)
                     _externalVelocity = Vector2.Zero;
+
+                ClampToMap();
             }
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -531,6 +533,10 @@ namespace Pale_Roots_1
         public void ApplyExternalForce(Vector2 force)
         {
             _externalVelocity += force;
+        }
+        public void ClearExternalForces()
+        {
+            _externalVelocity = Vector2.Zero;
         }
 
         // -----------------------
