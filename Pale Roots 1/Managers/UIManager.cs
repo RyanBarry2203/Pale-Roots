@@ -246,7 +246,7 @@ namespace Pale_Roots_1
 
             if (victory)
             {
-                string lore = "The Skeleton King is defeated.\nThe Pale Roots recede.";
+                string lore = "Your home is yours again\nYou have taken back your Throne.";
                 Vector2 loreSize = _uiFont.MeasureString(lore);
                 spriteBatch.DrawString(_uiFont, lore, new Vector2(center.X - loreSize.X / 2, center.Y - 80), Color.White);
             }
@@ -272,7 +272,7 @@ namespace Pale_Roots_1
                 spriteBatch.DrawString(_uiFont, t, new Vector2(r.Center.X - ts.X / 2, r.Center.Y - ts.Y / 2), Color.White);
             }
 
-            string btn1Text = victory ? "FINISH GAME" : "PLAY AGAIN";
+            string btn1Text = victory ? "END GAME" : "PLAY AGAIN";
             DrawBtn(btn1Rect, btn1Text);
             DrawBtn(btn2Rect, "QUIT");
         }
