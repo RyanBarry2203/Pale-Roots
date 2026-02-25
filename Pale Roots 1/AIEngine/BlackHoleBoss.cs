@@ -19,7 +19,7 @@ namespace Pale_Roots_1
         {
 
             Name = "Event Horizon Golem";
-            MaxHealth = 1500;
+            MaxHealth = 3000;
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 50;

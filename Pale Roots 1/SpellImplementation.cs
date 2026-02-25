@@ -206,6 +206,30 @@ namespace Pale_Roots_1
                 _position.Y -= 30;
             }
         }
+        // ENGINE POLISH: Clean up the buff when the spell duration ends!
+        protected override void EndEffect()
+        {
+            base.EndEffect();
+            if (_engineRef != null)
+            {
+                // 1. Revert Player Health
+                Player p = _engineRef.GetPlayer();
+                p.MaxHealth /= 2;
+
+                // Cap current health so they don't have 200/100 HP
+                if (p.Health > p.MaxHealth) p.Health = p.MaxHealth;
+
+                // 2. Revert Ally Health (ensure it doesn't drop below 1 and kill them)
+                foreach (var ally in _engineRef._allies)
+                {
+                    if (ally.IsAlive)
+                    {
+                        ally.Health /= 2;
+                        if (ally.Health < 1) ally.Health = 1;
+                    }
+                }
+            }
+        }
     }
 
     // ==========================================

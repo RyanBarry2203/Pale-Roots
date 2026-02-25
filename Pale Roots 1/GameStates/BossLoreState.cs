@@ -10,6 +10,11 @@ namespace Pale_Roots_1
         private Action<bool> _onComplete;
         private string _text;
 
+        // Fade out variables
+        private bool _isFadingOut = false;
+        private float _fadeTimer = 0f;
+        private const float FADE_DURATION = 1.5f;
+
         public BossLoreState(Game1 game, Action<bool> onComplete)
         {
             _game = game;
@@ -28,11 +33,21 @@ namespace Pale_Roots_1
         {
             _game.IsMouseVisible = true;
 
-            if (InputEngine.IsActionPressed("Confirm") || InputEngine.IsMouseLeftClick())
+            if (!_isFadingOut)
             {
-                // Transition to the actual fight!
-                _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
-                InputEngine.ClearState();
+                if (InputEngine.IsActionPressed("Confirm") || InputEngine.IsMouseLeftClick())
+                {
+                    _isFadingOut = true;
+                    InputEngine.ClearState();
+                }
+            }
+            else
+            {
+                _fadeTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_fadeTimer >= FADE_DURATION)
+                {
+                    _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
+                }
             }
         }
 
@@ -43,9 +58,18 @@ namespace Pale_Roots_1
 
             if (_game.UiFont != null)
             {
+                // Calculate transparency (1.0 is fully visible, 0.0 is invisible)
+                float alpha = 1.0f;
+                if (_isFadingOut)
+                {
+                    alpha = 1.0f - (_fadeTimer / FADE_DURATION);
+                }
+
                 Vector2 size = _game.UiFont.MeasureString(_text);
                 Vector2 center = new Vector2(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
-                spriteBatch.DrawString(_game.UiFont, _text, center - (size / 2), Color.White);
+
+                // Multiply Color.White by the alpha to fade it out smoothly
+                spriteBatch.DrawString(_game.UiFont, _text, center - (size / 2), Color.White * alpha);
             }
 
             spriteBatch.End();

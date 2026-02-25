@@ -39,9 +39,9 @@ namespace Pale_Roots_1
 
             // --- EXISTING HUD ---
             int padding = 20;
-            int startY = padding + xpBarHeight; // Shift down to make room for XP bar
+            int startY = padding + xpBarHeight;
             int barHeight = 25;
-            int barWidth = 300;
+            int barWidth = (int)(300 * (p.MaxHealth / 100f));
 
             spriteBatch.Draw(_uiPixel, new Rectangle(padding, startY, barWidth + 4, (barHeight * 2) + 15), _hudColor);
 
