@@ -18,13 +18,13 @@ namespace Pale_Roots_1
         {
 
             Name = "Event Horizon Golem";
-            MaxHealth = 1000;
+            MaxHealth = 1500;
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 50;
 
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
-            _animManager.AddAnimation("Death", new Animation(textures["Death"], 12, 0, 150f, false, 1, 0, false));
+            _animManager.AddAnimation("Death", new Animation(textures["Death"], 13, 0, 150f, false, 1, 0, false));
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 8, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 10, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 1, 0, false));
@@ -99,6 +99,11 @@ namespace Pale_Roots_1
         public override void ApplyKnockback(Vector2 force)
         {
             base.ApplyKnockback(force * 0.05f);
+        }
+        public override void Die()
+        {
+            base.Die();
+            _deathCountdown = 150;
         }
     }
 }

@@ -25,20 +25,29 @@ namespace Pale_Roots_1
             _uiFont = uiFont;
         }
 
-        public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills)
+        public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills, float levelProgress)
         {
             Player p = gameEngine.GetPlayer();
             if (p == null) return;
 
+            int screenW = graphicsDevice.Viewport.Width;
+            int xpBarHeight = 12;
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, xpBarHeight), Color.Black * 0.8f);
+            int filledWidth = (int)(screenW * levelProgress);
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, filledWidth, xpBarHeight), Color.DeepSkyBlue);
+            spriteBatch.Draw(_uiPixel, new Rectangle(0, xpBarHeight, screenW, 2), Color.DarkBlue * 0.8f);
+
+            // --- EXISTING HUD ---
             int padding = 20;
+            int startY = padding + xpBarHeight; // Shift down to make room for XP bar
             int barHeight = 25;
             int barWidth = 300;
 
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding, padding, barWidth + 4, (barHeight * 2) + 15), _hudColor);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding, startY, barWidth + 4, (barHeight * 2) + 15), _hudColor);
 
             float hpPercent = (float)p.Health / p.MaxHealth;
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, barWidth, barHeight), Color.Black * 0.5f);
-            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, padding + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, barWidth, barHeight), Color.Black * 0.5f);
+            spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
 
             float dashRatio = 0f;
             if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
@@ -51,8 +60,6 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
             Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
-
-            int screenW = graphicsDevice.Viewport.Width;
 
             if (winConditionKills < 999)
             {
@@ -77,7 +84,7 @@ namespace Pale_Roots_1
 
             int iconSize = 64;
             int spacing = 20;
-            int startY = graphicsDevice.Viewport.Height - iconSize - 20;
+            int startingY = graphicsDevice.Viewport.Height - iconSize - 20;
             int unlockedSpells = 0;
 
             for (int i = 0; i < 6; i++) if (gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
@@ -91,12 +98,12 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                Rectangle bgRect = new Rectangle(currentX - 10, startY - 10, totalWidth + 20, iconSize + 20);
+                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 20);
                 spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
                 if (showDash)
                 {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(dashIcon, dest, Color.White);
                     spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
@@ -112,7 +119,7 @@ namespace Pale_Roots_1
 
                 if (showHeavy)
                 {
-                    Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                    Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(heavyAttackIcon, dest, Color.White);
                     spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
                     currentX += iconSize + spacing;
@@ -122,7 +129,7 @@ namespace Pale_Roots_1
                 {
                     if (gameEngine.GetSpellManager().IsSpellUnlocked(i))
                     {
-                        Rectangle dest = new Rectangle(currentX, startY, iconSize, iconSize);
+                        Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                         if (spellIcons[i] != null)
                             spriteBatch.Draw(spellIcons[i], dest, Color.White);
 

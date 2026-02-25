@@ -36,6 +36,7 @@ namespace Pale_Roots_1
 
         // --- GLOBAL STATE ---
         public bool HasStarted { get; set; } = false;
+        public int PreviousLevelThreshold { get; set; } = 0;
         public int NextLevelThreshold { get; set; } = 3;
         public int LevelStep { get; set; } = 4;
 
@@ -142,6 +143,7 @@ namespace Pale_Roots_1
                 BossIcon,
                 GraphicsDevice
             );
+            PreviousLevelThreshold = 0;
             NextLevelThreshold = 3;
             LevelStep = 4;
             InputEngine.ClearState();

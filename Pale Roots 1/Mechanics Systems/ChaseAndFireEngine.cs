@@ -250,6 +250,11 @@ namespace Pale_Roots_1
             UpdateEnemies(gameTime, scanNow);
             CleanupDead();
 
+            if (_enemies.Count == 0 && !SpawningBlocked)
+            {
+                SpawnReinforcements(CombatTeam.Enemy, 5);
+            }
+
             // Keep camera centered on the player this frame
             _camera.follow(_player.CentrePos, vp);
         }

@@ -12,6 +12,10 @@ namespace Pale_Roots_1
         private BlackHoleBoss _boss;
         private bool _fightOver = false;
 
+        private float _endTimer = 0f;
+        private const float END_DELAY = 2.5f;
+        private bool _playerWon = false;
+
         // The callback to run when the fight ends
         private Action<bool> _onBattleEnd;
 
@@ -72,26 +76,34 @@ namespace Pale_Roots_1
             // 2. PAUSE: Check for Escape key to open Menu
             if (InputEngine.IsKeyPressed(Microsoft.Xna.Framework.Input.Keys.Escape))
             {
-                // Push the MenuState on top. 
-                // Because we use a Stack now, the Boss Fight will freeze exactly here.
+
                 _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
-            if (_fightOver) return;
-
             _bossEngine.Update(gameTime);
             _boss.UpdateBossLogic(gameTime, _bossEngine.GetPlayer());
 
-            // Win Condition
-            if (!_boss.IsAlive)
+            if (!_fightOver)
             {
-                FinishFight(true);
+                if (!_boss.IsAlive)
+                {
+                    _fightOver = true;
+                    _playerWon = true;
+                }
+                else if (!_bossEngine.GetPlayer().IsAlive)
+                {
+                    _fightOver = true;
+                    _playerWon = false;
+                }
             }
-            // Lose Condition
-            else if (!_bossEngine.GetPlayer().IsAlive)
+            else
             {
-                FinishFight(false);
+                _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_endTimer >= END_DELAY)
+                {
+                    FinishFight(_playerWon);
+                }
             }
         }
 
@@ -108,7 +120,7 @@ namespace Pale_Roots_1
             spriteBatch.End();
 
             spriteBatch.Begin();
-            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999);
+            _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999, 0f);
             spriteBatch.End();
         }
     }

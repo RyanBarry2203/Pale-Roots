@@ -51,7 +51,8 @@ namespace Pale_Roots_1
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
         public float AttackCooldown { get; set; }
-        private int _deathCountdown;
+
+        protected int _deathCountdown;
 
         // --- THE ENGINE FLEX: POLYMORPHIC STATE MACHINE ---
         public IAIState CurrentState { get; private set; }
