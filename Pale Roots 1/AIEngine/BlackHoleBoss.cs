@@ -106,5 +106,9 @@ namespace Pale_Roots_1
             base.Die();
             _deathCountdown = 150;
         }
+        protected override void DrawHealthBar(SpriteBatch spriteBatch)
+        {
+            //UIManager handles the Boss Health Bar!
+        }
     }
 }

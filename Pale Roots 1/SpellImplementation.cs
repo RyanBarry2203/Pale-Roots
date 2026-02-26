@@ -15,7 +15,8 @@ namespace Pale_Roots_1
             Description = "Heal yourself to full HP.";
             CooldownDuration = 5000f;
             ActiveDuration = 1100f;
-            Scale = 2.0f; 
+            Scale = 2.0f;
+            ThemeColor = Color.Gold;
 
             _animManager.AddAnimation("Heal", new Animation(sheet, 11, 0, 100f, false, 1, 64));
         }
@@ -53,7 +54,8 @@ namespace Pale_Roots_1
             Description = "Instakill AOE on your cursor"; // NEW: Data-Driven UI
             CooldownDuration = 10000f;
             ActiveDuration = 1000f;
-            Scale = 5.0f; // Keep big
+            Scale = 5.0f; 
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Explode", new Animation(sheet, 10, 0, 100f, false, 1, 128));
             
@@ -100,6 +102,7 @@ namespace Pale_Roots_1
             CooldownDuration = 30000f;
             ActiveDuration = 15000f;
             Scale = 3.0f; // Keep big
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Cast", new Animation(sheet, 12, 0, 100f, true, 1, 128));
             
@@ -178,6 +181,7 @@ namespace Pale_Roots_1
             CooldownDuration = 20000f;
             ActiveDuration = 15000f;
             Scale = 1.5f;
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Shield", new Animation(sheet, 11, 0, 100f, true, 1, 64));
             
@@ -247,6 +251,7 @@ namespace Pale_Roots_1
             CooldownDuration = 40000f;
             ActiveDuration = 15000f;
             Scale = 3.0f;
+            ThemeColor = Color.Gold;
 
             _animManager.AddAnimation("Storm", new Animation(sheet, 5, 0, 100f, true, 1, 128));
             
@@ -313,6 +318,7 @@ namespace Pale_Roots_1
             CooldownDuration = 25000f;
             ActiveDuration = 15000f;
             Scale = 1f;
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
             

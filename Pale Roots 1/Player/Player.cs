@@ -271,6 +271,7 @@ namespace Pale_Roots_1
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
+                _isInvincible = false;
             }
         }
 
@@ -490,6 +491,7 @@ namespace Pale_Roots_1
             {
                 CurrentState = PlayerState.Hurt;
                 _stateTimer = 300f;
+                _isInvincible = true;
             }
         }
 

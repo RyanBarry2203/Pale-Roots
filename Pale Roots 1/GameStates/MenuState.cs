@@ -8,6 +8,7 @@ namespace Pale_Roots_1
     {
         private Game1 _game;
         private Rectangle _playBtnRect;
+        private Rectangle _tutorialBtnRect;
         private Rectangle _quitBtnRect;
 
         public MenuState(Game1 game)
@@ -20,8 +21,9 @@ namespace Pale_Roots_1
             int centerW = _game.GraphicsDevice.Viewport.Width / 2;
             int centerH = _game.GraphicsDevice.Viewport.Height / 2;
 
-            _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
-            _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
+            _playBtnRect = new Rectangle(centerW - 120, centerH - 60, 240, 50);
+            _tutorialBtnRect = new Rectangle(centerW - 120, centerH + 10, 240, 50);
+            _quitBtnRect = new Rectangle(centerW - 120, centerH + 80, 240, 50);
 
             // Tell the Audio Manager we are in the menu
             _game.AudioManager.HandleMusicState(GameState.Menu);
@@ -45,6 +47,10 @@ namespace Pale_Roots_1
                     {
                         _game.StateManager.PopState();
                     }
+                }
+                else if (_tutorialBtnRect.Contains(mousePoint))
+                {
+                    _game.StateManager.PushState(new TutorialState(_game));
                 }
                 else if (_quitBtnRect.Contains(mousePoint))
                 {
@@ -71,8 +77,7 @@ namespace Pale_Roots_1
                 spriteBatch.Begin();
             }
 
-            // Let the UIManager handle the heavy lifting
-            _game.UIManager.DrawMenu(spriteBatch, graphicsDevice, _playBtnRect, _quitBtnRect, _game.HasStarted);
+            _game.UIManager.DrawMenu(spriteBatch, graphicsDevice, _playBtnRect, _tutorialBtnRect, _quitBtnRect, _game.HasStarted);
 
             spriteBatch.End();
         }

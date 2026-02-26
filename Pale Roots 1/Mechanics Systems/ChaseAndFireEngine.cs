@@ -189,20 +189,20 @@ namespace Pale_Roots_1
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    // Spawn small reinforcements for pacing
-                    SpawnReinforcements(CombatTeam.Enemy, 2);
+                    // Coin flip between 1 and 2 spawns to prevent overwhelming the player
+                    SpawnReinforcements(CombatTeam.Enemy, CombatSystem.RandomInt(1, 3));
                 }
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
                     AlliesLost++;
-                    SpawnReinforcements(CombatTeam.Player, 2);
+                    SpawnReinforcements(CombatTeam.Player, CombatSystem.RandomInt(1, 3));
                 }
             };
 
-            CombatSystem.OnDamageDealt += (attacker, target, damage) =>
-            {
-                // Lightweight hook for SFX/VFX/analytics; keep handlers small.
-            };
+            //CombatSystem.OnDamageDealt += (attacker, target, damage) =>
+            //{
+            //    // Lightweight hook for SFX/VFX/analytics; keep handlers small.
+            //};
         }
 
         // Per-frame update called by Game1.Update

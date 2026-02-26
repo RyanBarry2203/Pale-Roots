@@ -84,7 +84,7 @@ namespace Pale_Roots_1
 
             int iconSize = 64;
             int spacing = 20;
-            int startingY = graphicsDevice.Viewport.Height - iconSize - 20;
+            int startingY = graphicsDevice.Viewport.Height - iconSize - 45;
             int unlockedSpells = 0;
 
             for (int i = 0; i < 6; i++) if (gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
@@ -98,14 +98,16 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 20);
+                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 40);
                 spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
                 if (showDash)
                 {
                     Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(dashIcon, dest, Color.White);
-                    spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    Vector2 txtSize = _uiFont.MeasureString("SHFT") * 0.7f;
+                    spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
                     if (p.DashTimer > 0)
                     {
@@ -121,7 +123,9 @@ namespace Pale_Roots_1
                 {
                     Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(heavyAttackIcon, dest, Color.White);
-                    spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    Vector2 txtSize = _uiFont.MeasureString("R-CLK") * 0.7f;
+                    spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
                     currentX += iconSize + spacing;
                 }
 
@@ -134,7 +138,8 @@ namespace Pale_Roots_1
                             spriteBatch.Draw(spellIcons[i], dest, Color.White);
 
                         string key = (i + 1).ToString();
-                        spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
+                        Vector2 txtSize = _uiFont.MeasureString(key);
+                        spriteBatch.DrawString(_uiFont, key, new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold);
 
                         Spell s = gameEngine.GetSpellManager().GetSpell(i);
                         if (s != null && s.CurrentCooldown > 0)
@@ -155,9 +160,32 @@ namespace Pale_Roots_1
                     }
                 }
             }
+            //DARK SOULS STYLE BOSS HEALTH BAR
+            if (gameEngine.IsBossArena)
+            {
+                Enemy boss = gameEngine._enemies.Find(e => e is BlackHoleBoss);
+                if (boss != null && boss.IsAlive)
+                {
+                    int bossBarW = 800;
+                    int bossBarH = 25;
+                    int bossBarX = (screenW / 2) - (bossBarW / 2);
+                    // Draw it right above the ability icons
+                    int bossBarY = startingY - 60;
+
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX - 4, bossBarY - 4, bossBarW + 8, bossBarH + 8), Color.Black * 0.8f);
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX, bossBarY, bossBarW, bossBarH), Color.DarkRed * 0.5f);
+
+                    float bossHpPercent = (float)boss.Health / boss.MaxHealth;
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX, bossBarY, (int)(bossBarW * bossHpPercent), bossBarH), Color.Red);
+
+                    string bossName = boss.Name;
+                    Vector2 nameSize = _uiFont.MeasureString(bossName);
+                    spriteBatch.DrawString(_uiFont, bossName, new Vector2(screenW / 2 - nameSize.X / 2, bossBarY - nameSize.Y - 5), Color.White);
+                }
+            }
         }
 
-        public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle quitBtnRect, bool hasStarted)
+        public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle tutorialBtnRect, Rectangle quitBtnRect, bool hasStarted)
         {
             int screenW = graphicsDevice.Viewport.Width;
             int screenH = graphicsDevice.Viewport.Height;
@@ -188,6 +216,9 @@ namespace Pale_Roots_1
 
             bool playHover = playBtnRect.Contains(mousePoint);
             DrawFancyButton(playBtnRect, hasStarted ? "RESUME" : "PLAY", playHover);
+
+            bool tutHover = tutorialBtnRect.Contains(mousePoint);
+            DrawFancyButton(tutorialBtnRect, "TUTORIAL", tutHover);
 
             bool quitHover = quitBtnRect.Contains(mousePoint);
             DrawFancyButton(quitBtnRect, "QUIT", quitHover);

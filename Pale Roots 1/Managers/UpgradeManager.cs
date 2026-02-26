@@ -19,6 +19,7 @@ namespace Pale_Roots_1
             public Action ApplyAction;
             public UpgradeType Type;
             public int SpellIndex = -1;
+            public Color CardHue = Color.Black;
         }
 
         private Player _player;
@@ -56,6 +57,7 @@ namespace Pale_Roots_1
                 Description = "Right Click to deal double damage.",
                 Type = UpgradeType.HeavyAttack,
                 Icon = _heavyIcon,
+                CardHue = Color.DeepSkyBlue,
                 ApplyAction = () => _player.IsHeavyAttackUnlocked = true
             });
 
@@ -66,6 +68,7 @@ namespace Pale_Roots_1
                 Description = "Press Shift to dodge attacks.",
                 Type = UpgradeType.Dash,
                 Icon = _dashIcon,
+                CardHue = Color.Gold,
                 ApplyAction = () => _player.IsDashUnlocked = true
             });
 
@@ -123,6 +126,7 @@ namespace Pale_Roots_1
                     Type = UpgradeType.Spell,
                     Icon = s.Icon,
                     SpellIndex = index,
+                    CardHue = s.ThemeColor,
                     ApplyAction = () => _spellManager.UnlockSpell(index)
                 });
             }
@@ -171,11 +175,12 @@ namespace Pale_Roots_1
             }
             return returnString + line;
         }
-
+        public List<UpgradeOption> GetAllUpgrades() => _allUpgrades;
         public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
         {
-            Color bgColor = isHovered ? Color.DarkSlateBlue : Color.Black * 0.9f;
-            Color borderColor = isHovered ? Color.Cyan : Color.Gray;
+            Color baseHue = option.CardHue == Color.Black ? Color.Black : new Color(option.CardHue.R / 4, option.CardHue.G / 4, option.CardHue.B / 4, 220);
+            Color bgColor = isHovered ? Color.Lerp(baseHue, Color.White, 0.2f) : baseHue;
+            Color borderColor = isHovered ? Color.Cyan : (option.CardHue == Color.Black ? Color.Gray : option.CardHue);
 
             sb.Draw(_pixel, rect, bgColor);
             int b = 2;
@@ -207,12 +212,20 @@ namespace Pale_Roots_1
                 float endY = rect.Bottom - 10;
                 float availableHeight = endY - startY;
 
-                string wrappedDesc = ParseText(option.Description, font, rect.Width - 30);
-                Vector2 descSize = font.MeasureString(wrappedDesc);
-                float descY = startY + (availableHeight / 2) - (descSize.Y / 2);
-                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, descY);
+                string wrappedDesc = ParseText(option.Description, font, rect.Width - 20);
+                string[] lines = wrappedDesc.Split('\n');
 
-                sb.DrawString(font, wrappedDesc, descPos, Color.White);
+                float totalTextHeight = lines.Length * font.LineSpacing;
+                float startTextY = startY + (availableHeight / 2) - (totalTextHeight / 2);
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(lines[i])) continue;
+
+                    Vector2 lineSize = font.MeasureString(lines[i]);
+                    Vector2 linePos = new Vector2(rect.Center.X - (lineSize.X / 2), startTextY + (i * font.LineSpacing));
+                    sb.DrawString(font, lines[i], linePos, Color.White);
+                }
             }
         }
     }

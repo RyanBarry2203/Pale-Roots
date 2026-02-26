@@ -6,8 +6,9 @@ namespace Pale_Roots_1
     public abstract class Spell
     {
         public string Name { get; protected set; }
-        public string Description { get; protected set; } 
+        public string Description { get; protected set; }
         public Texture2D Icon { get; set; }
+        public Color ThemeColor { get; protected set; } = Color.White;
 
         public float CooldownDuration { get; protected set; }
         public float CurrentCooldown { get; set; } = 0f;
