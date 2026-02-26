@@ -53,8 +53,8 @@ namespace Pale_Roots_1
             Vector2 instSize = _game.UiFont.MeasureString(instructions);
             spriteBatch.DrawString(_game.UiFont, instructions, new Vector2(graphicsDevice.Viewport.Width / 2 - instSize.X / 2, 30), Color.White);
 
-            // 4. Draw Dynamic Grid of Cards (Bigger and better spaced)
-            List<UpgradeManager.UpgradeOption> allCards = _game.UpgradeManager.GetAllUpgrades();
+            List<UpgradeManager.UpgradeOption> allCards = _game.UpgradeManager.GetAllUpgrades()
+                .FindAll(card => card.Type != UpgradeManager.UpgradeType.BossTrigger);
 
             int cardW = 220; // Increased width
             int cardH = 320; // Increased height

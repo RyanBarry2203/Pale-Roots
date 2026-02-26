@@ -98,7 +98,7 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 40);
+                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 50);
                 spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
                 if (showDash)
