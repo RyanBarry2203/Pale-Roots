@@ -12,7 +12,7 @@ namespace Pale_Roots_1
         public SmiteSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Smite";
-            Description = "Heal yourself to full HP.";
+            Description = "Heal yourself for 100HP.";
             CooldownDuration = 5000f;
             ActiveDuration = 1100f;
             Scale = 2.0f;
@@ -177,7 +177,7 @@ namespace Pale_Roots_1
         public HolyShieldSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Shield";
-            Description = "Double Ally Health"; // NEW: Data-Driven UI
+            Description = "Double Healthbar"; // NEW: Data-Driven UI
             CooldownDuration = 20000f;
             ActiveDuration = 15000f;
             Scale = 1.5f;

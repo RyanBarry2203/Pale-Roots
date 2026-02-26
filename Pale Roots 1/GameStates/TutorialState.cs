@@ -49,7 +49,7 @@ namespace Pale_Roots_1
             spriteBatch.Draw(pixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
 
             // 3. Draw Instructions
-            string instructions = "HOW TO PLAY\nUse W,A,S,D to move. Left Click to Light Attack.\nDefeat enemies to level up and unlock the abilities below.\nSurvive the horde and reclaim your throne.";
+            string instructions = "HOW TO PLAY\n\n\nUse W,A,S,D to move. Left Click to Light Attack.\nYou attack in the direction of your cursor\nDefeat enemies to level up and unlock the abilities below.\nSurvive the War and reclaim your throne.";
             Vector2 instSize = _game.UiFont.MeasureString(instructions);
             spriteBatch.DrawString(_game.UiFont, instructions, new Vector2(graphicsDevice.Viewport.Width / 2 - instSize.X / 2, 30), Color.White);
 
