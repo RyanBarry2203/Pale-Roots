@@ -72,7 +72,7 @@ namespace Pale_Roots_1
 
             // Check with the CombatSystem to see if we are close enough to swing.
             // If we are, and our attack cooldown has reset, hit them.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.MeleeAttackRange && npc.AttackCooldown <= 0)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange && npc.AttackCooldown <= 0)
             {
                 npc.PerformAttack();
             }

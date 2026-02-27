@@ -189,8 +189,8 @@ namespace Pale_Roots_1
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    // Coin flip between 1 and 2 spawns to prevent overwhelming the player
-                    SpawnReinforcements(CombatTeam.Enemy, CombatSystem.RandomInt(1, 3));
+                    int spawnCount = (CombatSystem.RandomInt(0, 100) < 80) ? 1 : 2;
+                    SpawnReinforcements(CombatTeam.Enemy, spawnCount);
                 }
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
@@ -346,18 +346,23 @@ namespace Pale_Roots_1
         // Spawn reinforcements around the map (uses shared RNG utilities)
         private void SpawnReinforcements(CombatTeam team, int count)
         {
-            Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
-            float spawnRadius = 1800f;
-
             if (!SpawningBlocked)
             {
                 for (int i = 0; i < count; i++)
                 {
+                    // Spawn in a ring around the PLAYER, far enough to be off-screen
                     float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
-                    Vector2 spawnPos = center + new Vector2(
-                        (float)Math.Cos(angle) * spawnRadius,
-                        (float)Math.Sin(angle) * spawnRadius
+                    float distance = CombatSystem.RandomFloat(900f, 1300f);
+
+                    Vector2 spawnPos = _player.Position + new Vector2(
+                        (float)Math.Cos(angle) * distance,
+                        (float)Math.Sin(angle) * distance
                     );
+
+                    float safeMarginX = 300f;
+                    float safeMarginY = 600f;
+                    spawnPos.X = MathHelper.Clamp(spawnPos.X, safeMarginX, _mapSize.X - safeMarginX);
+                    spawnPos.Y = MathHelper.Clamp(spawnPos.Y, safeMarginY, _mapSize.Y - safeMarginY);
 
                     if (team == CombatTeam.Enemy)
                     {
@@ -389,8 +394,12 @@ namespace Pale_Roots_1
                         if (bestTarget != null)
                         {
                             CombatSystem.AssignTarget(newAlly, bestTarget);
-                            // THE POLYMORPHIC STATE MACHINE FLEX
                             newAlly.ChangeState(new ChaseState());
+                        }
+                        else
+                        {
+                            // If no enemies are around when they spawn, patrol the area
+                            newAlly.ChangeState(new WanderState());
                         }
                         _allies.Add(newAlly);
                     }

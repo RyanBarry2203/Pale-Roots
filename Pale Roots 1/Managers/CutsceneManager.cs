@@ -75,11 +75,15 @@ namespace Pale_Roots_1
             float progress = _timer / slide.Duration;
             float scaleX = (float)screenWidth / slide.Texture.Width;
             float scaleY = (float)screenHeight / slide.Texture.Height;
-            float baseScale = Math.Max(scaleX, scaleY);
+
+            float baseScale = Math.Max(scaleX, scaleY) * 1.12f;
 
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
             float finalScale = baseScale * currentZoom;
-            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
+
+
+            Vector2 watermarkOffset = new Vector2(-20, -20);
+            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress) + watermarkOffset;
 
             float fadeDuration = slide.Duration * 0.15f;
             float alpha = 1.0f;

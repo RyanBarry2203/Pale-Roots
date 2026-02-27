@@ -150,7 +150,18 @@ namespace Pale_Roots_1
 
             if (_externalVelocity != Vector2.Zero)
             {
-                position += _externalVelocity;
+                // Safely check if the knockback is throwing us into a wall
+                Vector2 proposedPos = position + _externalVelocity;
+                if (CanMoveTo(proposedPos, currentLayer, obstacles))
+                {
+                    position = proposedPos;
+                }
+                else
+                {
+                    // If we hit a wall, stop the knockback momentum immediately
+                    _externalVelocity = Vector2.Zero;
+                }
+
                 _externalVelocity *= GameConstants.KnockbackFriction;
 
                 if (_externalVelocity.Length() < 0.1f)

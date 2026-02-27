@@ -13,6 +13,7 @@ namespace Pale_Roots_1
         Vector2 StartPosition { get; set; }
         Vector2 WanderTarget { get; set; }
         float AttackCooldown { get; set; }
+        float AttackRange { get; }
 
         // Gives the AI states a way to check what the NPC is currently doing and explicitly force them into a new behavior.
         IAIState CurrentState { get; }
