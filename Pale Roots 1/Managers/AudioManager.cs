@@ -108,24 +108,21 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // If we are currently loading a song, STOP checking. 
-            // This prevents the "restart loop" that causes the delay.
-            if (_isSwitchingTrack) return;
+            // If we are already fading into a new song, don't interrupt it.
+            // If we are already fading into a new song, don't interrupt it.
+            if (_pendingSong != null || _isSwitchingTrack) return;
 
-            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong || _currentSong == OutroSong);
+            // We check if the current song is NOT in our list of approved combat songs.
+            // This fixes the bug where a song used for both Combat and Outro gets skipped!
+            bool isWrongTheme = (_currentSong != null && !_combatSongs.Contains(_currentSong));
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
-            if (isWrongTheme)
+            if (isWrongTheme || isSilence)
             {
-                RequestTrack(GetRandomCombatTrack(), false);
-            }
-            else if (isSilence)
-            {
-                // Song finished? 
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
-                    PlayImmediate(next);
+                    RequestTrack(next, false);
                 }
             }
         }

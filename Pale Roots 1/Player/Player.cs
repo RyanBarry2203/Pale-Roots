@@ -145,7 +145,7 @@ namespace Pale_Roots_1
         // Main update called by the engine each frame.
         // - currentLayer used for collision/tile checks
         // - enemies list used for attack collision tests
-        public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
+        public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies, List<WorldObject> obstacles)
         {
 
             if (_externalVelocity != Vector2.Zero)
@@ -175,22 +175,22 @@ namespace Pale_Roots_1
             {
                 case PlayerState.Idle:
                 case PlayerState.Run:
-                    HandleInput(currentLayer, true); // allow switching Run/Idle
+                    HandleInput(currentLayer, obstacles, true);
                     CheckForCombatInput(enemies);
                     break;
 
                 case PlayerState.Attack1:
                 case PlayerState.Attack2:
-                    HandleInput(currentLayer, false); // allow movement but don't change attack state
+                    HandleInput(currentLayer, obstacles, false);
                     UpdateAttack(gameTime, enemies, (CurrentState == PlayerState.Attack1 ? 1 : 2));
                     break;
 
                 case PlayerState.Dash:
-                    UpdateDash(gameTime, currentLayer);
+                    UpdateDash(gameTime, currentLayer, obstacles);
                     break;
 
                 case PlayerState.Hurt:
-                    HandleInput(currentLayer, false);
+                    HandleInput(currentLayer, obstacles, false);
                     UpdateHurt(gameTime);
                     break;
 
@@ -249,12 +249,21 @@ namespace Pale_Roots_1
         }
 
         // Dash state update: move for duration then clear invincibility
-        private void UpdateDash(GameTime gameTime, TileLayer layer)
+        private void UpdateDash(GameTime gameTime, TileLayer layer, List<WorldObject> obstacles)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _stateTimer -= dt;
 
-            position += _dashDirection * _dashSpeed;
+            Vector2 proposedPosition = position + (_dashDirection * _dashSpeed);
+
+            // Safely check collisions, ensuring we don't pass a null layer to CanMoveTo
+            if (layer == null || CanMoveTo(proposedPosition, layer, obstacles))
+            {
+                position = proposedPosition;
+            }
+
+            // Ensure the player cannot dash outside the map boundaries
+            ClampToMap();
 
             if (_stateTimer <= 0)
             {
@@ -277,7 +286,7 @@ namespace Pale_Roots_1
 
         // Read Input API, set velocity and attempt movement against the tile layer.
         // updateState = false prevents state switches (used during attacks/hurt).
-        private void HandleInput(TileLayer currentLayer, bool updateState)
+        private void HandleInput(TileLayer currentLayer, List<WorldObject> obstacles, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
 
@@ -302,11 +311,7 @@ namespace Pale_Roots_1
                 }
 
                 Vector2 proposedPosition = position + _velocity;
-                if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
-                {
-                    position = proposedPosition;
-                }
-                else if (currentLayer == null)
+                if (CanMoveTo(proposedPosition, currentLayer, obstacles))
                 {
                     position = proposedPosition;
                 }
@@ -340,7 +345,7 @@ namespace Pale_Roots_1
         }
 
         // Collision / tile movement check. Computes a small "feet" rectangle for passability tests.
-        private bool CanMoveTo(Vector2 newPos, TileLayer layer)
+        private bool CanMoveTo(Vector2 newPos, TileLayer layer, List<WorldObject> obstacles)
         {
             float scale = (float)Scale;
             int playerW = (int)(spriteWidth * scale * 0.4f);
@@ -361,6 +366,12 @@ namespace Pale_Roots_1
 
             // Tile passability checks would go here (sample surrounding tiles using futurePlayerBox).
             // This function currently returns true (placeholder for your tile queries).
+            // Check collisions against solid world objects (like the Boss Arena trees)
+            if (IsColliding(newPos, obstacles))
+            {
+                return false;
+            }
+
             return true;
         }
 

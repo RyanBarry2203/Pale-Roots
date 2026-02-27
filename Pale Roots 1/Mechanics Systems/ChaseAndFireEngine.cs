@@ -213,7 +213,7 @@ namespace Pale_Roots_1
             if (!_battleStarted)
             {
                 // Pre-battle: let player roam and inspect the level
-                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
                 // Quick demo input to start battle
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
@@ -234,7 +234,7 @@ namespace Pale_Roots_1
             _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player first so others react to player's new state this same frame
-            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
             // Update level objects
             _levelManager.Update(gameTime, _player);

@@ -76,7 +76,7 @@ namespace Pale_Roots_1
 
             // Define the layout of the grid.
             int cols = 5;
-            int startY = 180;
+            int startY = 300;
 
             Point mousePos = Mouse.GetState().Position;
 
