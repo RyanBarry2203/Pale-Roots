@@ -178,7 +178,7 @@ namespace Pale_Roots_1
                 string assetToSpawn = "";
                 bool isSolid = false;
 
-                // --- ZONE LOGIC ---
+
                 // We divide the map into invisible zones to decide what kind of debris should spawn there.
 
                 // If it's near the dead center tree, spawn bones.
@@ -209,7 +209,7 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                 }
 
-                // If we successfully picked an asset to spawn...
+                // If we successfully picked an asset to spawn.
                 if (assetToSpawn != "")
                 {
                     // Do one final check to make sure we aren't spawning two identical skulls or trees right next to each other.
