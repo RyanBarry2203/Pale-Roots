@@ -5,32 +5,38 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // This class acts as the master DJ for the game, handling all background music.
+    // It manages smooth volume fading between tracks and ensures the correct music plays based on the active GameState.
     public class AudioManager
     {
-        // Configuration
+        // Core configuration for how fast the volume shifts during a crossfade.
         private float _fadeSpeed = 0.5f;
         private const float MaxVolume = 1.0f;
 
-        // State
+        // Tracks the math for volume adjustments frame-by-frame.
         private float _currentVolume = 0f;
         private float _targetVolume = 0f;
 
-        // Tracks
+        // Pointers to figure out what is playing now vs what we are trying to transition into.
         private Song _currentSong;
         private Song _pendingSong;
+
+        // A critical safety flag. XNA's MediaPlayer sometimes takes a few frames to actually start a song,
+        // so we use this to prevent the manager from accidentally spam-triggering Play() multiple times.
         private bool _isSwitchingTrack = false;
 
-        // Playlists
+        // Specific tracks loaded directly by Game1 that correlate to specific menu or cinematic states.
         public Song MenuSong { get; set; }
         public Song IntroSong { get; set; }
         public Song DeathSong { get; set; }
-        public Song OutroSong { get; set; } // Used for Victory/Outro/Credits
+        public Song OutroSong { get; set; }
 
+        // We keep a separate list of intense combat tracks so we can randomly shuffle them during gameplay.
         private List<Song> _combatSongs = new List<Song>();
 
         public AudioManager()
         {
-            // Initialize volume to silent so we fade in
+            // We start the global volume at 0 so the first song smoothly fades in when the game launches.
             MediaPlayer.Volume = 0f;
         }
 
@@ -43,7 +49,9 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // --- 1. Fading Logic ---
+
+            // If our actual volume doesn't match our desired volume, step it forward or backward 
+            // based on the fade speed and delta time.
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -55,33 +63,37 @@ namespace Pale_Roots_1
                 if (_currentVolume < _targetVolume) _currentVolume = _targetVolume;
             }
 
+            // Apply the calculated volume to the actual hardware.
             MediaPlayer.Volume = _currentVolume;
 
-            // --- 2. State Management (The Fix for the Delay) ---
-            // Only allow new music checks once the hardware confirms it is actually playing.
+
+            // We constantly poll the hardware. Once it confirms it is officially playing the audio stream,
+            // we drop our safety flag so the manager can start listening for new track requests again.
             if (MediaPlayer.State == MediaState.Playing)
             {
                 _isSwitchingTrack = false;
             }
 
-            // --- 3. Cross-Fade Execution ---
+            // Check if the current song naturally ended, or if our fade-out math reached the bottom.
             bool songFinished = (MediaPlayer.State == MediaState.Stopped);
             bool fadeComplete = (_currentVolume <= 0.05f);
 
-            // Only run this logic if we aren't already busy switching tracks
+            // If we have a new song queued up, aren't locked in a transition, and the old song is fully faded out...
             if (!_isSwitchingTrack && _pendingSong != null && (fadeComplete || songFinished))
             {
-                // If we are cross-fading, we use PlayImmediate too!
+                // force the new song to start.
                 PlayImmediate(_pendingSong);
             }
         }
 
-        // The main interface for Game1 to ask for music
+        // The primary public method. The various GameStates call this, passing their own enum, 
+        // and the manager decides what track should be playing.
         public void HandleMusicState(GameState state)
         {
-            // If we are currently fading out (Pending exists), wait.
+            // If we are already in the middle of fading into a new track, ignore any new requests.
             if (_pendingSong != null) return;
 
+            // Route the state enum to the correct hardcoded track.
             switch (state)
             {
                 case GameState.Menu:
@@ -93,12 +105,15 @@ namespace Pale_Roots_1
                 case GameState.GameOver:
                     RequestTrack(DeathSong, false);
                     break;
+
+                // We combine several victory states to all point to the Outro track.
                 case GameState.Victory:
                 case GameState.Outro:
                 case GameState.Credits:
                     RequestTrack(OutroSong, true);
                     break;
 
+                // For actual active gameplay, we hand it off to a specialized method that shuffles the combat playlist.
                 case GameState.Gameplay:
                 case GameState.LevelUp:
                     HandleCombatMusic();
@@ -108,12 +123,12 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // If we are already fading into a new song, don't interrupt it.
-            // If we are already fading into a new song, don't interrupt it.
+            // Safety check: Don't try to pick a new random combat song if we are already transitioning.
             if (_pendingSong != null || _isSwitchingTrack) return;
 
-            // We check if the current song is NOT in our list of approved combat songs.
-            // This fixes the bug where a song used for both Combat and Outro gets skipped!
+            // Figure out if we need to pick a new track. 
+            // We need a new track if the current song isn't in our combat list (e.g., coming from a menu),
+            // OR if the hardware tells us the current track naturally finished playing.
             bool isWrongTheme = (_currentSong != null && !_combatSongs.Contains(_currentSong));
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
@@ -122,6 +137,8 @@ namespace Pale_Roots_1
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
+                    // Note: We pass 'false' for loop here, meaning when the song ends naturally, 
+                    // the isSilence check above will trigger and we will pick a new random song for variety!
                     RequestTrack(next, false);
                 }
             }
@@ -129,32 +146,38 @@ namespace Pale_Roots_1
 
         private void RequestTrack(Song song, bool loop)
         {
+            // Ignore the request if we are already playing this exact song or already fading into it.
             if (_currentSong == song && _pendingSong == null) return;
             if (_pendingSong == song) return;
 
+            // Apply the loop settings for the incoming track.
             MediaPlayer.IsRepeating = loop;
+
+            // Queue the requested track and instantly drop the target volume to 0. 
+            // This triggers the fade-out logic in the Update loop.
             _pendingSong = song;
-            _targetVolume = 0.0f; // Fade out current
+            _targetVolume = 0.0f;
         }
 
         private void PlayImmediate(Song song)
         {
             try
             {
-                // 1. Tell the hardware to play
+                // 1. Tell the XNA hardware to actively start streaming the audio data.
                 MediaPlayer.Play(song);
                 MediaPlayer.IsRepeating = false;
 
-                // 2. Update internal tracking
+                // 2. Update our internal pointers to finalize the transition.
                 _currentSong = song;
-                _pendingSong = null; // Clear any pending fades
+                _pendingSong = null;
 
-                // 3. Snap volume to MAX immediately
+                // 3. Immediately snap both target and current volume variables to Max.
+                // We don't fade *in* for combat tracks; we hit hard on the beat.
                 _targetVolume = MaxVolume;
                 _currentVolume = MaxVolume;
                 MediaPlayer.Volume = _currentVolume;
 
-                // 4. CRITICAL: Tell the engine "I am busy loading, don't bother me"
+                // 4. Raise the safety flag so the update loop knows the hardware is busy loading the file.
                 _isSwitchingTrack = true;
             }
             catch { }
@@ -162,9 +185,14 @@ namespace Pale_Roots_1
 
         private Song GetRandomCombatTrack()
         {
+            // If the combat list is empty, safely bail out.
             if (_combatSongs.Count == 0) return null;
+
             Song candidate;
             int attempts = 0;
+
+            // Try up to 5 times to pick a random track that IS NOT the exact same track we just finished playing.
+            // This ensures we get nice variety while playing.
             do
             {
                 int index = CombatSystem.RandomInt(0, _combatSongs.Count);
@@ -172,16 +200,18 @@ namespace Pale_Roots_1
                 attempts++;
             }
             while (candidate == _currentSong && attempts < 5);
+
             return candidate;
         }
 
         public void Stop()
         {
+            // Fully kills all audio and resets the manager. Used when hard-resetting the game session.
             MediaPlayer.Stop();
             _currentSong = null;
             _pendingSong = null;
-            _currentVolume = MaxVolume; // Changed from 0.5f
-            _targetVolume = MaxVolume;  // Changed from 0.5f
+            _currentVolume = MaxVolume;
+            _targetVolume = MaxVolume;
         }
     }
 }
