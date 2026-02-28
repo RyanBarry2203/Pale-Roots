@@ -6,37 +6,36 @@ using System.Threading.Tasks;
 
 namespace Pale_Roots_1
 {
-    // Tile: simple data holder representing one map tile.
-    // - `tileRef` links to a TileRef which stores sheet coordinates and the original tilemap value.
-    // - LevelManager constructs Tile instances when loading a map and uses X/Y and TileWidth/TileHeight
-    //   to place/render tiles or to build collision/logic structures.
-    // - `Passable` is a quick flag used by pathing / collision checks to decide if actors can walk through.
+    // The fundamental building block of the game world.
+    // Each 'Tile' represents a single square on the level grid.
     public class Tile
     {
-        // Reference to sheet position and map value (see TileRef definition).
+        // --- VISUAL REFERENCE ---
+        // This links the logical tile to its "clothes"—the specific pixel coordinates 
+        // on the master sprite sheet (defined in TileRef).
         public TileRef tileRef { get; set; }
 
-        // Pixel size of this tile (usually equals GameConstants.TileSize but stored per-tile for flexibility).
-        int _tileWidth;
-        int _tileHeight;
+        private int _tileWidth;
+        private int _tileHeight;
 
-        // Optional identifier for the tile (useful for lookups, editor IDs or serialization).
-        int _id;
+        // --- IDENTIFICATION ---
+        private int _id;
         public int Id
         {
             get { return _id; }
             set { _id = value; }
         }
 
-        // Human-friendly name for debug / editor tooling.
-        string _tileName;
+        private string _tileName;
         public string TileName
         {
             get { return _tileName; }
             set { _tileName = value; }
         }
 
-        // Whether actors can pass through this tile (true = walkable).
+        // --- PHYSICS & LOGIC ---
+        // Crucial for Pathfinding and Collision. 
+        // If 'Passable' is false, the Player and Enemies will treat this as a solid wall.
         bool _passable;
         public bool Passable
         {
@@ -44,7 +43,9 @@ namespace Pale_Roots_1
             set { _passable = value; }
         }
 
-        // Tile grid coordinates (column,row). LevelManager typically sets these when parsing the tilemap.
+        // --- GRID POSITION ---
+        // These are the coordinates in the TileArray (e.g., Column 5, Row 10), 
+        // not the raw pixel position on the screen.
         int _x;
         public int X
         {
@@ -59,30 +60,19 @@ namespace Pale_Roots_1
             set { _y = value; }
         }
 
-        // Width/Height in pixels for the tile; used when converting grid coords to world positions.
+        // --- DIMENSIONS ---
+        // Stored per-tile to allow for non-standard maps or zoom-level adjustments.
+        // Usually defaulted to GameConstants.TileSize (64 pixels).
         public int TileWidth
         {
-            get
-            {
-                return _tileWidth;
-            }
-
-            set
-            {
-                _tileWidth = value;
-            }
+            get { return _tileWidth; }
+            set { _tileWidth = value; }
         }
+
         public int TileHeight
         {
-            get
-            {
-                return _tileHeight;
-            }
-
-            set
-            {
-                _tileHeight = value;
-            }
+            get { return _tileHeight; }
+            set { _tileHeight = value; }
         }
     }
 }
