@@ -302,7 +302,7 @@ namespace Pale_Roots_1
                             string randomAsset = natureAssets[CombatSystem.RandomInt(0, natureAssets.Length)];
 
                             Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, true);
+                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, false);
                         }
                     }
                 }

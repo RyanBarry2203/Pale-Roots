@@ -28,7 +28,7 @@ namespace Pale_Roots_1
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 40;
-            AttackRange = 200f;
+            AttackRange = 150f;
 
             // Load all the specific boss animations. Notice the frame counts and timings 
             // are unique to this massive sprite sheet.

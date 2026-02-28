@@ -50,7 +50,7 @@ namespace Pale_Roots_1
             bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
 
             // Calculate the absolute center of the generated tilemap using our 64x64 tile size.
-            Vector2 mapCenter = new Vector2(1920, 1088);
+            Vector2 mapCenter = new Vector2(1920, 1088 + 150);
 
             // Spawn the boss directly in the middle of the room.
             _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
@@ -58,7 +58,7 @@ namespace Pale_Roots_1
             // Lock the boss inside the mathematical circle so it doesn't get stuck on jagged tree hitboxes.
             _boss.UseCircularBounds = true;
             _boss.CircularBoundsCenter = mapCenter;
-            _boss.CircularBoundsRadius = 900f;
+            _boss.CircularBoundsRadius = 1400f;
 
             _bossEngine._enemies.Add(_boss);
 
@@ -69,7 +69,7 @@ namespace Pale_Roots_1
             // Lock the player inside the exact same mathematical circle to prevent corner cheese from playtesting.
             bossArenaPlayer.UseCircularBounds = true;
             bossArenaPlayer.CircularBoundsCenter = mapCenter;
-            bossArenaPlayer.CircularBoundsRadius = 850f;
+            bossArenaPlayer.CircularBoundsRadius = 1100f;
 
             // Instantly snap the camera to the center so the player doesn't see the camera panning over the black void during setup.
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);

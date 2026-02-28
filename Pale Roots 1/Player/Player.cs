@@ -133,8 +133,8 @@ namespace Pale_Roots_1
 
             _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 150f, true));
             _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 120f, true));
-            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, standardWidth));
-            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 100f, false, 1, standardWidth));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, 0));
+            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 15, 0, 100f, false, 1,standardWidth));
             _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 125f, false, 1, standardWidth));
             _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1, standardWidth));
@@ -402,18 +402,18 @@ namespace Pale_Roots_1
             else _flipEffect = SpriteEffects.None;
 
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
-            float frameSpeed = (attackNum == 1) ? 80f : 120f;
 
-            // Reduce duration to 7 frames instead of the full 10.
-            // This makes the hitbox active for less time and lets the player move/attack again sooner.
-            float duration = 7 * frameSpeed;
+            // Light Attack = 10 frames * 100ms = 1000f
+            // Heavy Attack = 15 frames * 100ms = 1500f
+            float duration = (attackNum == 1) ? 1000f : 1500f;
 
             CurrentState = (attackNum == 1) ? PlayerState.Attack1 : PlayerState.Attack2;
             _stateTimer = duration;
             _comboBuffered = false;
-
-            // Reset hit list so each swing can hit targets again
             _enemiesHitThisAttack.Clear();
+
+            // Ensure the animation actually starts playing!
+            _animManager.Play(animName);
         }
 
         // Per-frame attack update: perform hit checks and end attack when timer expires
