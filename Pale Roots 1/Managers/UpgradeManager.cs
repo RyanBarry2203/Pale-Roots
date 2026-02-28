@@ -64,7 +64,7 @@ namespace Pale_Roots_1
 
         private void InitializeUpgrades()
         {
-            // 1. Manually build the Heavy Attack card.
+            // Manually build the Heavy Attack card.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Heavy Attack",
@@ -77,7 +77,7 @@ namespace Pale_Roots_1
                 ApplyAction = () => _player.IsHeavyAttackUnlocked = true
             });
 
-            // 2. Manually build the Dash card.
+            // Manually build the Dash card.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Dash",
@@ -88,7 +88,7 @@ namespace Pale_Roots_1
                 ApplyAction = () => _player.IsDashUnlocked = true
             });
 
-            // 3. Manually build the hidden Boss Trigger card.
+            // Manually build the hidden Boss Trigger card.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Strange Omen",
@@ -125,7 +125,7 @@ namespace Pale_Roots_1
                         }
                     };
 
-                    // ...then we pass that callback into the BossTransitionState and force the game to switch to it.
+                    // then we pass that callback into the BossTransitionState and force the game to switch to it.
                     if (_player.Game is Game1 g)
                     {
                         g.StateManager.ChangeState(new BossTransitionState(g, g.GameEngine, true, false, onBossResult));
@@ -133,7 +133,7 @@ namespace Pale_Roots_1
                 }
             });
 
-            // 4. Automatically generate a card for every single spell currently registered in the SpellManager.
+            // Automatically generate a card for every single spell currently registered in the SpellManager.
             // This prevents us from having to manually hardcode a new card every time we design a new spell.
             var spells = _spellManager.AllSpells;
             for (int i = 0; i < spells.Count; i++)
