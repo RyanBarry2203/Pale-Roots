@@ -54,15 +54,25 @@ namespace Pale_Roots_1
 
             // Spawn the boss directly in the middle of the room.
             _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
+
+            // Lock the boss inside the mathematical circle so it doesn't get stuck on jagged tree hitboxes.
+            _boss.UseCircularBounds = true;
+            _boss.CircularBoundsCenter = mapCenter;
+            _boss.CircularBoundsRadius = 900f;
+
             _bossEngine._enemies.Add(_boss);
 
             // Spawn the player offset to the left so they don't immediately collide with the boss on frame 1.
-            _bossEngine.GetPlayer().Position = mapCenter - new Vector2(400, 0);
+            Player bossArenaPlayer = _bossEngine.GetPlayer();
+            bossArenaPlayer.Position = mapCenter - new Vector2(400, 0);
+
+            // Lock the player inside the exact same mathematical circle to prevent corner cheese from playtesting.
+            bossArenaPlayer.UseCircularBounds = true;
+            bossArenaPlayer.CircularBoundsCenter = mapCenter;
+            bossArenaPlayer.CircularBoundsRadius = 850f;
 
             // Instantly snap the camera to the center so the player doesn't see the camera panning over the black void during setup.
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
-
-            Player bossArenaPlayer = _bossEngine.GetPlayer();
             SpellManager bossArenaSpells = _bossEngine.GetSpellManager();
 
             // We temporarily unlock the player's full arsenal.

@@ -333,6 +333,7 @@ namespace Pale_Roots_1
             }
 
             // Only change Run/Idle when allowed (prevents attack animation override).
+            ClampToMap();
             if (updateState)
             {
                 if (_velocity != Vector2.Zero)

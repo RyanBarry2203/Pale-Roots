@@ -44,7 +44,7 @@ namespace Pale_Roots_1
 
             // Ask the CombatSystem to check the distance between us and the target.
             // If we close the gap and get within engagement range, switch to the CombatState.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.CombatEngageRange)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange)
             {
                 npc.ChangeState(new CombatState());
             }
@@ -79,7 +79,7 @@ namespace Pale_Roots_1
 
             // If the target manages to run away and gets outside our combat break range, 
             // stop fighting and go back to chasing them down.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > GameConstants.CombatBreakRange)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > npc.AttackRange + 30f)
             {
                 npc.ChangeState(new ChaseState());
             }

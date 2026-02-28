@@ -16,6 +16,9 @@ namespace Pale_Roots_1
         protected Vector2 origin;
         protected float angleOfRotation;
         protected int spriteDepth = 1;
+        public bool UseCircularBounds { get; set; } = false;
+        public Vector2 CircularBoundsCenter { get; set; }
+        public float CircularBoundsRadius { get; set; }
 
         // Battle / gameplay bookkeeping (kept lightweight so CombatSystem can read/write)
         public int AttackerCount { get; set; } = 0;
@@ -97,17 +100,38 @@ namespace Pale_Roots_1
         // Call this after movement to avoid showing outside the world.
         protected void ClampToMap()
         {
-            float mapW = GameConstants.DefaultMapSize.X;
-            float mapH = GameConstants.DefaultMapSize.Y;
+            // If this sprite is locked to a circular arena, use radial math to clamp them.
+            if (UseCircularBounds)
+            {
+                float dist = Vector2.Distance(position, CircularBoundsCenter);
 
-            float halfWidth = (spriteWidth * (float)Scale) / 2f;
-            float halfHeight = (spriteHeight * (float)Scale) / 2f;
+                // Calculate a rough collision radius for the sprite so it doesn't visually clip outside the boundary.
+                float spriteRadius = (spriteWidth * (float)Scale) / 3f;
+                float maxDist = CircularBoundsRadius - spriteRadius;
 
-            if (position.X < halfWidth) position.X = halfWidth;
-            if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+                if (dist > maxDist)
+                {
+                    // Find the exact direction from the center to the sprite, and push them back along that line.
+                    Vector2 dir = position - CircularBoundsCenter;
+                    if (dir != Vector2.Zero) dir.Normalize();
+                    position = CircularBoundsCenter + (dir * maxDist);
+                }
+            }
+            else
+            {
+                // Standard rectangular map clamping
+                float mapW = GameConstants.DefaultMapSize.X;
+                float mapH = GameConstants.DefaultMapSize.Y;
 
-            if (position.Y < halfHeight) position.Y = halfHeight;
-            if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+                float halfWidth = (spriteWidth * (float)Scale) / 2f;
+                float halfHeight = (spriteHeight * (float)Scale) / 2f;
+
+                if (position.X < halfWidth) position.X = halfWidth;
+                if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+
+                if (position.Y < halfHeight) position.Y = halfHeight;
+                if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+            }
         }
 
         // Simple collision check used by movement helpers:
