@@ -1,0 +1,493 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Pale_Roots_1.ChargeState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="6.25" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\AIStates.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.ChaseState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="8" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\AIStates.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.CombatState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="4.5" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\AIStates.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.WanderState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="8" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\AIStates.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.HurtState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="6.25" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\AIStates.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.Ally" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="4.5" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AZUQgAEEEAAEDgAgEAAIGCQAAAAgAgBAFABBkAQEAAA=</HashCode>
+      <FileName>AIEngine\Ally.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.BlackHoleBoss" Collapsed="true">
+    <Position X="2" Y="2" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>BAAAAACAAAAEAAAoAAAAAAAgAAAAAAAAAAAAgAECEAA=</HashCode>
+      <FileName>AIEngine\BlackHoleBoss.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.BossBattleState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="6.25" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAUIAAAABAAAhgAAAAAAAIAAgAAAAAAAAAAAAABAAAQ=</HashCode>
+      <FileName>AIEngine\BossBattleState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.BossIdleState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="8" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\BossIdleState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.BossTransitionState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="4.5" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAgAgAAABAAQAAAAAIAAAAIAAAAAABQAAY=</HashCode>
+      <FileName>AIEngine\BossTransitionState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.Enemy" Collapsed="true">
+    <Position X="2" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AZVQgAEEkAAEDgAgFAAIGCQQAAAgAgBAFABBkAUEAAA=</HashCode>
+      <FileName>AIEngine\Enemy.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Pale_Roots_1.BossLoreState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="10.75" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AASAAAAAAAAAAgAQAAAAAAAAAAIAAAAIAAAAAAAABAU=</HashCode>
+      <FileName>GameStates\BossLoreState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.CreditsState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="12.5" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAgAIAAAAAACAAAAAAAAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\CreditsState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.EndGameState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="14.25" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAACAQ=</HashCode>
+      <FileName>GameStates\EndGameState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.GameplayState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="10.75" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AEUAAAAAAAAAAgAAAAAAAIAAAAEAAAAAAAAAAAAACAQ=</HashCode>
+      <FileName>GameStates\GameplayState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.IntroState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="12.5" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\IntroState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.LevelUpState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="14.25" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAACAAAAAAgAAAAAAAAAAAAAAAQAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\LevelUpState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.MenuState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="10.75" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAACAAAgAAAAAAAAAAAgAAAIAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\MenuState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.OutroState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="12.5" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\OutroState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.TutorialState" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="14.25" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAgAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\TutorialState.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" Collapsed="true" />
+  </Class>
+  <Class Name="Pale_Roots_1.AnimationManager" Collapsed="true">
+    <Position X="16.25" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AASAAAAAAABhBgAAAAAAAAEAAIAAAAAIgAAAAAAAAAA=</HashCode>
+      <FileName>Managers\AnimationManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.AudioManager" Collapsed="true">
+    <Position X="18" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CASAAACAACAAEgACAAEAAAAAAhAAgAAAIgIAQADgAIA=</HashCode>
+      <FileName>Managers\AudioManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.CutsceneManager" Collapsed="true">
+    <Position X="19.75" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAgAhAAEAAAAAAABACAAACAhABAAAAAAAA=</HashCode>
+      <FileName>Managers\CutsceneManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.GameStateManager" Collapsed="true">
+    <Position X="16.25" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAIAAAAAABgAAAAACACAAAAAAAAAAAAAAEAAAAAA=</HashCode>
+      <FileName>Managers\GameStateManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.LevelManager" Collapsed="true">
+    <Position X="18" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IQQAAAgAAAAAAgAMgAABQAAEAACEAAABAAQAAAIACAQ=</HashCode>
+      <FileName>Managers\LevelManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.SpellManager" Collapsed="true">
+    <Position X="19.75" Y="1.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAEAGAAAAAAgAAAAAAABAAAFAAIAAIAAIAAABAAAA=</HashCode>
+      <FileName>Managers\SpellManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.UIManager" Collapsed="true">
+    <Position X="16.25" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACAAIAAAAAERQAAAAAAAYAAAAAAAAhAAACBAAAAAAAA=</HashCode>
+      <FileName>Managers\UIManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.UpgradeManager" Collapsed="true">
+    <Position X="18" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAIAgABAAACAAAAAAAACAAQFAAAgEAEAQAQAAAACAA=</HashCode>
+      <FileName>Managers\UpgradeManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Camera" Collapsed="true">
+    <Position X="3" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAgEAAAAAAIAAAAAAAEIAAAAQAgAAI=</HashCode>
+      <FileName>Mechanics Systems\Camera.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.ChaseAndFireEngine" Collapsed="true">
+    <Position X="4.75" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>BAQAAkhACQAggwAAQAEAOLCAABACBECUAAGEFCABCAI=</HashCode>
+      <FileName>Mechanics Systems\ChaseAndFireEngine.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Collider" Collapsed="true">
+    <Position X="6.5" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAhAAAAAggAAAAAAAQAAAAAAAgAIAAAAAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\Collider.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.GameConstants" Collapsed="true">
+    <Position X="4.75" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAIIkAUBEEBUARAAWAAAEBIAAB2AAAxQAAA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.CombatSystem" Collapsed="true">
+    <Position X="8.25" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAERAAAAAAAIQICAEAAAAAAAAAAgAgCAAAgAQEAE=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.CutsceneLibrary" Collapsed="true">
+    <Position X="3" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\CutsceneLibrary.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Healthbar" Collapsed="true">
+    <Position X="6.5" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAIAIAAAABAAAAAQAgAAAAAAAAg=</HashCode>
+      <FileName>Mechanics Systems\Healthbar.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Helper" Collapsed="true">
+    <Position X="8.25" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAEIAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\Helper.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.InputEngine" Collapsed="true">
+    <Position X="3" Y="7.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IIQgIIDAgAAAAECBAAAIAQAAqAwAARAAAygEAAATCAI=</HashCode>
+      <FileName>Mechanics Systems\InputEngine.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.LevelDataLibrary" Collapsed="true">
+    <Position X="4.75" Y="7.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAACCAAAAAAAAAAAAAAAAAEAAAIAAAQAAAAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\LevelDataLibrary.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.PhysicsGlobals" Collapsed="true">
+    <Position X="6.5" Y="7.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\PhysicsGlobals.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.RenderPipeline" Collapsed="true">
+    <Position X="8.25" Y="7.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\RenderPipeline.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Utility" Collapsed="true">
+    <Position X="3" Y="8.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQBAAAAAAA=</HashCode>
+      <FileName>Mechanics Systems\utility.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Animation" Collapsed="true">
+    <Position X="10.75" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAQAAAAAAAAAAAAAAAAAABBACAAAAACAAIIQAAAACA=</HashCode>
+      <FileName>Models\Animation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Collectible" Collapsed="true">
+    <Position X="12.5" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAEAAAAAAAAAgCAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Models\Collectible.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Cutscene" Collapsed="true">
+    <Position X="14.25" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAA=</HashCode>
+      <FileName>Models\Cutscene.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.CutsceneSlide" Collapsed="true">
+    <Position X="10.75" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAIECAAAAAAAAAAAAAEAAAAAAAAIACAAEAAA=</HashCode>
+      <FileName>Models\CutsceneSlide.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Level" Collapsed="true">
+    <Position X="12.5" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAABAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAACA=</HashCode>
+      <FileName>Models\Level.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Spell" Collapsed="true">
+    <Position X="14.25" Y="6.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAUAgEAAAAAkAgAAEAIAQAQAAAIAAAAAAAAAiAEAICQ=</HashCode>
+      <FileName>Models\Spell.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.WorldObject" Collapsed="true">
+    <Position X="10.75" Y="7.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAoAAAAAAAAAAQAAAgAAAAAAgAAAgAIAAGAAAAEAQA=</HashCode>
+      <FileName>Models\WorldObject.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Player" Collapsed="true">
+    <Position X="22.5" Y="5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>I+QYgUCASSKACgAi0ZIAmDQAoAoAggCAlACAlgAAGAA=</HashCode>
+      <FileName>Player\Player.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Pale_Roots_1.RotatingSprite" Collapsed="true">
+    <Position X="16.5" Y="4.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAgAAIAAAAgAAAAAAAAAAAAAAAAAAAABAASAAAAE=</HashCode>
+      <FileName>Player\rotatingSprite.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Sprite" Collapsed="true">
+    <Position X="18.75" Y="5.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CAVACAQAgAAAAgEAEAoAIRAgAAAAAIIIAAQBIQIYALA=</HashCode>
+      <FileName>Player\Sprite.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Tile" Collapsed="true">
+    <Position X="16.25" Y="9" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AABCAAAIAAQAAAAAgABAACAAAAAAAAABABAAAQgAYBA=</HashCode>
+      <FileName>Tile\Tile.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.TileLayer" Collapsed="true">
+    <Position X="18" Y="9" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CAAAAAAAAIBAAgAAAAAAAAAEAACAAAoAAAAAAAAAAAA=</HashCode>
+      <FileName>Tile\TileLayer.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.TileRef" Collapsed="true">
+    <Position X="16.25" Y="10" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAGgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Tile\TileRef.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Game1" Collapsed="true">
+    <Position X="18.25" Y="12.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACYAgAAAAAIEEwAAAgAAAAAgABiAAAQiUAAgEUCAAAQ=</HashCode>
+      <FileName>Game1.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.SmiteSpell" Collapsed="true">
+    <Position X="22.75" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.HolyNovaSpell" Collapsed="true">
+    <Position X="26.5" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.HeavensFurySpell" Collapsed="true">
+    <Position X="30.25" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAEAAAAAAAgAAAAAAAAAAAAAAAAAAAAAACAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.HolyShieldSpell" Collapsed="true">
+    <Position X="24.5" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.ElectricitySpell" Collapsed="true">
+    <Position X="28.5" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAEAAAAAAAgAAAAAAQAAAAAAAAAAAAAAACAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.SwordOfJusticeSpell" Collapsed="true">
+    <Position X="32" Y="10.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAACA=</HashCode>
+      <FileName>SpellImplementation.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Interface Name="Pale_Roots_1.IAIState" Collapsed="true">
+    <Position X="4.5" Y="3.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>AIEngine\IAIState.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Interface Name="Pale_Roots_1.INpcActor" Collapsed="true">
+    <Position X="6.25" Y="3.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAEAAABAAAAAAAACAAAAAgAAAABAABACQEAAA=</HashCode>
+      <FileName>AIEngine\INpcActor.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Interface Name="Pale_Roots_1.IGameState" Collapsed="true">
+    <Position X="10.75" Y="3.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ=</HashCode>
+      <FileName>GameStates\IGameState.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Interface Name="Pale_Roots_1.ICombatant" Collapsed="true">
+    <Position X="0.5" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AQAQCAAAAAAACAAgEAAAEAQAAAAAAAAAEAAAkAAIABA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Enum Name="Pale_Roots_1.CombatTeam" Collapsed="true">
+    <Position X="3" Y="9.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAQAAAAA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Enum Name="Pale_Roots_1.GameState" Collapsed="true">
+    <Position X="10.75" Y="8.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>gEAAgAAAAAAAAAAAAAAAAAABAAAIAAgAAAAAAgAAAAA=</HashCode>
+      <FileName>Models\GameState.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

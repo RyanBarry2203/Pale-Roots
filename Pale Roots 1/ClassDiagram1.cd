@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Pale_Roots_1.Sprite" Collapsed="true">
+    <Position X="5" Y="1.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CAVACAQAgAAAAgEAEAoAIRAgAAAAAIIIAAQBIQIYALA=</HashCode>
+      <FileName>Player\Sprite.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.RotatingSprite" Collapsed="true">
+    <Position X="8" Y="3" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAQAAgAAIAAAAgAAAAAAAAAAAAAAAAAAAABAASAAAAE=</HashCode>
+      <FileName>Player\rotatingSprite.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.Player" Collapsed="true">
+    <Position X="3.25" Y="4.75" Width="1.5" />
+    <NestedTypes>
+      <Enum Name="Pale_Roots_1.Player.PlayerState" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>Player\Player.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Enum>
+      <Enum Name="Pale_Roots_1.Player.Direction" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>Player\Player.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Enum>
+    </NestedTypes>
+    <TypeIdentifier>
+      <HashCode>I+QYgUCASSKACgAi0ZIAmDQAoAoAggCAlACAlgAAGAA=</HashCode>
+      <FileName>Player\Player.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Pale_Roots_1.Enemy" Collapsed="true">
+    <Position X="9.75" Y="4.75" Width="1.5" />
+    <NestedTypes>
+      <Enum Name="Pale_Roots_1.Enemy.ENEMYSTATE" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>AIEngine\Enemy.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Enum>
+    </NestedTypes>
+    <TypeIdentifier>
+      <HashCode>AZVQgAEEkAAEDgAgFAAIGCQQAAAgAgBAFABBkAUEAAA=</HashCode>
+      <FileName>AIEngine\Enemy.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Pale_Roots_1.Ally" Collapsed="true">
+    <Position X="6.5" Y="4.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AZUQgAEEEAAEDgAgEAAIGCQAAAAgAgBAFABBkAQEAAA=</HashCode>
+      <FileName>AIEngine\Ally.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Pale_Roots_1.WorldObject" Collapsed="true">
+    <Position X="9.75" Y="1.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAoAAAAAAAAAAQAAAgAAAAAAgAAAgAIAAGAAAAEAQA=</HashCode>
+      <FileName>Models\WorldObject.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.GameConstants" Collapsed="true">
+    <Position X="13.75" Y="2.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAIIkAUBEEBUARAAWAAAEBIAAB2AAAxQAAA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Pale_Roots_1.CombatSystem" Collapsed="true">
+    <Position X="12" Y="2.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAERAAAAAAAIQICAEAAAAAAAAAAgAgCAAAgAQEAE=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Interface Name="Pale_Roots_1.ICombatant" Collapsed="true">
+    <Position X="12" Y="3.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AQAQCAAAAAAACAAgEAAAEAQAAAAAAAAAEAAAkAAIABA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Interface Name="Pale_Roots_1.INpcActor" Collapsed="true">
+    <Position X="14" Y="3.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAEAAABAAAAAAAACAAAAAgAAAABAABACQEAAA=</HashCode>
+      <FileName>AIEngine\INpcActor.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Enum Name="Pale_Roots_1.CombatTeam" Collapsed="true">
+    <Position X="12" Y="4.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAQAAAAA=</HashCode>
+      <FileName>Mechanics Systems\CoreSystems.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>
