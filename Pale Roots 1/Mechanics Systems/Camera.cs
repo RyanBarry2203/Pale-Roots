@@ -3,24 +3,23 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // Simple camera that centers on a point, clamps to map bounds and produces a transform matrix
-    // Consumers (LevelManager / Game1 / drawing code) should use CurrentCameraTranslation as the SpriteBatch transform.
+    // This is our 2D camera system. 
+    // It tracks a specific point in the game world (usually the player) and generates a mathematical matrix.
+    // Other classes like the GameEngine and LevelManager pass this matrix into SpriteBatch.Begin() so the screen draws relative to this camera.
     public class Camera
     {
-        // World-space position the camera is centered on (in world coordinates).
+        // The exact X/Y coordinate in the game world that the camera is currently looking at.
         public Vector2 Position { get; private set; }
 
-        // Zoom factor (1.0 = 100%). Affects how much of the map is visible.
+        // Controls the scale of the matrix. 1.0f is normal size, 2.0f is zoomed in 200%.
         public float Zoom { get; set; } = 1.0f;
 
-        // Matrix to pass into SpriteBatch.Begin(transformMatrix: CurrentCameraTranslation)
-        // Updated whenever Position or Zoom changes via LookAt/follow.
+        // The final calculated matrix that gets handed over to the graphics card to offset all the sprites.
         public Matrix CurrentCameraTranslation { get; private set; }
 
-        // Map size in world units; used to clamp camera so we don't show outside the level.
+        // We store the total size of the current level so we know where the edges of the world are.
         private Vector2 _mapSize;
 
-        // startPos: initial camera center. mapSize: full world extents (width, height).
         public Camera(Vector2 startPos, Vector2 mapSize)
         {
             Position = startPos;
@@ -28,21 +27,20 @@ namespace Pale_Roots_1
             Zoom = 1.0f;
         }
 
-        // Move camera immediately to targetPos and update the transform.
-        // viewport is required so we can compute how much world the screen shows at current Zoom.
+        // Instantly snaps the camera to a new target position. 
+        // We need the Viewport passed in so the camera knows how wide the physical game window is for its boundary math.
         public void LookAt(Vector2 targetPos, Viewport viewport)
         {
             Position = targetPos;
 
-            // Keep camera inside the map edges based on current viewport and Zoom.
+            // Make sure snapping to this new position didn't accidentally push the camera lens out of bounds.
             ClampPosition(viewport);
 
-            // Build the matrix used for rendering transforms right away.
+            // Rebuild the math matrix based on the new, clamped position.
             UpdateMatrix(viewport);
         }
 
-        // Smooth-follow or immediate follow API (same here as LookAt).
-        // Call each frame with the player's world position and Viewport before drawing.
+        // This functions identically to LookAt, but is named to imply it should be called every single frame inside an Update loop.
         public void follow(Vector2 targetPos, Viewport viewport)
         {
             Position = targetPos;
@@ -50,10 +48,10 @@ namespace Pale_Roots_1
             UpdateMatrix(viewport);
         }
 
-        // Ensure the camera center stays inside the level bounds.
-        // Uses visible world size = viewport / Zoom so clamping adjusts when Zoom changes.
+        // This prevents the camera from panning past the edges of the map and showing the black void outside the level.
         private void ClampPosition(Viewport viewport)
         {
+            // Calculate exactly how much of the game world the player can currently see, factoring in the zoom level.
             float visibleWidth = viewport.Width / Zoom;
             float visibleHeight = viewport.Height / Zoom;
 
@@ -63,16 +61,18 @@ namespace Pale_Roots_1
             float newX = Position.X;
             float newY = Position.Y;
 
-            // If the visible area is larger than the map, center on the map instead of clamping edges.
+            // If the player is zoomed out so far that the screen is wider than the entire map, just lock the camera dead center.
             if (visibleWidth > _mapSize.X)
             {
                 newX = _mapSize.X / 2f;
             }
+            // Otherwise, restrict the X position so the left/right edges of the lens never cross the 0 or Max boundaries.
             else
             {
                 newX = MathHelper.Clamp(Position.X, halfWidth, _mapSize.X - halfWidth);
             }
 
+            // Do the exact same boundary checks for the Y axis (top and bottom edges).
             if (visibleHeight > _mapSize.Y)
             {
                 newY = _mapSize.Y / 2f;
@@ -82,17 +82,21 @@ namespace Pale_Roots_1
                 newY = MathHelper.Clamp(Position.Y, halfHeight, _mapSize.Y - halfHeight);
             }
 
+            // Apply the safely restricted coordinates back to the camera.
             Position = new Vector2(newX, newY);
         }
 
-        // Recompute the transform matrix used for rendering:
-        // 1) translate world so the camera center is at origin,
-        // 2) scale (zoom), then
-        // 3) translate so origin maps to the screen center.
+
+
+        // This is the core engine math that converts our position and zoom into a format the graphics card understands.
         private void UpdateMatrix(Viewport viewport)
         {
             Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);
 
+            // Matrix multiplication order matters! 
+            // 1. We shift the entire world negatively by the camera's position to center our target on the screen's top-left origin (0,0).
+            // 2. We apply the zoom scale.
+            // 3. We shift everything positively by exactly half the screen resolution to push the target from the top-left corner into the dead center of the monitor.
             CurrentCameraTranslation =
                 Matrix.CreateTranslation(new Vector3(-Position.X, -Position.Y, 0)) *
                 Matrix.CreateScale(new Vector3(Zoom, Zoom, 1)) *

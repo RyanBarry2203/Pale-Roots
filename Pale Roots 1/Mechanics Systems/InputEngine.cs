@@ -11,33 +11,32 @@ using Microsoft.Devices.Sensors;
 
 namespace Pale_Roots_1
 {
-    // InputEngine: centralizes input polling for keyboard, gamepad, mouse and (optionally) touch/accelerometer.
-    // NOW FEATURING: Action-Based Input API for custom engine architecture.
+    // This is the universal input wrapper for the entire game.
+    // Instead of gameplay classes talking directly to the keyboard or mouse, they ask this Engine what actions occurred.
+    // It also smoothly handles compiling for different platforms (like Windows vs Android) using preprocessor directives.
     public class InputEngine : GameComponent
     {
-        // --- ENGINE FEATURE: ACTION MAPPING ---
-        // Maps a string name (e.g., "Jump") to a specific Key.
+        // --- ACTION MAPPING ---
+        // These dictionaries map a plain-English string (like "Jump" or "CastSpell1") to a physical hardware button.
+        // This abstraction is what allows for custom keybindings in video games.
         private static Dictionary<string, Keys> _keyBindings = new Dictionary<string, Keys>();
-
-        // Maps a string name to a Mouse Button (0=Left, 1=Right, 2=Middle)
         private static Dictionary<string, int> _mouseBindings = new Dictionary<string, int>();
 
-        // GamePad state tracking
+        // We track both the "Current" and "Previous" frame states for all hardware.
+        // Comparing these two states is how we determine if a button was *just* pressed, or if it is being held down.
         private static GamePadState previousPadState;
         private static GamePadState currentPadState;
 
-        // Keyboard state tracking
         private static KeyboardState previousKeyState;
         private static KeyboardState currentKeyState;
 
-        // Mouse position and state (Windows only)
         private static Vector2 previousMousePos;
         private static Vector2 currentMousePos;
         private static MouseState previousMouseState;
         private static MouseState currentMouseState;
 
 #if ANDROID
-        // Mobile-only input fields
+        // These variables and methods are entirely ignored by the compiler unless you are building for Android.
         private static Vector2 previousAccelerometerReading;
         private static Accelerometer _acceleromter;
         private static Vector2 currentAcceleromoterReading;
@@ -62,6 +61,8 @@ namespace Pale_Roots_1
             _acceleromter = new Accelerometer();
             _acceleromter.CurrentValueChanged += _acceleromter_CurrentValueChanged;
             _acceleromter.Start();
+            
+            // Define exactly which types of mobile swipes and taps the engine should listen for.
             TouchPanel.EnabledGestures =
                     GestureType.Hold |
                     GestureType.Tap |
@@ -76,6 +77,9 @@ namespace Pale_Roots_1
 
         public static void ClearState()
         {
+            // This is a crucial safety function used by the GameStateManager.
+            // When transitioning from a Menu into Gameplay, we call this to wipe the input memory.
+            // Otherwise, the same mouse click used to click "Play" might accidentally fire a spell the second the level loads!
             previousMouseState = Mouse.GetState();
             currentMouseState = Mouse.GetState();
             previousKeyState = Keyboard.GetState();
@@ -87,6 +91,8 @@ namespace Pale_Roots_1
 
         public override void Update(GameTime gametime)
         {
+            // Push the current states from the last frame into the "previous" bucket, 
+            // then poll the hardware for fresh data.
             previousPadState = currentPadState;
             previousKeyState = currentKeyState;
 
@@ -111,6 +117,8 @@ namespace Pale_Roots_1
 
         private void CheckForTextInput()
         {
+            // Loops through every possible keyboard key to see if any were pressed this exact frame.
+            // Useful for typing in player names or debug consoles.
             foreach (var key in Enum.GetValues(typeof(Keys)) as Keys[])
             {
                 if (IsKeyPressed(key))
@@ -121,11 +129,11 @@ namespace Pale_Roots_1
             }
         }
 
-        // --- ACTION API METHODS (THE NEW ENGINE LOGIC) ---
+        // --- ACTION API METHODS ---
 
-        // 1. Configuration: Call this in Game1.LoadContent to set up controls
         public static void RegisterBinding(string actionName, Keys key)
         {
+            // Links a string action to a keyboard key. If the action already exists, it overwrites it (Remapping).
             if (_keyBindings.ContainsKey(actionName)) _keyBindings[actionName] = key;
             else _keyBindings.Add(actionName, key);
         }
@@ -136,10 +144,9 @@ namespace Pale_Roots_1
             else _mouseBindings.Add(actionName, mouseButtonIndex);
         }
 
-        // 2. Querying: Use these in Player/Scripts instead of checking Keys directly
-        // Returns true only on the frame the button is pressed down
         public static bool IsActionPressed(string actionName)
         {
+            // Checks if the hardware button associated with this action was tapped THIS EXACT FRAME.
             if (_keyBindings.ContainsKey(actionName))
             {
                 return IsKeyPressed(_keyBindings[actionName]);
@@ -153,9 +160,9 @@ namespace Pale_Roots_1
             return false;
         }
 
-        // Returns true as long as the button is held down
         public static bool IsActionHeld(string actionName)
         {
+            // Checks if the hardware button associated with this action is currently being held down continuously.
             if (_keyBindings.ContainsKey(actionName))
             {
                 return IsKeyHeld(_keyBindings[actionName]);
@@ -170,14 +177,17 @@ namespace Pale_Roots_1
         }
 
         // --- RAW HARDWARE HELPERS ---
+        // These methods perform the actual edge-detection math comparing the Current and Previous states.
 
         public static bool IsButtonPressed(Buttons buttonToCheck)
         {
+            // It is only a "Press" if the button is down right now, but was UP on the previous frame.
             if (currentPadState.IsButtonUp(buttonToCheck) && previousPadState.IsButtonDown(buttonToCheck))
                 return true;
             else
                 return false;
         }
+
         public static bool IsButtonHeld(Buttons buttonToCheck)
         {
             return currentPadState.IsButtonDown(buttonToCheck);
@@ -201,6 +211,7 @@ namespace Pale_Roots_1
             get { return currentPadState; }
             set { currentPadState = value; }
         }
+
         public static KeyboardState CurrentKeyState
         {
             get { return currentKeyState; }
@@ -245,6 +256,7 @@ namespace Pale_Roots_1
 
         private void HandleTouchInput()
         {
+            // Mobile gesture parsing logic. Translates raw screen touches into actionable gameplay events like Taps and Drags.
             TouchCollection touches = TouchPanel.GetState();
             while (TouchPanel.IsGestureAvailable)
             {

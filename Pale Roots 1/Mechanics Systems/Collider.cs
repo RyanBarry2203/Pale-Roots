@@ -4,23 +4,24 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // Simple tile-aligned collider used by the level to mark solid/interactive tiles.
-    // - LevelManager creates these for tiles that should block movement or be visible for debugging.
-    // - Other systems read CollisionField to test collisions against actors (Player, Enemy).
+    // This is a simple mathematical box used to create invisible walls in our tilemap.
+    // The LevelManager generates these across the map so that moving entities (like the Player or Enemies) 
+    // can check their own bounding boxes against these to prevent walking through solid objects.
     public class Collider
     {
-        // Tile grid coordinates (column/row) this collider sits on.
+        // The specific column and row in our map grid where this invisible wall sits.
         public int tileX;
         public int tileY;
 
-        // The texture used when drawing the collider (often a 1x1 white texture or a debug sprite).
+        // We hold onto a texture here strictly for debugging purposes, so we can visually draw 
+        // the invisible walls to screen if something is breaking.
         public Texture2D texture;
 
-        // Toggle drawing for debug/visualization (LevelManager or editor can turn this on).
+        // A debug toggle. The LevelManager can flip this to true to reveal the collision layout.
         public bool Visible = false;
 
-        // WorldPosition: top-left world coordinate (pixels) calculated from tile indices and the texture size.
-        // Consumers use this when placing or snapping objects to the same tile grid.
+        // This dynamically translates our abstract grid logic (like tile 5, 2) into actual 
+        // 2D pixel coordinates on the screen based on how large the assigned texture is.
         public Vector2 WorldPosition
         {
             get
@@ -29,8 +30,8 @@ namespace Pale_Roots_1
             }
         }
 
-        // CollisionField: rectangle in world space used for intersection tests with sprites.
-        // Use this when checking overlaps with actor bounding boxes.
+        // This builds the actual physical rectangle that MonoGame requires to run intersection math.
+        // Other classes ask for this specific property when they want to see if they bumped into a wall.
         public Rectangle CollisionField
         {
             get
@@ -39,8 +40,8 @@ namespace Pale_Roots_1
             }
         }
 
-        // Constructor: assign texture and tile coordinates.
-        // Typical caller: LevelManager when parsing a tilemap and creating colliders for blocked tiles.
+        // When the LevelManager is parsing the map array, it feeds the texture and grid position in here 
+        // to stamp out a new solid block.
         public Collider(Texture2D tx, int tlx, int tly)
         {
             texture = tx;
@@ -48,8 +49,7 @@ namespace Pale_Roots_1
             tileY = tly;
         }
 
-        // Draw the collider rectangle (only when Visible is true).
-        // Useful for debugging collision maps; SpriteBatch is provided by the calling draw loop.
+        // We only bother sending this to the graphics card if we are actively trying to debug our map boundaries.
         public void Draw(SpriteBatch sp)
         {
             if (Visible)

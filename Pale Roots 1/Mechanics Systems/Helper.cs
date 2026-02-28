@@ -5,10 +5,16 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    public static class  Helper
+    // This static helper acts as a master lookup table for your environment art.
+    // Instead of loading dozens of individual image files, the game loads one giant sprite sheet. 
+    // This class knows exactly where on that giant sheet every specific rock, tree, and bone is located.
+    public static class Helper
     {
+        // A global reference to the massive texture atlas that contains all these props.
         public static Texture2D SpriteSheet { get; set; }
 
+        // A dictionary mapping easy-to-read string names to their exact pixel coordinates on the sprite sheet.
+        // The Rectangle format is (X coordinate, Y coordinate, Pixel Width, Pixel Height).
         public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
         {
             { "Big_Rock", new Rectangle(16, 192, 64, 64)},
@@ -45,18 +51,20 @@ namespace Pale_Roots_1
             { "Hand_In_Floor_Medium", new Rectangle(271, 531, 48, 55) },
             { "Hand_In_Floor_Small", new Rectangle(320, 531, 31, 55) },
             { "Hand_In_Floor_Tiny", new Rectangle(352, 542, 33, 48) },
-
-
         };
 
+        // Other classes (like the LevelManager) call this function to get the math needed to draw a specific prop.
         public static Rectangle GetSourceRect(string key)
         {
+            // We safely check if the requested name actually exists in our dictionary.
             if (SourceRects.ContainsKey(key))
             {
                 return SourceRects[key];
             }
-            return new Rectangle(0, 0, 32, 32);
 
+            // If someone makes a typo when requesting an asset (e.g., asking for "Treee" instead of "Tree"),
+            // we return a tiny default square instead of letting the entire game crash!
+            return new Rectangle(0, 0, 32, 32);
         }
     }
 }
