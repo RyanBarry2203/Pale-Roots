@@ -80,7 +80,7 @@ namespace Pale_Roots_1
             AudioManager.AddCombatSong(Content.Load<Song>("Guitar"));
             AudioManager.AddCombatSong(Content.Load<Song>("MoreGuitar"));
             AudioManager.AddCombatSong(Content.Load<Song>("Groovy"));
-            //AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
+            AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
             AudioManager.AddCombatSong(Content.Load<Song>("uhm"));
 
             // Load Spell Icons

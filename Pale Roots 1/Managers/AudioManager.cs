@@ -131,7 +131,13 @@ namespace Pale_Roots_1
 
         private void RequestTrack(Song song, bool loop)
         {
-            if (_currentSong == song && _pendingSong == null) return;
+
+            if (_currentSong == song && _pendingSong == null)
+            {
+                MediaPlayer.IsRepeating = loop;
+                return;
+            }
+
             if (_pendingSong == song) return;
 
             MediaPlayer.IsRepeating = loop;
