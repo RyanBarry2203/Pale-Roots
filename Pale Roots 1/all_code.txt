@@ -53,6 +53,7 @@ namespace Pale_Roots_1
         {
             _graphics.PreferredBackBufferWidth = 1920;
             _graphics.PreferredBackBufferHeight = 1080;
+            _graphics.IsFullScreen = true;
             _graphics.ApplyChanges();
 
             StateManager = new GameStateManager();
@@ -180,10 +181,11 @@ namespace Pale_Roots_1
         public SmiteSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Smite";
-            Description = "Heal yourself to full HP.";
+            Description = "Heal yourself for 100HP.";
             CooldownDuration = 5000f;
             ActiveDuration = 1100f;
-            Scale = 2.0f; 
+            Scale = 2.0f;
+            ThemeColor = Color.Gold;
 
             _animManager.AddAnimation("Heal", new Animation(sheet, 11, 0, 100f, false, 1, 64));
         }
@@ -221,7 +223,8 @@ namespace Pale_Roots_1
             Description = "Instakill AOE on your cursor"; // NEW: Data-Driven UI
             CooldownDuration = 10000f;
             ActiveDuration = 1000f;
-            Scale = 5.0f; // Keep big
+            Scale = 5.0f; 
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Explode", new Animation(sheet, 10, 0, 100f, false, 1, 128));
             
@@ -268,6 +271,7 @@ namespace Pale_Roots_1
             CooldownDuration = 30000f;
             ActiveDuration = 15000f;
             Scale = 3.0f; // Keep big
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Cast", new Animation(sheet, 12, 0, 100f, true, 1, 128));
             
@@ -342,10 +346,11 @@ namespace Pale_Roots_1
         public HolyShieldSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Shield";
-            Description = "Double Ally Health"; // NEW: Data-Driven UI
+            Description = "Double Healthbar"; // NEW: Data-Driven UI
             CooldownDuration = 20000f;
             ActiveDuration = 15000f;
             Scale = 1.5f;
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Shield", new Animation(sheet, 11, 0, 100f, true, 1, 64));
             
@@ -415,6 +420,7 @@ namespace Pale_Roots_1
             CooldownDuration = 40000f;
             ActiveDuration = 15000f;
             Scale = 3.0f;
+            ThemeColor = Color.Gold;
 
             _animManager.AddAnimation("Storm", new Animation(sheet, 5, 0, 100f, true, 1, 128));
             
@@ -481,6 +487,7 @@ namespace Pale_Roots_1
             CooldownDuration = 25000f;
             ActiveDuration = 15000f;
             Scale = 1f;
+            ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Justice", new Animation(sheet, 5, 0, 200f, true, 1, 64));
             
@@ -513,89 +520,134 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Handles the logic for when an NPC is blindly charging forward.
     public class ChargeState : IAIState
     {
         public void Enter(INpcActor npc) { }
+
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Enemies charge left (-1), Allies charge right (+1)
+            // Check the NPC's team to figure out which direction they should run. 
+            // Player allies move right (+1), enemies move left (-1).
             float dir = npc.Team == CombatTeam.Player ? 1f : -1f;
+
+            // Pick a point way off in the distance in the correct direction.
             Vector2 target = new Vector2(npc.Position.X + (1000 * dir), npc.Position.Y);
+
+            // Tell the NPC to move towards that distant point while avoiding obstacles.
             npc.MoveToward(target, npc.Velocity, obstacles);
         }
+
         public void Exit(INpcActor npc) { }
     }
 
+    // Handles the logic for when an NPC is actively pursuing a target.
     public class ChaseState : IAIState
     {
         public void Enter(INpcActor npc) { }
+
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
+            // First, make sure we actually have a valid target. 
+            // If the target disappeared or died, drop out of the chase and go back to wandering.
             if (npc.CurrentTarget == null || !npc.CurrentTarget.IsAlive)
             {
                 npc.ChangeState(new WanderState());
                 return;
             }
+
+            // Keep moving toward the center of the target.
             npc.MoveToward(npc.CurrentTarget.Center, npc.Velocity, obstacles);
+
+            // Ask the CombatSystem to check the distance between us and the target.
+            // If we close the gap and get within engagement range, switch to the CombatState.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.CombatEngageRange)
             {
                 npc.ChangeState(new CombatState());
             }
         }
+
         public void Exit(INpcActor npc) { }
     }
 
+    // Handles the logic for when an NPC is actively fighting their target.
     public class CombatState : IAIState
     {
         public void Enter(INpcActor npc) { }
+
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
+            // Safety check: if our target dies or vanishes mid-fight, go back to wandering.
             if (npc.CurrentTarget == null || !npc.CurrentTarget.IsAlive)
             {
                 npc.ChangeState(new WanderState());
                 return;
             }
+
+            // Make sure the NPC's sprite is always looking directly at the target.
             npc.SnapToFace(npc.CurrentTarget.Center);
+
+            // Check with the CombatSystem to see if we are close enough to swing.
+            // If we are, and our attack cooldown has reset, hit them.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.MeleeAttackRange && npc.AttackCooldown <= 0)
             {
                 npc.PerformAttack();
             }
+
+            // If the target manages to run away and gets outside our combat break range, 
+            // stop fighting and go back to chasing them down.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > GameConstants.CombatBreakRange)
             {
                 npc.ChangeState(new ChaseState());
             }
         }
+
         public void Exit(INpcActor npc) { }
     }
 
+    // Handles the logic for when an NPC is idle and patrolling around their spawn point.
     public class WanderState : IAIState
     {
         public void Enter(INpcActor npc) { }
+
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
+            // If we haven't picked a spot to wander to yet, or if we just arrived at our current spot (within 5 pixels).
             if (npc.WanderTarget == Vector2.Zero || Vector2.Distance(npc.Position, npc.WanderTarget) < 5f)
             {
+                // Use the CombatSystem's random number generator and the radius defined in GameConstants 
+                // to pick a new random point near where the NPC originally spawned.
                 npc.WanderTarget = npc.StartPosition + new Vector2(
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
                 );
             }
+
+            // Slowly walk toward the newly chosen spot at half speed.
             npc.MoveToward(npc.WanderTarget, npc.Velocity * 0.5f, obstacles);
         }
+
         public void Exit(INpcActor npc) { }
     }
 
+    // Handles the logic for when an NPC takes damage and gets momentarily stunned.
     public class HurtState : IAIState
     {
         public void Enter(INpcActor npc)
         {
-            npc.AttackCooldown = 500f; // Brief stun
+            // The moment we enter this state, force a long attack cooldown to act as a stun mechanic.
+            // Also trigger the hurt animation so the player gets visual feedback.
+            npc.AttackCooldown = 500f;
             npc.PlayAnimation("Hurt");
         }
+
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
+            // Wait for the stun (attack cooldown) to count down to zero.
+            // Once they recover, immediately switch back to chasing whatever hit them.
             if (npc.AttackCooldown <= 0) npc.ChangeState(new ChaseState());
         }
+
         public void Exit(INpcActor npc) { }
     }
 }
@@ -606,26 +658,36 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // This is the blueprint for all friendly NPCs that fight alongside the player.
+    // It inherits from RotatingSprite for drawing and implements INpcActor so the AI state machine can control it.
     public class Ally : RotatingSprite, INpcActor
     {
+        // Tracks the basic life cycle of the character to handle death animations and cleanup.
         public enum ALLYSTATE { ALIVE, DYING, DEAD }
 
         private AnimationManager _animManager;
         private int _currentDirectionIndex = 1;
         private SpriteEffects _flipEffect = SpriteEffects.None;
+
+        // We use a single shared 1x1 pixel texture to draw health bars for all allies, saving memory.
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
 
         public ALLYSTATE LifecycleState { get; set; } = ALLYSTATE.ALIVE;
 
+        // Basic RPG stats and identification.
         public string Name { get; set; } = "Ally";
         public CombatTeam Team => CombatTeam.Player;
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; protected set; }
+
+        // Quick checks to see if this ally should still be updated, drawn, or targeted by enemies.
         public bool IsAlive => Health > 0 && LifecycleState == ALLYSTATE.ALIVE;
         public bool IsActive => Visible && LifecycleState != ALLYSTATE.DEAD;
 
         private ICombatant _currentTarget;
+
+        // When we lock onto a new target, we also update the CurrentCombatPartner so the underlying sprite logic knows about it.
         public ICombatant CurrentTarget
         {
             get => _currentTarget;
@@ -636,6 +698,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Movement and AI variables needed by the INpcActor interface.
         public Vector2 Position => position;
         public float Velocity { get; set; }
         public Vector2 StartPosition { get; set; }
@@ -643,8 +706,10 @@ namespace Pale_Roots_1
         public float AttackCooldown { get; set; }
         private int _deathCountdown;
 
+        // Holds whatever behavior state the ally is currently executing (like ChaseState or CombatState).
         public IAIState CurrentState { get; private set; }
 
+        // The core of our State Machine. We cleanly exit the old state before entering the new one.
         public void ChangeState(IAIState newState)
         {
             CurrentState?.Exit(this);
@@ -660,6 +725,7 @@ namespace Pale_Roots_1
         public Ally(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Walk"], userPosition, framecount)
         {
+            // Pull all our default starting stats from the GameConstants file so they are easy to balance later.
             StartPosition = userPosition;
             Velocity = GameConstants.DefaultAllySpeed;
             MaxHealth = GameConstants.DefaultHealth;
@@ -668,6 +734,7 @@ namespace Pale_Roots_1
             _deathCountdown = GameConstants.DeathCountdown;
             Scale = 3.0f;
 
+            // Set up all the sprite sheets and timings for our different animations.
             _animManager = new AnimationManager();
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 200f, true, 4, 0, true));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 4, 0, 125f, true, 4, 0, true));
@@ -675,13 +742,14 @@ namespace Pale_Roots_1
             _animManager.AddAnimation("Hurt", new Animation(textures["Idle"], 4, 0, 150f, false, 4, 0, true)); // Fallback so HurtState doesn't crash
             _animManager.Play("Idle");
 
+            // If this is the first ally created, generate the 1x1 white pixel texture for the health bars.
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
                 _healthBarTexture.SetData(new[] { Color.White });
             }
 
-            // Start the brain!
+            // Start the brain! The ally begins by charging forward into the map.
             ChangeState(new ChargeState());
         }
 
@@ -690,6 +758,7 @@ namespace Pale_Roots_1
             base.Update(gametime);
             UpdateDirection();
 
+            // A simple priority system to figure out which animation should be playing based on what the AI is currently doing.
             string animKey = "Idle";
             if (LifecycleState == ALLYSTATE.DYING) animKey = "Idle";
             else if (CurrentState is HurtState) animKey = "Hurt";
@@ -702,6 +771,7 @@ namespace Pale_Roots_1
             if (LifecycleState == ALLYSTATE.DYING) UpdateDying(gametime);
         }
 
+        // An overloaded update specifically for when the game needs to pass in obstacles for pathfinding.
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -713,19 +783,24 @@ namespace Pale_Roots_1
 
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
+            // Constantly tick down the attack cooldown so we can swing again.
             if (AttackCooldown > 0) AttackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
+            // Check with the CombatSystem to see if the enemy we are chasing is dead or out of bounds.
+            // If they are gone, drop the target and go back to wandering.
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
                 CombatSystem.ClearTarget(this);
                 if (!(CurrentState is WanderState)) ChangeState(new WanderState());
             }
 
+            // Tell the current AI state (Chase, Combat, etc.) to run its logic for this frame.
             CurrentState?.Update(this, gameTime, obstacles);
         }
 
         protected virtual void UpdateDying(GameTime gameTime)
         {
+            // Keep the character on screen for a brief moment after health hits 0, then flag them as completely dead.
             _deathCountdown--;
             if (_deathCountdown <= 0) { LifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
@@ -733,7 +808,10 @@ namespace Pale_Roots_1
         public virtual void TakeDamage(int amount, ICombatant attacker)
         {
             if (!IsAlive) return;
+
             Health -= amount;
+
+            // If the hit killed us, trigger the death sequence. Otherwise, flinch by going into the HurtState.
             if (Health <= 0) Die();
             else ChangeState(new HurtState());
         }
@@ -741,13 +819,19 @@ namespace Pale_Roots_1
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || AttackCooldown > 0) return;
+
             _animManager.Play("Attack");
+
+            // Tell the CombatSystem to actually apply the math and hurt the target.
             CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
+
+            // Reset the swing timer based on our constants file.
             AttackCooldown = GameConstants.DefaultAttackCooldown;
         }
 
         public virtual void Die()
         {
+            // Transition out of the alive state, start the cleanup timer, and make sure we aren't locking onto enemies anymore.
             LifecycleState = ALLYSTATE.DYING;
             _deathCountdown = GameConstants.DeathCountdown;
             CombatSystem.ClearTarget(this);
@@ -755,10 +839,12 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
+            // Look at our target's position relative to ours and update our sprite's direction index (Up, Down, Left, Right) to face them.
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
                 _flipEffect = SpriteEffects.None;
+
                 if (Math.Abs(diff.X) > Math.Abs(diff.Y))
                     _currentDirectionIndex = (diff.X < 0) ? 0 : 1;
                 else
@@ -768,17 +854,23 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
+            // Ask the animation manager to draw the correct frame based on our position, scale, and facing direction.
             if (Visible) _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
+
             if (_drawHealthBar && IsAlive) DrawHealthBar(spriteBatch);
         }
 
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
         {
+            // Draw a simple, scalable health bar above the sprite's head using our 1x1 pixel texture.
+            // First we draw the red background to represent missing health...
             int barWidth = spriteWidth;
             int barHeight = 5;
             int barX = (int)position.X - (barWidth / 2);
             int barY = (int)position.Y - spriteHeight / 2 - 10;
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
+
+            // then we calculate the percentage of health remaining and draw a blue bar over the top of it.
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), Color.CornflowerBlue);
@@ -791,12 +883,17 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Major boss. It inherits from the base Enemy class but adds unique 
+    // gravity manipulation mechanics to pull the player in or push them away.
     public class BlackHoleBoss : Enemy
     {
-        // --- THE NEW BRAIN VARIABLES ---
+        // Timers and thresholds to control how often the boss can use its gravity abilities.
+        // We don't want the boss spamming these moves every frame.
         private float _gravityCooldownTimer = 0f;
         private const float GravityCooldownDuration = 6000f;
 
+        // Tracks how much damage the boss has taken recently. If it takes too much, 
+        // it triggers a defensive burst to push the attacker away.
         private int _damageTakenSinceLastGravity = 0;
         private const int RepelDamageThreshold = 200;
         public float GravityMultiplier { get; set; } = 1.0f;
@@ -804,94 +901,115 @@ namespace Pale_Roots_1
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
     : base(game, textures, pos, 4)
         {
-
-            Name = "Event Horizon Golem";
+            // Set up the massive stats for the boss encounter.
+            Name = "Space Tear Golem";
             MaxHealth = 2000;
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 40;
 
+            // Load all the specific boss animations. Notice the frame counts and timings 
+            // are unique to this massive sprite sheet.
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 13, 0, 150f, false, 1, 0, false));
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 8, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 10, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 1, 0, false));
 
+            // The boss waits in the idle state until the player triggers the fight.
             ChangeState(new BossIdleState());
 
         }
 
-        // 1. DEFENSIVE BRAIN: Override TakeDamage to track damage and trigger Repel
+        // We override the standard damage taken method to sneak in our custom defensive logic.
         public override void TakeDamage(int amount, ICombatant attacker)
         {
-            // Always let the base class handle actually reducing health and checking for death [1]
+            // First, let the base Enemy class handle the actual health reduction and death checks.
             base.TakeDamage(amount, attacker);
 
+            // Add the incoming damage to our tracker.
             _damageTakenSinceLastGravity += amount;
 
-            // If we took a lot of damage and the cooldown is ready, BLAST THEM AWAY
+            // If the player is dealing too much damage and our ability is off cooldown, 
+            // trigger the defensive repel to get them off our back.
             if (_damageTakenSinceLastGravity >= RepelDamageThreshold && _gravityCooldownTimer <= 0)
             {
-                ExecuteGravityBurst(attacker, false); // false = repel
+                ExecuteGravityBurst(attacker, false);
             }
         }
 
-        // 2. OFFENSIVE BRAIN: Update loop to handle chasing and Sucking
+        // This is a custom update loop specifically called during the boss fight, usually 
+        // managed by the BossGameState or LevelManager so it has direct access to the player.
         public void UpdateBossLogic(GameTime gameTime, Player player)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Handle Cooldown
+            // Tick down the timer so the boss can use its gravity moves again.
             if (_gravityCooldownTimer > 0)
             {
                 _gravityCooldownTimer -= dt;
             }
             else if (CurrentState is ChaseState)
             {
-                // The boss wants to attack (is in ChaseState) [2].
-                // If the player is outside of melee range and cooldown is ready, SUCK THEM IN.
+                // If the boss is actively trying to get to the player but the player is running away 
+                // (outside of a 250 pixel range), use the offensive suck ability to pull them back in.
                 if (Vector2.Distance(this.Center, player.Center) > 250f)
                 {
-                    ExecuteGravityBurst(player, true); // true = suck
+                    ExecuteGravityBurst(player, true);
                 }
             }
 
-            // Standard Geometry Flipping [3]
+            // Figure out which side of the boss the player is on, and flip the sprite so 
+            // the boss is always looking at them.
             float xDifference = player.Center.X - this.Center.X;
             if (xDifference < 0) _flipEffect = SpriteEffects.FlipHorizontally;
             else _flipEffect = SpriteEffects.None;
 
+            // Run the standard Enemy update for animations and state machines.
             base.Update(gameTime);
         }
 
-        // 3. THE ACTION: Calculate the discrete spatial shift
+        // This handles the actual physics manipulation of the target (usually the player).
         private void ExecuteGravityBurst(ICombatant target, bool isSucking)
         {
             if (target is Player p)
             {
+                // Find the straight line between the boss and the player.
                 Vector2 direction = this.Center - p.Center;
                 if (direction != Vector2.Zero) direction.Normalize();
 
-                // MATH WIN: 30f velocity * 0.9f friction = ~300 pixels of total smooth sliding
-                // -45f velocity * 0.9f friction = ~450 pixels of total smooth repel sliding
+                // Calculate how hard we are pushing or pulling. 
+                // Positive force pulls them toward the center, negative force blasts them away.
                 float forceAmount = (isSucking ? 30f : -45f) * GravityMultiplier;
 
+                // Send the calculated force to the Player class so it can update its own physics.
                 p.ApplyExternalForce(direction * forceAmount);
 
+                // Reset our ability timers and damage trackers.
                 _gravityCooldownTimer = GravityCooldownDuration;
                 _damageTakenSinceLastGravity = 0;
             }
         }
 
-        // Keep your mass/knockback resistance!
+        // We override this because it's a massive boss. We don't want standard attacks 
+        // knocking it around the screen. We reduce all incoming knockback physics by 95%.
         public override void ApplyKnockback(Vector2 force)
         {
             base.ApplyKnockback(force * 0.05f);
         }
+
         public override void Die()
         {
+            // Give the boss a longer death countdown so its full 13-frame death animation 
+            // has time to play out before it disappears from the screen.
             base.Die();
             _deathCountdown = 150;
+        }
+
+        protected override void DrawHealthBar(SpriteBatch spriteBatch)
+        {
+            // Intentionally leave this blank to override the standard floating health bar.
+            // For this boss, the UIManager handles drawing a massive health bar at the top of the screen.
         }
     }
 }
@@ -902,18 +1020,23 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // This state acts as an entirely separate level just for the boss fight.
+    // By keeping it isolated from GameplayState, we can strictly control the environment, camera, and rules.
     public class BossBattleState : IGameState
     {
         private Game1 _game;
+
+        // spin up a totally fresh instance of our core engine just for this fight.
         private ChaseAndFireEngine _bossEngine;
         private BlackHoleBoss _boss;
-        private bool _fightOver = false;
 
+        // Tracking the flow of the battle so we know when to trigger the ending sequence.
+        private bool _fightOver = false;
         private float _endTimer = 0f;
         private const float END_DELAY = 2.5f;
         private bool _playerWon = false;
 
-        // The callback to run when the fight ends
+        // A delegate we can call once the fight is totally wrapped up, returning us to the main Game.
         private Action<bool> _onBattleEnd;
 
         public BossBattleState(Game1 game, Action<bool> onBattleEnd)
@@ -924,16 +1047,16 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Initialize the arena engine and clear out any leftover junk so we start with a clean slate.
             _bossEngine = new ChaseAndFireEngine(_game);
             _bossEngine.IsBossArena = true;
             _bossEngine._enemies.Clear();
             _bossEngine._allies.Clear();
 
-            // Generate the Organic Arena
+            // Ask the LevelManager to prodecurally generate our new level.
             _bossEngine._levelManager.GenerateBossArena();
 
-            // Load Boss Texture
-            // Ensure you have your Dictionary setup here from the previous step
+            // Load all the sprite sheets required for the boss into a temporary dictionary.
             var bossTextures = new Dictionary<string, Texture2D>();
             bossTextures["Idle"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_idle");
             bossTextures["Walk"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_walk");
@@ -941,23 +1064,23 @@ namespace Pale_Roots_1
             bossTextures["Hurt"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_hurt");
             bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
 
-            // CALCULATE CENTER OF MAP (60 tiles * 64px / 2 = 1920, 34 tiles * 64px / 2 = 1088)
+            // Calculate the absolute center of the generated tilemap using our 64x64 tile size.
             Vector2 mapCenter = new Vector2(1920, 1088);
 
-            // Spawn Boss in exact center
+            // Spawn the boss directly in the middle of the room.
             _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
             _bossEngine._enemies.Add(_boss);
 
-            // Spawn Player slightly to the left of center
+            // Spawn the player offset to the left so they don't immediately collide with the boss on frame 1.
             _bossEngine.GetPlayer().Position = mapCenter - new Vector2(400, 0);
 
-            // Snap Camera to center immediately so we don't see the void for 1 frame
+            // Instantly snap the camera to the center so the player doesn't see the camera panning over the black void during setup.
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
 
             Player bossArenaPlayer = _bossEngine.GetPlayer();
             SpellManager bossArenaSpells = _bossEngine.GetSpellManager();
 
-            // Grant Temporary God Mode for the Boss Fight
+            // We temporarily unlock the player's full arsenal.
             bossArenaPlayer.IsDashUnlocked = true;
             bossArenaPlayer.IsHeavyAttackUnlocked = true;
             for (int i = 0; i < 6; i++)
@@ -968,20 +1091,21 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
-            // 1. MUSIC: Ensure the Audio Manager knows we are in Gameplay mode (Combat Music)
+            // Talk to the AudioManager to make sure the intense combat music is looping.
             _game.AudioManager.HandleMusicState(GameState.Gameplay);
 
-            // 2. PAUSE: Check for Escape key to open Menu
+            // Listen for the pause input to stack the MenuState on top of the boss fight.
             if (InputEngine.IsKeyPressed(Microsoft.Xna.Framework.Input.Keys.Escape))
             {
-
                 _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
+            // Step the core physics and collision engine forward, then explicitly run the custom boss logic.
             _bossEngine.Update(gameTime);
             _boss.UpdateBossLogic(gameTime, _bossEngine.GetPlayer());
 
+            // Check our win/loss conditions every frame.
             if (!_fightOver)
             {
                 if (!_boss.IsAlive)
@@ -997,6 +1121,8 @@ namespace Pale_Roots_1
             }
             else
             {
+                // Once someone dies, run a short delay timer so the death animations can play out 
+                // before we violently yank the player out of the arena.
                 _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
                 if (_endTimer >= END_DELAY)
                 {
@@ -1007,16 +1133,21 @@ namespace Pale_Roots_1
 
         private void FinishFight(bool playerWon)
         {
+            // Hand control over to the transition state, passing along whether we won or lost 
+            // so it knows what text/effects to display.
             _fightOver = true;
             _game.StateManager.ChangeState(new BossTransitionState(_game, _bossEngine, false, playerWon, _onBattleEnd));
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
+            // Pass the camera's translation matrix to the sprite batch so the game world renders in the right spot.
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _bossEngine._camera.CurrentCameraTranslation);
             _bossEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
+            // Draw the HUD directly to the screen (no camera matrix). 
+            // We pass in 999 for the score and 0 for the timer since standard level tracking doesn't matter in the boss arena.
             spriteBatch.Begin();
             _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999, 0f);
             spriteBatch.End();
@@ -1028,16 +1159,18 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // This acts as the initial waiting phase for the boss before the fight officially kicks off.
+    // It just sits there in the center of the room, tracking the player until another script forces it into a ChaseState.
     public class BossIdleState : IAIState
     {
         public void Enter(INpcActor npc)
         {
-            // Optional: Play a roar sound?
         }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-
+            // Even though the boss isn't attacking or chasing yet, we want it to look menacing by tracking the player.
+            // If the combat system has assigned a target (the player), we force the boss's sprite to continually turn and face them.
             if (npc.CurrentTarget != null)
             {
                 npc.SnapToFace(npc.CurrentTarget.Position);
@@ -1054,17 +1187,25 @@ using System;
 
 namespace Pale_Roots_1
 {
+    // This state creates a cinematic transition into or out of the boss fight.
+    // It takes a snapshot of the active game engine and freezes it in the background 
+    // while animating the player getting sucked into a void.
     public class BossTransitionState : IGameState
     {
         private Game1 _game;
-        private ChaseAndFireEngine _frozenEngine; // The engine we want to render behind the fade
+
+        // We hold onto the engine instance that triggered this transition so we can render it, 
+        // but we won't call its Update method, effectively freezing time.
+        private ChaseAndFireEngine _frozenEngine;
         private Vector2 _blackHolePos;
 
+        // Flags to figure out which cinematic text and next-state logic we should use.
         private bool _isEntering;
         private bool _playerWon;
         private Action<bool> _onComplete;
+
         private float _timer = 0f;
-        private float _duration = 6f; // Extended slightly for cinematic pacing
+        private float _duration = 6f;
         private string _text;
 
         public BossTransitionState(Game1 game, ChaseAndFireEngine engineToFreeze, bool entering, bool won, Action<bool> onComplete)
@@ -1075,13 +1216,16 @@ namespace Pale_Roots_1
             _playerWon = won;
             _onComplete = onComplete;
 
-            // Spawn the "cinematic black hole" 300 pixels above where the player was standing
+            // Calculate a spot high above the player's current position to act as the invisible 
+            // gravity well that will pull them upwards during the animation.
             _blackHolePos = _frozenEngine.GetPlayer().Position + new Vector2(0, -300);
 
+            // Set the cinematic text based on whether we are heading into the fight or coming out of it, and if we won or lost.
             if (_isEntering) _text = "What is that...\nGreat power pulling me in.";
             else if (_playerWon) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
             else _text = "The void consumes what you knew.\nOnly a fragment remains.";
 
+            // Switch the audio to a dramatic track while the transition plays out.
             _game.AudioManager.HandleMusicState(GameState.GameOver);
         }
 
@@ -1092,29 +1236,33 @@ namespace Pale_Roots_1
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _timer += dt;
 
-            // --- THE CINEMATIC EFFECT ---
-            // Notice we DO NOT call _frozenEngine.Update(). This freezes the enemies!
+            // Grab the player reference directly from the frozen engine so we can manipulate them.
+            // By intentionally skipping the _frozenEngine.Update() call, enemies and projectiles stop moving.
             Player p = _frozenEngine.GetPlayer();
 
-            // Apply massive physical suction to the player using your physics library
+            // Ask the PhysicsGlobals to calculate a massive gravitational force toward our invisible black hole point,
+            // then apply that force to the player so they get physically dragged across the screen.
             Vector2 pull = PhysicsGlobals.CalculateGravitationalForce(_blackHolePos, p.Center, 8000000f, 2000f);
             p.ApplyExternalForce(pull * dt);
 
-            // Give them a cool shrinking effect as they get sucked into the void
+            // Steadily shrink the player's scale to create the illusion that they are falling away into the background.
             p.Scale = MathHelper.Clamp((float)p.Scale - (dt * 0.5f), 0f, 3f);
 
-            // --- STATE SWITCHING ---
+            // Once the cinematic timer finishes, clean up and move to the next actual gameplay state.
             if (_timer >= _duration)
             {
-                // Reset player scale for when they load into the next area
+                // Reset the player's scale back to normal so they aren't tiny when they load into the next area.
                 p.Scale = 3f;
 
                 if (_isEntering)
                 {
+                    // If we are heading into the boss fight, push to the lore state first.
                     _game.StateManager.ChangeState(new BossLoreState(_game, _onComplete));
                 }
                 else
                 {
+                    // If the fight is over, fire the completion callback so the main game knows if we won or lost,
+                    // then return the player to the standard level exploration state.
                     _onComplete?.Invoke(_playerWon);
                     _game.StateManager.ChangeState(new GameplayState(_game));
                     _game.AudioManager.HandleMusicState(GameState.Gameplay);
@@ -1124,22 +1272,28 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // 1. Draw the completely frozen game world
+            // First, we draw the completely frozen game world using the camera from the engine.
+            // This ensures the background and frozen enemies stay exactly where they were.
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _frozenEngine._camera.CurrentCameraTranslation);
             _frozenEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
-            // 2. Draw the cinematic fade to black and text over the top
+            // Next, we draw our cinematic UI layer directly to the screen without the camera matrix.
             spriteBatch.Begin();
+
+            // Calculate a simple alpha curve that fades in over the first second, 
+            // stays solid, and fades out during the last second.
             float alpha = 1.0f;
             if (_timer < 1.0f) alpha = _timer;
             if (_timer > _duration - 1.0f) alpha = (_duration - _timer);
 
-            // Draw pure black fade overlay
+            // Generate a 1x1 black pixel and stretch it over the entire screen, 
+            // slowly increasing its opacity to create a fade-to-black effect over the first 3 seconds.
             Texture2D pixel = new Texture2D(graphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.Black });
             spriteBatch.Draw(pixel, graphicsDevice.Viewport.Bounds, Color.Black * MathHelper.Clamp(_timer / 3f, 0f, 1f));
 
+            // Measure our lore text and draw it dead center on the screen, applying our fade-in/out alpha calculation.
             if (_game.UiFont != null)
             {
                 Vector2 size = _game.UiFont.MeasureString(_text);
@@ -1157,18 +1311,26 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // This is the core blueprint for all standard enemies in the game.
+    // It inherits from RotatingSprite for rendering and implements INpcActor so our AI state machine can drive it.
     public class Enemy : RotatingSprite, INpcActor
     {
-
+        // Tracks the broader lifecycle of the enemy so we know when to play death animations or remove them from the list.
         public enum ENEMYSTATE { ALIVE, DYING, DEAD }
         public bool IsStunned { get; set; }
 
         protected AnimationManager _animManager;
         private int _currentDirectionIndex = 2;
         protected SpriteEffects _flipEffect = SpriteEffects.None;
+
+        // Used to smoothly push the enemy backward when they get hit.
         private Vector2 _knockBackVelocity;
+
+        // We use a single shared 1x1 pixel texture to draw health bars for all enemies to save video memory.
         private static Texture2D _healthBarTexture;
         private bool _drawHealthBar = true;
+
+        // We track the previous position to figure out which way the enemy is moving when they don't have a target.
         private Vector2 _previousPosition;
         private ENEMYSTATE _lifecycleState = ENEMYSTATE.ALIVE;
 
@@ -1178,14 +1340,19 @@ namespace Pale_Roots_1
             set => _lifecycleState = value;
         }
 
+        // Basic RPG stats and identification.
         public string Name { get; set; } = "Enemy";
         public CombatTeam Team => CombatTeam.Enemy;
         public int MaxHealth { get; protected set; }
         public int AttackDamage { get; set; }
+
+        // Quick checks for the engine to know if this enemy should be updated, drawn, or targeted.
         public bool IsAlive => Health > 0 && _lifecycleState == ENEMYSTATE.ALIVE;
         public bool IsActive => Visible && _lifecycleState != ENEMYSTATE.DEAD;
 
         private ICombatant _currentTarget;
+
+        // When the AI locks onto a target, we also update the underlying sprite's combat partner variable.
         public ICombatant CurrentTarget
         {
             get => _currentTarget;
@@ -1198,7 +1365,7 @@ namespace Pale_Roots_1
 
         public Vector2 Position => position;
 
-        // Exposed variables so the State Objects can manipulate them
+        // Variables required by INpcActor so the different AI states can move the enemy and manage its attacks.
         public float Velocity { get; set; }
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
@@ -1206,9 +1373,10 @@ namespace Pale_Roots_1
 
         protected int _deathCountdown;
 
-        // --- THE ENGINE FLEX: POLYMORPHIC STATE MACHINE ---
+        // The active AI behavior (like WanderState, ChaseState, etc.).
         public IAIState CurrentState { get; private set; }
 
+        // Cleanly swaps the AI state by triggering the exit logic of the old one before entering the new one.
         public void ChangeState(IAIState newState)
         {
             CurrentState?.Exit(this);
@@ -1221,11 +1389,13 @@ namespace Pale_Roots_1
             _animManager.Play(key);
         }
 
+        // Primary constructor for complex enemies that use a dictionary of different sprite sheets for their animations.
         public Enemy(Game g, Dictionary<string, Texture2D> textures, Vector2 userPosition, int framecount)
             : base(g, textures["Idle"], userPosition, framecount)
         {
             SetupCommonStats(userPosition);
             Scale = 3.0;
+
             _animManager = new AnimationManager();
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 4, 0, 150f, true, 4, 0, true));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 8, 0, 150f, true, 4, 0, true));
@@ -1233,14 +1403,17 @@ namespace Pale_Roots_1
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
             _animManager.Play("Idle");
+
             SetupHealthBar(g);
         }
 
+        // Legacy constructor for simpler enemies that only have a single sprite sheet.
         public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
             : base(g, texture, userPosition, framecount)
         {
             SetupCommonStats(userPosition);
             Scale = 3.0;
+
             _animManager = new AnimationManager();
             var legacyAnim = new Animation(texture, framecount, 0, 200f, true, 1, 0, false);
             _animManager.AddAnimation("Idle", legacyAnim);
@@ -1249,11 +1422,13 @@ namespace Pale_Roots_1
             _animManager.AddAnimation("Hurt", legacyAnim);
             _animManager.AddAnimation("Death", legacyAnim);
             _animManager.Play("Idle");
+
             SetupHealthBar(g);
         }
 
         private void SetupCommonStats(Vector2 pos)
         {
+            // Pull default starting values from our GameConstants file to make global balancing easier.
             StartPosition = pos;
             _previousPosition = pos;
             Velocity = GameConstants.DefaultEnemySpeed;
@@ -1262,12 +1437,13 @@ namespace Pale_Roots_1
             AttackDamage = GameConstants.DefaultMeleeDamage;
             _deathCountdown = GameConstants.DeathCountdown;
 
-            // Start the brain in the Charge State!
+            // Kick off the AI state machine.
             ChangeState(new ChargeState());
         }
 
         private void SetupHealthBar(Game g)
         {
+            // If it hasn't been created yet, generate the single white pixel we use to stretch out into health bars.
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(g.GraphicsDevice, 1, 1);
@@ -1277,6 +1453,7 @@ namespace Pale_Roots_1
 
         public override void Update(GameTime gametime)
         {
+            // Handle knockback physics. We apply the velocity to the position, then use friction to slow it down over time.
             if (_knockBackVelocity != Vector2.Zero)
             {
                 position += _knockBackVelocity;
@@ -1287,7 +1464,7 @@ namespace Pale_Roots_1
             base.Update(gametime);
             UpdateDirection();
 
-            // Check what class the current state is to drive the animation
+            // A priority system to figure out which animation we should be playing based on what the state machine is doing.
             string animKey = "Idle";
             if (_lifecycleState == ENEMYSTATE.DYING) animKey = "Death";
             else if (CurrentState is HurtState) animKey = "Hurt";
@@ -1302,6 +1479,7 @@ namespace Pale_Roots_1
             _previousPosition = position;
         }
 
+        // An overloaded update so the level engine can pass in collision obstacles for the AI to path around.
         public void Update(GameTime gametime, List<WorldObject> obstacles)
         {
             this.Update(gametime);
@@ -1313,17 +1491,22 @@ namespace Pale_Roots_1
 
         protected virtual void UpdateAI(GameTime gameTime, List<WorldObject> obstacles)
         {
+            // If stunned by a spell or effect, completely skip the AI logic for this frame.
             if (IsStunned) return;
 
+            // Tick down the attack cooldown so we can hit the player again.
             if (AttackCooldown > 0)
                 AttackCooldown -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
+            // Check with the CombatSystem to see if our target is dead
+            // If they are, drop the target and go back to wandering.
             if (_currentTarget != null && !CombatSystem.IsValidTarget(this, _currentTarget))
             {
                 CombatSystem.ClearTarget(this);
                 if (!(CurrentState is WanderState)) ChangeState(new WanderState());
             }
 
+            // Run the actual behavior logic for whatever state we are currently in.
             CurrentState?.Update(this, gameTime, obstacles);
         }
 
@@ -1334,6 +1517,7 @@ namespace Pale_Roots_1
 
         protected virtual void UpdateDying(GameTime gameTime)
         {
+            // Give the death animation a brief moment to play before we flag the enemy as fully dead and hide it.
             _deathCountdown--;
             if (_deathCountdown <= 0)
             {
@@ -1347,6 +1531,7 @@ namespace Pale_Roots_1
             if (!IsAlive) return;
             Health -= amount;
 
+            // If we ran out of health, trigger the death sequence. Otherwise, flinch by entering the HurtState.
             if (Health <= 0) Die();
             else ChangeState(new HurtState());
         }
@@ -1354,7 +1539,10 @@ namespace Pale_Roots_1
         public virtual void PerformAttack()
         {
             if (_currentTarget == null || AttackCooldown > 0) return;
+
             _animManager.Play("Attack");
+
+            // Tell the CombatSystem to apply damage to our target, then reset our swing timer.
             CombatSystem.DealDamage(this, _currentTarget, AttackDamage);
             AttackCooldown = GameConstants.DefaultAttackCooldown;
         }
@@ -1368,6 +1556,7 @@ namespace Pale_Roots_1
 
         private void UpdateDirection()
         {
+            // First try to look directly at our target.
             if (CurrentTarget != null)
             {
                 Vector2 diff = CurrentTarget.Position - this.Position;
@@ -1376,6 +1565,7 @@ namespace Pale_Roots_1
                 else
                     _currentDirectionIndex = (diff.Y > 0) ? 0 : 1;
             }
+            // If we don't have a target, look in the direction we are currently walking based on our last position.
             else
             {
                 Vector2 movement = position - _previousPosition;
@@ -1391,10 +1581,12 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
+            // Pass our position, scale, and facing direction over to the animation manager to draw the correct frame.
             if (Visible)
             {
                 _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
             }
+
             if (_drawHealthBar && IsAlive)
             {
                 DrawHealthBar(spriteBatch);
@@ -1403,15 +1595,21 @@ namespace Pale_Roots_1
 
         protected virtual void DrawHealthBar(SpriteBatch spriteBatch)
         {
+            // Draw a scalable health bar above the enemy. 
             int barWidth = spriteWidth;
             int barHeight = 5;
             int barX = (int)position.X - (barWidth / 2);
             int barY = (int)position.Y - spriteHeight / 2 - 10;
 
+            // First draw the red background.
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, barWidth, barHeight), Color.Red);
+
+            // Calculate health percentage and pick a color (Green for high, Orange for medium, Red for low).
             float healthPercent = (float)Health / MaxHealth;
             int currentBarWidth = (int)(barWidth * healthPercent);
             Color healthColor = healthPercent > 0.6f ? Color.Green : healthPercent > 0.3f ? Color.Orange : Color.Red;
+
+            // Draw the colored bar representing current health over the background.
             spriteBatch.Draw(_healthBarTexture, new Rectangle(barX, barY, currentBarWidth, barHeight), healthColor);
         }
     }
@@ -1421,10 +1619,20 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // This is the core contract for our Finite State Machine. 
+    // Any behavior we want an NPC to have (like Wander, Chase, or Combat) has to implement this interface.
+    // It allows the NPC's brain to easily swap out what it's currently doing without rewriting a massive, messy switch statement.
     public interface IAIState
     {
+        // Triggered exactly once the moment an NPC switches into this state.
         void Enter(INpcActor npc);
+
+        // The main brain loop for this specific behavior.
+        // We pass in the game time for tracking timers, and the list of obstacles so the state can handle its own pathfinding and steering.
         void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles);
+
+        // Triggered exactly once right before the NPC transitions out of this state to a new one.
+        // This is basically our cleanup phase—used to reset cooldowns, drop old targets, or stop looping particle effects.
         void Exit(INpcActor npc);
     }
 }
@@ -1433,18 +1641,25 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // The master contract for any AI-controlled entity in your engine
+    // This is the essential bridge between our AI state machine and the physical entities in the game.
+    // Any character that needs an independent brain (like an Enemy or an Ally) must implement this interface.
+    // Because it inherits from ICombatant, any NPC Actor is automatically hooked into the targeting and damage systems.
     public interface INpcActor : ICombatant
     {
+        // Core variables that the AI states need to read and modify to handle movement, patrolling, and attack pacing.
         float Velocity { get; set; }
         Vector2 StartPosition { get; set; }
         Vector2 WanderTarget { get; set; }
         float AttackCooldown { get; set; }
 
+        // Gives the AI states a way to check what the NPC is currently doing and explicitly force them into a new behavior.
         IAIState CurrentState { get; }
         void ChangeState(IAIState newState);
+
         void PlayAnimation(string key);
         void MoveToward(Vector2 target, float speed, List<WorldObject> obstacles);
+
+        // A quick helper function to force the NPC's sprite to instantly turn and look at a specific point, 
         void SnapToFace(Vector2 target);
     }
 }
@@ -1454,13 +1669,18 @@ using System;
 
 namespace Pale_Roots_1
 {
+    // This state acts as a brief narrative pause before the chaos of the boss fight begins.
+    // It gives the player some context, drops a hint about the gameplay mechanics, 
+    // and waits for them to explicitly confirm they are ready to proceed.
     public class BossLoreState : IGameState
     {
         private Game1 _game;
+
+        // pass along the completion callback so we can hand it off to the BossBattleState later.
         private Action<bool> _onComplete;
         private string _text;
 
-        // Fade out variables
+        // Variables to handle the smooth visual transition out of this screen.
         private bool _isFadingOut = false;
         private float _fadeTimer = 0f;
         private const float FADE_DURATION = 1.5f;
@@ -1470,6 +1690,7 @@ namespace Pale_Roots_1
             _game = game;
             _onComplete = onComplete;
 
+            // Set up the dramatic lore and hints that will be displayed in the center of the screen.
             _text = "Gravity has pulled you into a split realm of spacetime\n" +
                     "where certain beings thrive on manipulating the fabrics of physics.\n\n" +
                     "You have access to all your physics alternating abilities here,\n" +
@@ -1481,19 +1702,28 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
+            // Make sure the player can actually see their mouse if they want to click to continue.
             _game.IsMouseVisible = true;
 
+            // If we are just sitting on the screen reading...
             if (!_isFadingOut)
             {
+                // Listen to the InputEngine for the player's go-ahead.
                 if (InputEngine.IsActionPressed("Confirm") || InputEngine.IsMouseLeftClick())
                 {
                     _isFadingOut = true;
+
+                    // We explicitly clear the input state here so the player doesn't accidentally 
+                    // trigger an attack or jump the exact frame the boss battle loads.
                     InputEngine.ClearState();
                 }
             }
+            // If the player hit continue, start ticking up the fade timer.
             else
             {
                 _fadeTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                // Once the text has completely faded out, swap this state out for the actual BossBattleState.
                 if (_fadeTimer >= FADE_DURATION)
                 {
                     _game.StateManager.ChangeState(new BossBattleState(_game, _onComplete));
@@ -1503,22 +1733,27 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
+            // Wipe the screen to pure black.
             graphicsDevice.Clear(Color.Black);
             spriteBatch.Begin();
 
             if (_game.UiFont != null)
             {
-                // Calculate transparency (1.0 is fully visible, 0.0 is invisible)
+                // We start with full opacity.
                 float alpha = 1.0f;
+
+                // If the player clicked continue, we calculate how far along the fade timer is 
+                // and reduce the alpha down toward 0.0 (invisible).
                 if (_isFadingOut)
                 {
                     alpha = 1.0f - (_fadeTimer / FADE_DURATION);
                 }
 
+                // Find the exact center of the screen, measure the text block, and draw it perfectly centered 
+                // while applying our calculated alpha transparency.
                 Vector2 size = _game.UiFont.MeasureString(_text);
                 Vector2 center = new Vector2(graphicsDevice.Viewport.Width / 2, graphicsDevice.Viewport.Height / 2);
 
-                // Multiply Color.White by the alpha to fade it out smoothly
                 spriteBatch.DrawString(_game.UiFont, _text, center - (size / 2), Color.White * alpha);
             }
 
@@ -1532,11 +1767,16 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state handles the end-game scrolling credits sequence.
+    // It implements IGameState so our StateManager can easily swap to it once the player beats the game.
     public class CreditsState : IGameState
     {
         private Game1 _game;
+
+        // Tracks the vertical position of the entire block of text as it moves up the screen.
         private float _creditsScrollY;
 
+        // hardcoded string of credits.
         private string _creditsText =
             "PALE ROOTS\n\n" +
             "A Game by Ryan Barry\n\n" +
@@ -1556,18 +1796,27 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Start the text exactly at the bottom edge of the window so it scrolls up into view.
             _creditsScrollY = _game.GraphicsDevice.Viewport.Height;
+
+            // Tell the AudioManager to switch off the combat music and play the relaxing credits theme.
             _game.AudioManager.HandleMusicState(GameState.Credits);
         }
 
         public void Update(GameTime gameTime)
         {
+            // Move the text upwards at a steady rate of 60 pixels per second, 
+            // using delta time so the speed is consistent regardless of framerate.
             _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+            // If the player presses Spacebar to skip, OR if the text has scrolled completely off the top of the screen...
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
             {
+                // wipe the active gameplay session clean so the player doesn't load back into a finished arena.
                 _game.HasStarted = false;
                 _game.SoftResetGame();
+
+                // Finally, push them back out to the main menu.
                 _game.StateManager.ChangeState(new MenuState(_game));
             }
         }
@@ -1577,20 +1826,31 @@ namespace Pale_Roots_1
             spriteBatch.Begin();
             graphicsDevice.Clear(Color.Black);
 
+            // Break our giant text block into an array of individual lines.
             string[] lines = _creditsText.Split('\n');
+
+            // We use this local variable to track where to draw each specific line, 
+            // starting from the master scroll position.
             float currentY = _creditsScrollY;
             float lineHeight = _game.UiFont.LineSpacing;
 
+            // Loop through every single line in the array.
             foreach (string line in lines)
             {
+                // Only bother doing the math and drawing if the line actually has text in it.
                 if (!string.IsNullOrWhiteSpace(line))
                 {
+                    // Measure how wide the text is so we can calculate the exact center of the screen on the X axis.
                     Vector2 lineSize = _game.UiFont.MeasureString(line);
                     Vector2 linePos = new Vector2((graphicsDevice.Viewport.Width / 2) - (lineSize.X / 2), currentY);
+
                     spriteBatch.DrawString(_game.UiFont, line, linePos, Color.White);
                 }
+
+                // Nudge the Y position down by one line height before we loop and draw the next line.
                 currentY += lineHeight;
             }
+
             spriteBatch.End();
         }
     }
@@ -1601,6 +1861,8 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state handles both the Victory and Game Over screens.
+    // It takes a boolean flag in the constructor so it knows whether to congratulate the player or tell them they died.
     public class EndGameState : IGameState
     {
         private Game1 _game;
@@ -1614,40 +1876,50 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Talk to the AudioManager to swap the music track based on whether we won or lost.
             _game.AudioManager.HandleMusicState(_isVictory ? GameState.Victory : GameState.GameOver);
         }
 
         public void Update(GameTime gameTime)
         {
+            // We need the mouse to be visible so the player can actually click the menu buttons.
             _game.IsMouseVisible = true;
             MouseState ms = Mouse.GetState();
+
+            // Calculate the exact center of the screen to align our invisible hitboxes.
             int centerW = _game.GraphicsDevice.Viewport.Width / 2;
             int centerH = _game.GraphicsDevice.Viewport.Height / 2;
 
+            // Define the hitboxes for the "Play Again/Continue" and "Quit" buttons.
+            // These need to perfectly match where the UIManager draws the actual text.
             Rectangle playAgainRect = new Rectangle(centerW - 100, centerH, 200, 50);
             Rectangle quitRect = new Rectangle(centerW - 100, centerH + 70, 200, 50);
 
+            // Listen for a left click and check if the mouse is hovering over either button.
             if (InputEngine.IsMouseLeftClick())
             {
                 if (playAgainRect.Contains(ms.Position))
                 {
                     if (_isVictory)
                     {
-                        // The StartOutroSequence() call was removed here!
-                        // We just transition to the OutroState, which plays the cutscene automatically.
+                        // If the player won, push them forward into the final cinematic cutscene.
                         _game.StateManager.ChangeState(new OutroState(_game));
                     }
                     else
                     {
+                        // If they died, wipe their progress, reset the level, and throw them right back into the action.
                         _game.SoftResetGame();
                         _game.HasStarted = true;
                         _game.AudioManager.Stop();
                         _game.StateManager.ChangeState(new GameplayState(_game));
                     }
+
+                    // Clear the input state so this click doesn't accidentally trigger a weapon swing or jump in the next state.
                     InputEngine.ClearState();
                 }
                 else if (quitRect.Contains(ms.Position))
                 {
+                    // Hard close the entire application.
                     _game.Exit();
                 }
             }
@@ -1655,12 +1927,12 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // Draw background game engine
+            //frozen game background with black tint
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
             _game.GameEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
-            // Draw End Screen UI
+            // Next, draw the actual End Screen UI (like the victory text and the buttons) directly on top of the screen.
             spriteBatch.Begin();
             _game.UIManager.DrawEndScreen(spriteBatch, graphicsDevice, _isVictory);
             spriteBatch.End();
@@ -1673,13 +1945,22 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This is the primary state where the actual game happens. 
+    // It sits on top of the GameEngine, feeding it updates and monitoring the player's 
+    // progress to figure out when they should level up, win, or die.
     public class GameplayState : IGameState
     {
         private Game1 _game;
-        private const int WIN_CONDITION_KILLS = 150;
 
+        // The total number of enemies the player needs to defeat to trigger the final victory.
+        private const int WIN_CONDITION_KILLS = 120;
+
+        // Flags to track when the game is over and what the outcome was.
         private bool _isEnding = false;
         private bool _isVictory = false;
+
+        // When the player wins or dies, we let the game run for a few more seconds 
+        // so death animations can play out before snapping to the End Game screen.
         private float _endTimer = 0f;
         private const float END_DELAY = 2.5f;
 
@@ -1690,13 +1971,17 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Ensure the AudioManager is playing the main combat track.
             _game.AudioManager.HandleMusicState(GameState.Gameplay);
         }
 
         public void Update(GameTime gameTime)
         {
+            // We constantly re-assert the music state here just in case another state 
+            // temporarily interrupted it (like pausing).
             _game.AudioManager.HandleMusicState(GameState.Gameplay);
 
+            // Listen for the escape key to pause the game by pushing the MenuState on top of this one.
             if (InputEngine.IsKeyPressed(Keys.Escape))
             {
                 _game.StateManager.PushState(new MenuState(_game));
@@ -1707,36 +1992,49 @@ namespace Pale_Roots_1
             {
                 _game.GameEngine.Update(gameTime);
 
-                // Win/Loss
+                // If the game is still actively being played...
                 if (!_isEnding)
                 {
+                    // Check if the player has hit the final kill count to win the game.
                     if (_game.GameEngine.EnemiesKilled >= WIN_CONDITION_KILLS)
                     {
                         _isEnding = true;
                         _isVictory = true;
                     }
+                    // Or check if the player's health dropped to zero, meaning they lost.
                     else if (!_game.GameEngine.GetPlayer().IsAlive)
                     {
                         _isEnding = true;
                         _isVictory = false;
                     }
 
+                    // If neither of the game-ending conditions were met, check if the player 
+                    // has killed enough enemies to trigger a mid-game level up.
                     if (!_isEnding && _game.GameEngine.EnemiesKilled >= _game.NextLevelThreshold)
                     {
+                        // Ask the UpgradeManager to generate 3 random power-ups to choose from.
                         _game.CurrentUpgradeOptions = _game.UpgradeManager.GetRandomOptions(3);
                         if (_game.CurrentUpgradeOptions.Count > 0)
                         {
+                            // Temporarily switch to the LevelUpState so the player can pick their reward.
                             _game.StateManager.ChangeState(new LevelUpState(_game));
                         }
+
+                        // Recalculate the math for the next level up. 
+                        // We increase the 'LevelStep' so each subsequent level takes progressively more kills to reach.
                         _game.PreviousLevelThreshold = _game.NextLevelThreshold;
                         _game.LevelStep += 4;
                         _game.NextLevelThreshold += _game.LevelStep;
                     }
                 }
+                // If the game is ending (either by winning or losing)...
                 else
                 {
-                    // 3. The game is over, but we keep updating the engine to play animations!
+                    // Keep updating the GameEngine (so characters keep falling over or enemies keep moving), 
+                    // but start ticking up the timer.
                     _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    // Once the short delay finishes, permanently transition to the EndGameState.
                     if (_endTimer >= END_DELAY)
                     {
                         _game.StateManager.ChangeState(new EndGameState(_game, _isVictory));
@@ -1747,12 +2045,16 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
+            // First, draw the entire game world (player, enemies, map) using the camera's translation matrix.
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
             _game.GameEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
+            // Next, we draw the HUD elements directly to the screen (no camera matrix).
             spriteBatch.Begin();
 
+            // Calculate exactly how far the player has progressed toward their next level up, 
+            // returning a percentage between 0.0 and 1.0 so the UI can draw a progress bar.
             float levelProgress = 0f;
             int killsNeeded = _game.NextLevelThreshold - _game.PreviousLevelThreshold;
             int killsEarned = _game.GameEngine.EnemiesKilled - _game.PreviousLevelThreshold;
@@ -1762,6 +2064,7 @@ namespace Pale_Roots_1
                 levelProgress = MathHelper.Clamp((float)killsEarned / killsNeeded, 0f, 1f);
             }
 
+            // Pass all the calculated data over to the UIManager to actually draw the health bars, score, and skill icons.
             _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _game.GameEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, WIN_CONDITION_KILLS, levelProgress);
             spriteBatch.End();
         }
@@ -1772,10 +2075,15 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
+    // This is the universal blueprint for every single screen or mode in the game.
+    // By forcing GameplayState, MenuState, BossBattleState, etc., to all follow this exact contract,
+    // our StateManager can load, update, and draw whatever the current state is without needing to know what it actually does.
     public interface IGameState
     {
         void LoadContent();
+
         void Update(GameTime gameTime);
+
         void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice);
     }
 }
@@ -1785,6 +2093,8 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state handles the opening cinematic right before the actual gameplay begins.
+    // It relies on the CutsceneManager to do the heavy lifting for the visuals and timing.
     public class IntroState : IGameState
     {
         private Game1 _game;
@@ -1796,15 +2106,22 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Tell the audio manager to start playing the specific intro music track.
             _game.AudioManager.HandleMusicState(GameState.Intro);
+
+            // Queue up the "Intro" animation sequence in our cutscene manager.
             _game.CutsceneManager.Play("Intro");
         }
 
         public void Update(GameTime gameTime)
         {
             _game.CutsceneManager.Update(gameTime);
+
+            // Check if the player wants to skip the cinematic by hitting the Spacebar, 
+            // or if the cutscene simply finished playing on its own.
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
             {
+                // Flag the game as officially started and transition straight into the main action.
                 _game.HasStarted = true;
                 _game.StateManager.ChangeState(new GameplayState(_game));
             }
@@ -1813,7 +2130,10 @@ namespace Pale_Roots_1
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
             spriteBatch.Begin();
+
+            // Pass the screen dimensions down to the cutscene manager so it can scale and draw the cinematic properly.
             _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
+
             spriteBatch.End();
         }
     }
@@ -1824,10 +2144,15 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state temporarily pauses the action to let the player pick a power-up.
+    // It draws the active game frozen in the background and overlays the upgrade UI.
     public class LevelUpState : IGameState
     {
         private Game1 _game;
-        private float _inputDelay = 0.5f; // Safety delay so player doesn't instantly click
+
+        // A brief timer to prevent the player from accidentally clicking an upgrade 
+        // the exact millisecond the level-up screen appears if they were already spam-clicking to attack.
+        private float _inputDelay = 0.5f;
 
         public LevelUpState(Game1 game)
         {
@@ -1836,13 +2161,16 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Tell the AudioManager were in level up state
             _game.AudioManager.HandleMusicState(GameState.LevelUp);
         }
 
         public void Update(GameTime gameTime)
         {
+            // We need the mouse visible so the player can click on their chosen card.
             _game.IsMouseVisible = true;
 
+            // Tick down the safety delay timer. We only process clicks once this hits zero.
             if (_inputDelay > 0)
             {
                 _inputDelay -= (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -1855,29 +2183,41 @@ namespace Pale_Roots_1
 
         private void HandleInput()
         {
+            // Only fire the selection logic if the InputEngine detects a fresh left click.
             if (InputEngine.IsMouseLeftClick())
             {
                 MouseState ms = Mouse.GetState();
                 Rectangle screen = _game.GraphicsDevice.Viewport.Bounds;
+
+                // Set up the hardcoded dimensions for our upgrade cards so we can build hitboxes for them.
                 int cardWidth = 200;
                 int cardHeight = 300;
                 int spacing = 50;
+
+                // Calculate the total width of the entire row of cards so we can perfectly center them on the screen.
                 int totalWidth = (_game.CurrentUpgradeOptions.Count * cardWidth) + ((_game.CurrentUpgradeOptions.Count - 1) * spacing);
                 int startX = (screen.Width / 2) - (totalWidth / 2);
                 int startY = (screen.Height / 2) - (cardHeight / 2);
 
+                // Loop through the list of random options generated by the UpgradeManager.
                 for (int i = 0; i < _game.CurrentUpgradeOptions.Count; i++)
                 {
+                    // Mathematically build an invisible rectangle over where the UIManager is drawing this specific card.
                     Rectangle cardRect = new Rectangle(startX + (i * (cardWidth + spacing)), startY, cardWidth, cardHeight);
+
+                    // If the mouse is inside this card's rectangle when they clicked...
                     if (cardRect.Contains(ms.Position))
                     {
+                        // ...fire the specific action delegate attached to this upgrade (like boosting health or unlocking a spell).
                         _game.CurrentUpgradeOptions[i].ApplyAction.Invoke();
 
+                        // Safety check to ensure we are still in the LevelUpState before swapping back to the gameplay.
                         if (_game.StateManager.CurrentState == this)
                         {
                             _game.StateManager.ChangeState(new GameplayState(_game));
                         }
 
+                        // Wipe the input state so this click doesn't carry over into the game and cause an accidental attack.
                         InputEngine.ClearState();
                         break;
                     }
@@ -1887,12 +2227,14 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // Draw the game frozen in the background
+            // First, draw the active game engine in the background using the camera matrix.
+            // Because we aren't calling GameEngine.Update() in this state, the action is completely frozen.
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
             _game.GameEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
-            // Draw the UI on top
+            // Next, draw the level-up interface directly over the frozen game screen.
+            // We pass the list of current options down to the UIManager so it knows what text and icons to display.
             spriteBatch.Begin();
             _game.UIManager.DrawLevelUpScreen(spriteBatch, graphicsDevice, _game.CurrentUpgradeOptions, _game.UpgradeManager);
             spriteBatch.End();
@@ -1905,10 +2247,15 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state handles both the initial Main Menu and the in-game Pause Menu.
+    // It manages the hitboxes for the buttons and talks to the StateManager to push or pop screens based on what the player clicks.
     public class MenuState : IGameState
     {
         private Game1 _game;
+
+        // These invisible rectangles act as the physical hitboxes for our mouse clicks.
         private Rectangle _playBtnRect;
+        private Rectangle _tutorialBtnRect;
         private Rectangle _quitBtnRect;
 
         public MenuState(Game1 game)
@@ -1918,37 +2265,55 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Dynamically calculate the center of the screen so our buttons stay perfectly aligned even if the window changes size.
             int centerW = _game.GraphicsDevice.Viewport.Width / 2;
             int centerH = _game.GraphicsDevice.Viewport.Height / 2;
 
-            _playBtnRect = new Rectangle(centerW - 120, centerH - 40, 240, 50);
-            _quitBtnRect = new Rectangle(centerW - 120, centerH + 40, 240, 50);
+            // Build out the specific hitbox dimensions and positions relative to the center of the screen.
+            _playBtnRect = new Rectangle(centerW - 120, centerH - 60, 240, 50);
+            _tutorialBtnRect = new Rectangle(centerW - 120, centerH + 10, 240, 50);
+            _quitBtnRect = new Rectangle(centerW - 120, centerH + 80, 240, 50);
 
-            // Tell the Audio Manager we are in the menu
+            // Ping the AudioManager so it knows to fade into the relaxing menu theme.
             _game.AudioManager.HandleMusicState(GameState.Menu);
         }
 
         public void Update(GameTime gameTime)
         {
+            // Ensure the hardware mouse cursor is visible so the player isn't clicking blindly.
             _game.IsMouseVisible = true;
+
+            // Grab the current coordinates of the mouse on the screen.
             MouseState ms = Mouse.GetState();
             Point mousePoint = new Point(ms.X, ms.Y);
 
+            // Wait for a fresh left-click from our custom input wrapper.
             if (InputEngine.IsMouseLeftClick())
             {
+                // Check if the mouse's X/Y point is currently inside the bounds of the Play button hitbox.
                 if (_playBtnRect.Contains(mousePoint))
                 {
+                    // If the game hasn't started yet, this is the Main Menu. Push to the Intro cinematic to start a new run.
                     if (!_game.HasStarted)
                     {
                         _game.StateManager.ChangeState(new IntroState(_game));
                     }
+                    // If the game has already started, this is the Pause Menu. Pop this state off the stack to resume the action.
                     else
                     {
                         _game.StateManager.PopState();
                     }
                 }
+                // Check if they clicked the Tutorial button.
+                else if (_tutorialBtnRect.Contains(mousePoint))
+                {
+                    // Stack the tutorial screen on top of the menu so the player can return here when they finish reading.
+                    _game.StateManager.PushState(new TutorialState(_game));
+                }
+                // Check if they clicked the Quit button.
                 else if (_quitBtnRect.Contains(mousePoint))
                 {
+                    // Hard kill the entire MonoGame application.
                     _game.Exit();
                 }
             }
@@ -1958,13 +2323,16 @@ namespace Pale_Roots_1
         {
             spriteBatch.Begin();
 
+            // fill screen with menu background
             if (_game.MenuBackground != null)
             {
                 spriteBatch.Draw(_game.MenuBackground, new Rectangle(0, 0, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height), Color.White);
             }
             else
             {
-                // If there's no background, draw the gameplay level engine behind the menu
+                // If there is no specific background art, it means we are acting as the pause menu.
+                // We briefly end the UI sprite batch, draw the frozen gameplay level using the camera matrix, 
+                // and then restart the UI batch to draw the buttons on top.
                 spriteBatch.End();
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _game.GameEngine._camera.CurrentCameraTranslation);
                 _game.GameEngine.Draw(gameTime, spriteBatch);
@@ -1972,8 +2340,9 @@ namespace Pale_Roots_1
                 spriteBatch.Begin();
             }
 
-            // Let the UIManager handle the heavy lifting
-            _game.UIManager.DrawMenu(spriteBatch, graphicsDevice, _playBtnRect, _quitBtnRect, _game.HasStarted);
+            // pass the invisible hitboxes down to the UIManager so it knows exactly where to render the visual buttons.
+            // We pass _game.HasStarted so it knows whether to draw "Play" or "Resume".
+            _game.UIManager.DrawMenu(spriteBatch, graphicsDevice, _playBtnRect, _tutorialBtnRect, _quitBtnRect, _game.HasStarted);
 
             spriteBatch.End();
         }
@@ -1985,6 +2354,8 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
+    // This state handles the final cinematic sequence that plays right after the player defeats the boss.
+    // It works almost exactly like our IntroState, acting as a lightweight wrapper that lets the CutsceneManager do the heavy lifting.
     public class OutroState : IGameState
     {
         private Game1 _game;
@@ -1996,15 +2367,22 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
+            // Tell the audio manager to fade into our specific ending music track.
             _game.AudioManager.HandleMusicState(GameState.Outro);
+
+            // Queue up the "Outro" animation sequence so it's ready to draw on the first frame.
             _game.CutsceneManager.Play("Outro");
         }
 
         public void Update(GameTime gameTime)
         {
             _game.CutsceneManager.Update(gameTime);
+
+            // Listen for the player pressing Spacebar to skip the cinematic, 
+            // or simply check if the cutscene has reached its final frame natively.
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
             {
+                // Once the cinematic is done, swap this state out and roll the credits.
                 _game.StateManager.ChangeState(new CreditsState(_game));
             }
         }
@@ -2012,7 +2390,139 @@ namespace Pale_Roots_1
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
             spriteBatch.Begin();
+
+            // Hand the drawing logic over to the cutscene manager, passing in the current screen dimensions 
+            // so it knows exactly how to scale the images to fit the viewport.
             _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
+
+            spriteBatch.End();
+        }
+    }
+}
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System.Collections.Generic;
+
+namespace Pale_Roots_1
+{
+    // This state acts as an informational screen that can be stacked on top of the Menu.
+    // It teaches the player the basic controls and dynamically lists all the possible upgrades they can find.
+    public class TutorialState : IGameState
+    {
+        private Game1 _game;
+
+        // The hitbox for the button that returns the player to the previous screen.
+        private Rectangle _backBtnRect;
+
+        public TutorialState(Game1 game)
+        {
+            _game = game;
+        }
+
+        public void LoadContent()
+        {
+            // Calculate the bottom center of the screen so our back button is always perfectly anchored.
+            int centerW = _game.GraphicsDevice.Viewport.Width / 2;
+            _backBtnRect = new Rectangle(centerW - 100, _game.GraphicsDevice.Viewport.Height - 80, 200, 50);
+        }
+
+        public void Update(GameTime gameTime)
+        {
+            // Listen for the player attempting to exit the tutorial, either by clicking or hitting Escape.
+            if (InputEngine.IsMouseLeftClick() || InputEngine.IsKeyPressed(Keys.Escape))
+            {
+                MouseState ms = Mouse.GetState();
+
+                // If they hit escape, OR if their mouse was inside the Back button when they clicked...
+                if (_backBtnRect.Contains(ms.Position) || InputEngine.IsKeyPressed(Keys.Escape))
+                {
+                    // Pop this specific state off the StateManager's stack, automatically returning them to whatever screen they were on before.
+                    _game.StateManager.PopState();
+                    InputEngine.ClearState();
+                }
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
+        {
+            spriteBatch.Begin();
+
+            // 1. Draw the master menu background image
+            if (_game.MenuBackground != null)
+            {
+                spriteBatch.Draw(_game.MenuBackground, graphicsDevice.Viewport.Bounds, Color.White);
+            }
+
+            // 2. Draw a dark, mostly opaque layer over the entire screen. 
+            // This ensures the tutorial text and cards stand out clearly against the busy background art.
+            Texture2D pixel = _game.UiPixel;
+            spriteBatch.Draw(pixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
+
+            // 3. Draw the hardcoded control instructions perfectly centered near the top of the screen.
+            string instructions = "HOW TO PLAY\n\n\nUse W,A,S,D to move. Left Click to Light Attack.\nYou attack in the direction of your cursor\nDefeat enemies to level up and unlock the abilities below.\nSurvive the War and reclaim your throne.";
+            Vector2 instSize = _game.UiFont.MeasureString(instructions);
+            spriteBatch.DrawString(_game.UiFont, instructions, new Vector2(graphicsDevice.Viewport.Width / 2 - instSize.X / 2, 30), Color.White);
+
+            // Ask the UpgradeManager for a master list of every single possible upgrade in the game,
+            // but explicitly filter out the hidden 'BossTrigger' cards since those aren't real abilities.
+            List<UpgradeManager.UpgradeOption> allCards = _game.UpgradeManager.GetAllUpgrades()
+                .FindAll(card => card.Type != UpgradeManager.UpgradeType.BossTrigger);
+
+            // Define the size and spacing for the grid of cards we are about to draw.
+            int cardW = 220;
+            int cardH = 320;
+            int spacingX = 30;
+            int spacingY = 40;
+
+            // Define the layout of the grid.
+            int cols = 5;
+            int startY = 180;
+
+            Point mousePos = Mouse.GetState().Position;
+
+            // Loop through the entire list of available upgrades and draw them in a neatly centered grid.
+            for (int i = 0; i < allCards.Count; i++)
+            {
+                // Calculate which specific row and column this current card belongs in based on its index.
+                int row = i / cols;
+                int col = i % cols;
+
+                // Figure out exactly how many cards are sitting in this specific row.
+                // If it's the last row and not completely full, we need this number so we can center those remaining cards.
+                int cardsInThisRow = (allCards.Count - (row * cols));
+                if (cardsInThisRow > cols) cardsInThisRow = cols;
+
+                // Calculate the starting X position for this specific row so the entire block of cards is perfectly centered on the screen.
+                int rowStartX = (graphicsDevice.Viewport.Width / 2) - (((cardsInThisRow * cardW) + ((cardsInThisRow - 1) * spacingX)) / 2);
+
+                // Build the mathematical hitbox for where this specific card will be drawn.
+                Rectangle cardRect = new Rectangle(rowStartX + (col * (cardW + spacingX)), startY + (row * (cardH + spacingY)), cardW, cardH);
+
+                // Check if the player's mouse is currently hovering over this specific card, 
+                // and pass that information to the UpgradeManager so it can draw a highlight effect.
+                bool isHovered = cardRect.Contains(mousePos);
+                _game.UpgradeManager.DrawCard(spriteBatch, cardRect, allCards[i], isHovered, _game.UiFont);
+            }
+
+            // 5. Draw the interactive Back Button at the bottom of the screen.
+            bool backHover = _backBtnRect.Contains(mousePos);
+
+            // Draw the main button body, changing color if the mouse is hovering over it.
+            spriteBatch.Draw(pixel, _backBtnRect, backHover ? Color.DarkRed : Color.Maroon);
+
+            // Draw a quick 2-pixel border around the button, turning it white if hovered.
+            int b = 2;
+            Color bc = backHover ? Color.White : Color.Black;
+            spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.X, _backBtnRect.Y, _backBtnRect.Width, b), bc);
+            spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.X, _backBtnRect.Bottom - b, _backBtnRect.Width, b), bc);
+            spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.X, _backBtnRect.Y, b, _backBtnRect.Height), bc);
+            spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.Right - b, _backBtnRect.Y, b, _backBtnRect.Height), bc);
+
+            // Finally, measure and center the text inside the button.
+            Vector2 backSize = _game.UiFont.MeasureString("BACK");
+            spriteBatch.DrawString(_game.UiFont, "BACK", new Vector2(_backBtnRect.Center.X - backSize.X / 2, _backBtnRect.Center.Y - backSize.Y / 2), Color.White);
+
             spriteBatch.End();
         }
     }
@@ -2602,14 +3112,14 @@ namespace Pale_Roots_1
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
             Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true);
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
 
             Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
-            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, true);
+            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, false);
 
-            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
-            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
+            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, false);
+            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, false);
 
             FillZones(centerPos);
         }
@@ -2643,7 +3153,7 @@ namespace Pale_Roots_1
                 else if (tx < 22)
                 {
                     assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
-                    if (assetToSpawn.StartsWith("Grave")) isSolid = true;
+                    if (assetToSpawn.StartsWith("Grave")) isSolid = false;
                 }
                 else if (tx > 38)
                 {
@@ -2651,7 +3161,7 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.RuinObjects[CombatSystem.RandomInt(0, LevelDataLibrary.RuinObjects.Length)];
                     else
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
-                    isSolid = true;
+                    isSolid = false;
                 }
                 else
                 {
@@ -2749,7 +3259,7 @@ namespace Pale_Roots_1
                             string randomAsset = natureAssets[CombatSystem.RandomInt(0, natureAssets.Length)];
 
                             Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, true);
+                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, false);
                         }
                     }
                 }
@@ -2946,7 +3456,7 @@ namespace Pale_Roots_1
             else dashRatio = 1.0f;
 
             dashRatio = MathHelper.Clamp(dashRatio, 0f, 1f);
-            int stamY = padding + barHeight + 8;
+            int stamY = (padding + barHeight + 8) + 10;
             int stamH = barHeight / 2;
 
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
@@ -2976,7 +3486,7 @@ namespace Pale_Roots_1
 
             int iconSize = 64;
             int spacing = 20;
-            int startingY = graphicsDevice.Viewport.Height - iconSize - 20;
+            int startingY = graphicsDevice.Viewport.Height - iconSize - 45;
             int unlockedSpells = 0;
 
             for (int i = 0; i < 6; i++) if (gameEngine.GetSpellManager().IsSpellUnlocked(i)) unlockedSpells++;
@@ -2990,14 +3500,16 @@ namespace Pale_Roots_1
                 int totalWidth = (totalItems * iconSize) + ((totalItems - 1) * spacing);
                 int currentX = (screenW / 2) - (totalWidth / 2);
 
-                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 20);
+                Rectangle bgRect = new Rectangle(currentX - 10, startingY - 10, totalWidth + 20, iconSize + 50);
                 spriteBatch.Draw(_uiPixel, bgRect, Color.Black * 0.6f);
 
                 if (showDash)
                 {
                     Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(dashIcon, dest, Color.White);
-                    spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    Vector2 txtSize = _uiFont.MeasureString("SHFT") * 0.7f;
+                    spriteBatch.DrawString(_uiFont, "SHFT", new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
                     if (p.DashTimer > 0)
                     {
@@ -3013,7 +3525,9 @@ namespace Pale_Roots_1
                 {
                     Rectangle dest = new Rectangle(currentX, startingY, iconSize, iconSize);
                     spriteBatch.Draw(heavyAttackIcon, dest, Color.White);
-                    spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.X + 2, dest.Y + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+                    Vector2 txtSize = _uiFont.MeasureString("R-CLK") * 0.7f;
+                    spriteBatch.DrawString(_uiFont, "R-CLK", new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
                     currentX += iconSize + spacing;
                 }
 
@@ -3026,7 +3540,8 @@ namespace Pale_Roots_1
                             spriteBatch.Draw(spellIcons[i], dest, Color.White);
 
                         string key = (i + 1).ToString();
-                        spriteBatch.DrawString(_uiFont, key, new Vector2(dest.X + 2, dest.Y + 2), Color.Gold);
+                        Vector2 txtSize = _uiFont.MeasureString(key);
+                        spriteBatch.DrawString(_uiFont, key, new Vector2(dest.Center.X - txtSize.X / 2, dest.Bottom + 2), Color.Gold);
 
                         Spell s = gameEngine.GetSpellManager().GetSpell(i);
                         if (s != null && s.CurrentCooldown > 0)
@@ -3047,9 +3562,32 @@ namespace Pale_Roots_1
                     }
                 }
             }
+            //DARK SOULS STYLE BOSS HEALTH BAR
+            if (gameEngine.IsBossArena)
+            {
+                Enemy boss = gameEngine._enemies.Find(e => e is BlackHoleBoss);
+                if (boss != null && boss.IsAlive)
+                {
+                    int bossBarW = 800;
+                    int bossBarH = 25;
+                    int bossBarX = (screenW / 2) - (bossBarW / 2);
+                    // Draw it right above the ability icons
+                    int bossBarY = startingY - 60;
+
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX - 4, bossBarY - 4, bossBarW + 8, bossBarH + 8), Color.Black * 0.8f);
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX, bossBarY, bossBarW, bossBarH), Color.DarkRed * 0.5f);
+
+                    float bossHpPercent = (float)boss.Health / boss.MaxHealth;
+                    spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX, bossBarY, (int)(bossBarW * bossHpPercent), bossBarH), Color.Red);
+
+                    string bossName = boss.Name;
+                    Vector2 nameSize = _uiFont.MeasureString(bossName);
+                    spriteBatch.DrawString(_uiFont, bossName, new Vector2(screenW / 2 - nameSize.X / 2, bossBarY - nameSize.Y - 5), Color.White);
+                }
+            }
         }
 
-        public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle quitBtnRect, bool hasStarted)
+        public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle tutorialBtnRect, Rectangle quitBtnRect, bool hasStarted)
         {
             int screenW = graphicsDevice.Viewport.Width;
             int screenH = graphicsDevice.Viewport.Height;
@@ -3080,6 +3618,9 @@ namespace Pale_Roots_1
 
             bool playHover = playBtnRect.Contains(mousePoint);
             DrawFancyButton(playBtnRect, hasStarted ? "RESUME" : "PLAY", playHover);
+
+            bool tutHover = tutorialBtnRect.Contains(mousePoint);
+            DrawFancyButton(tutorialBtnRect, "TUTORIAL", tutHover);
 
             bool quitHover = quitBtnRect.Contains(mousePoint);
             DrawFancyButton(quitBtnRect, "QUIT", quitHover);
@@ -3191,6 +3732,7 @@ namespace Pale_Roots_1
             public Action ApplyAction;
             public UpgradeType Type;
             public int SpellIndex = -1;
+            public Color CardHue = Color.Black;
         }
 
         private Player _player;
@@ -3228,6 +3770,7 @@ namespace Pale_Roots_1
                 Description = "Right Click to deal double damage.",
                 Type = UpgradeType.HeavyAttack,
                 Icon = _heavyIcon,
+                CardHue = Color.DeepSkyBlue,
                 ApplyAction = () => _player.IsHeavyAttackUnlocked = true
             });
 
@@ -3238,6 +3781,7 @@ namespace Pale_Roots_1
                 Description = "Press Shift to dodge attacks.",
                 Type = UpgradeType.Dash,
                 Icon = _dashIcon,
+                CardHue = Color.Gold,
                 ApplyAction = () => _player.IsDashUnlocked = true
             });
 
@@ -3295,6 +3839,7 @@ namespace Pale_Roots_1
                     Type = UpgradeType.Spell,
                     Icon = s.Icon,
                     SpellIndex = index,
+                    CardHue = s.ThemeColor,
                     ApplyAction = () => _spellManager.UnlockSpell(index)
                 });
             }
@@ -3343,11 +3888,12 @@ namespace Pale_Roots_1
             }
             return returnString + line;
         }
-
+        public List<UpgradeOption> GetAllUpgrades() => _allUpgrades;
         public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
         {
-            Color bgColor = isHovered ? Color.DarkSlateBlue : Color.Black * 0.9f;
-            Color borderColor = isHovered ? Color.Cyan : Color.Gray;
+            Color baseHue = option.CardHue == Color.Black ? Color.Black : new Color(option.CardHue.R / 4, option.CardHue.G / 4, option.CardHue.B / 4, 220);
+            Color bgColor = isHovered ? Color.Lerp(baseHue, Color.White, 0.2f) : baseHue;
+            Color borderColor = isHovered ? Color.Cyan : (option.CardHue == Color.Black ? Color.Gray : option.CardHue);
 
             sb.Draw(_pixel, rect, bgColor);
             int b = 2;
@@ -3379,12 +3925,20 @@ namespace Pale_Roots_1
                 float endY = rect.Bottom - 10;
                 float availableHeight = endY - startY;
 
-                string wrappedDesc = ParseText(option.Description, font, rect.Width - 30);
-                Vector2 descSize = font.MeasureString(wrappedDesc);
-                float descY = startY + (availableHeight / 2) - (descSize.Y / 2);
-                Vector2 descPos = new Vector2(rect.Center.X - descSize.X / 2, descY);
+                string wrappedDesc = ParseText(option.Description, font, rect.Width - 20);
+                string[] lines = wrappedDesc.Split('\n');
 
-                sb.DrawString(font, wrappedDesc, descPos, Color.White);
+                float totalTextHeight = lines.Length * font.LineSpacing;
+                float startTextY = startY + (availableHeight / 2) - (totalTextHeight / 2);
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(lines[i])) continue;
+
+                    Vector2 lineSize = font.MeasureString(lines[i]);
+                    Vector2 linePos = new Vector2(rect.Center.X - (lineSize.X / 2), startTextY + (i * font.LineSpacing));
+                    sb.DrawString(font, lines[i], linePos, Color.White);
+                }
             }
         }
     }
@@ -3682,20 +4236,20 @@ namespace Pale_Roots_1
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    // Spawn small reinforcements for pacing
-                    SpawnReinforcements(CombatTeam.Enemy, 2);
+                    // Coin flip between 1 and 2 spawns to prevent overwhelming the player
+                    SpawnReinforcements(CombatTeam.Enemy, CombatSystem.RandomInt(1, 3));
                 }
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
                     AlliesLost++;
-                    SpawnReinforcements(CombatTeam.Player, 2);
+                    SpawnReinforcements(CombatTeam.Player, CombatSystem.RandomInt(1, 3));
                 }
             };
 
-            CombatSystem.OnDamageDealt += (attacker, target, damage) =>
-            {
-                // Lightweight hook for SFX/VFX/analytics; keep handlers small.
-            };
+            //CombatSystem.OnDamageDealt += (attacker, target, damage) =>
+            //{
+            //    // Lightweight hook for SFX/VFX/analytics; keep handlers small.
+            //};
         }
 
         // Per-frame update called by Game1.Update
@@ -4034,7 +4588,7 @@ namespace Pale_Roots_1
         public const int TileSize = 64;
         public static readonly Vector2 DefaultMapSize = new Vector2(3840, 2160);
 
-        public const int WinConditionKills = 150;
+        public const int WinConditionKills = 120;
     }
 
     // Team tags used by CombatSystem and AI to decide friend/foe behavior.
@@ -5015,8 +5569,9 @@ namespace Pale_Roots_1
     public abstract class Spell
     {
         public string Name { get; protected set; }
-        public string Description { get; protected set; } 
+        public string Description { get; protected set; }
         public Texture2D Icon { get; set; }
+        public Color ThemeColor { get; protected set; } = Color.White;
 
         public float CooldownDuration { get; protected set; }
         public float CurrentCooldown { get; set; } = 0f;
@@ -5225,7 +5780,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6740b317cd801979dee663c85c36f09dc67494b2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d509b210f90db846789ddd184cad86055c909b35")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -5507,6 +6062,7 @@ namespace Pale_Roots_1
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
+                _isInvincible = false;
             }
         }
 
@@ -5726,6 +6282,7 @@ namespace Pale_Roots_1
             {
                 CurrentState = PlayerState.Hurt;
                 _stateTimer = 300f;
+                _isInvincible = true;
             }
         }
 

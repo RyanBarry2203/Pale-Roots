@@ -113,14 +113,14 @@ namespace Pale_Roots_1
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
             Vector2 kingPos = new Vector2(40 * 64, 16 * 64);
-            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, true);
+            CreateStaticObject("Skellington", kingPos, _staticObjectSheet, false);
 
             Vector2 bigRuinPos = new Vector2(8 * 64, 6 * 64);
-            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, true);
-            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, true);
+            CreateStaticObject("Ruins_Column", bigRuinPos, _staticObjectSheet, false);
+            CreateStaticObject("Big_Rock", bigRuinPos + new Vector2(200, 190), _staticObjectSheet, false);
 
-            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, true);
-            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, true);
+            CreateStaticObject("Smaller_Ruin", new Vector2(50 * 64, 7 * 64), _staticObjectSheet, false);
+            CreateStaticObject("Smaller_Ruin", new Vector2(48 * 64, 26 * 64), _staticObjectSheet, false);
 
             FillZones(centerPos);
         }
@@ -154,7 +154,7 @@ namespace Pale_Roots_1
                 else if (tx < 22)
                 {
                     assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
-                    if (assetToSpawn.StartsWith("Grave")) isSolid = true;
+                    if (assetToSpawn.StartsWith("Grave")) isSolid = false;
                 }
                 else if (tx > 38)
                 {
@@ -162,7 +162,7 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.RuinObjects[CombatSystem.RandomInt(0, LevelDataLibrary.RuinObjects.Length)];
                     else
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
-                    isSolid = true;
+                    isSolid = false;
                 }
                 else
                 {
@@ -260,7 +260,7 @@ namespace Pale_Roots_1
                             string randomAsset = natureAssets[CombatSystem.RandomInt(0, natureAssets.Length)];
 
                             Vector2 pos = tilePos + new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
-                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, true);
+                            CreateStaticObject(randomAsset, pos, _staticObjectSheet, false);
                         }
                     }
                 }

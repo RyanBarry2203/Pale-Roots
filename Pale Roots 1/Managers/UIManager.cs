@@ -54,7 +54,7 @@ namespace Pale_Roots_1
             else dashRatio = 1.0f;
 
             dashRatio = MathHelper.Clamp(dashRatio, 0f, 1f);
-            int stamY = padding + barHeight + 8;
+            int stamY = (padding + barHeight + 8) + 10;
             int stamH = barHeight / 2;
 
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, barWidth, stamH), Color.Black * 0.5f);
