@@ -184,25 +184,25 @@ namespace Pale_Roots_1
         // Subscribe to CombatSystem events to react to kills and damage.
         private void SetupCombatEvents()
         {
+            // We subscribe to the static CombatSystem event. 
+            // This means anytime *any* character dies anywhere in the game, this block of code automatically runs.
             CombatSystem.OnCombatantKilled += (killer, victim) =>
             {
+                // If an enemy died, increase the player's score. 
+                // Then immediately spawn either 1 or 2 new enemies off-screen to replace them.
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    // Coin flip between 1 and 2 spawns to prevent overwhelming the player
-                    SpawnReinforcements(CombatTeam.Enemy, CombatSystem.RandomInt(1, 3));
+                    int spawnCount = (CombatSystem.RandomInt(0, 100) < 80) ? 1 : 2;
+                    SpawnReinforcements(CombatTeam.Enemy, spawnCount);
                 }
+                // If a friendly NPC died, track the loss and spawn 1 to 3 new soldiers to help the player.
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
                     AlliesLost++;
                     SpawnReinforcements(CombatTeam.Player, CombatSystem.RandomInt(1, 3));
                 }
             };
-
-            //CombatSystem.OnDamageDealt += (attacker, target, damage) =>
-            //{
-            //    // Lightweight hook for SFX/VFX/analytics; keep handlers small.
-            //};
         }
 
         // Per-frame update called by Game1.Update
@@ -210,12 +210,13 @@ namespace Pale_Roots_1
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
 
+            // Before the battle officially starts, the player can freely run around the map without enemies attacking.
             if (!_battleStarted)
             {
-                // Pre-battle: let player roam and inspect the level
-                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+                // We must still update the player so they can walk, passing in the empty enemy lists so collision math doesn't break.
+                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
-                // Quick demo input to start battle
+                // Listen for a specific debug key to trigger the start of the massive battle.
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
                 {
                     _battleStarted = true;
@@ -223,6 +224,7 @@ namespace Pale_Roots_1
             }
             else
             {
+                // Once the battle begins, hand control over to the main physics loop.
                 UpdateBattle(gameTime, vp);
             }
         }
@@ -234,7 +236,7 @@ namespace Pale_Roots_1
             _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player first so others react to player's new state this same frame
-            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
             // Update level objects
             _levelManager.Update(gameTime, _player);
@@ -346,21 +348,30 @@ namespace Pale_Roots_1
         // Spawn reinforcements around the map (uses shared RNG utilities)
         private void SpawnReinforcements(CombatTeam team, int count)
         {
-            Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
-            float spawnRadius = 1800f;
-
             if (!SpawningBlocked)
             {
                 for (int i = 0; i < count; i++)
                 {
+                    // Pick a random angle (0 to 360 degrees) and a distance far off-screen.
                     float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
-                    Vector2 spawnPos = center + new Vector2(
-                        (float)Math.Cos(angle) * spawnRadius,
-                        (float)Math.Sin(angle) * spawnRadius
+                    float distance = CombatSystem.RandomFloat(900f, 1300f);
+
+                    // Use standard trigonometry to calculate exactly where that spawn point is relative to the player.
+                    Vector2 spawnPos = _player.Position + new Vector2(
+                        (float)Math.Cos(angle) * distance,
+                        (float)Math.Sin(angle) * distance
                     );
 
+                    // Even though they spawn off-screen, we must ensure they don't accidentally spawn completely outside the map boundary.
+                    float safeMarginX = 300f;
+                    float safeMarginY = 600f;
+                    spawnPos.X = MathHelper.Clamp(spawnPos.X, safeMarginX, _mapSize.X - safeMarginX);
+                    spawnPos.Y = MathHelper.Clamp(spawnPos.Y, safeMarginY, _mapSize.Y - safeMarginY);
+
+                    // If we are spawning a new Enemy...
                     if (team == CombatTeam.Enemy)
                     {
+                        // Roll a quick percentage chance to decide if it's a Grunt, Warrior, or massive Captain.
                         int roll = CombatSystem.RandomInt(0, 100);
                         int typeIndex = 0;
 
@@ -374,23 +385,28 @@ namespace Pale_Roots_1
                         if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
                         if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
 
-                        // Immediately assign player as target so they behave aggressively on spawn
+                        // Immediately lock them onto the player so they come charging onto the screen aggressively.
                         CombatSystem.AssignTarget(newEnemy, _player);
-                        // THE POLYMORPHIC STATE MACHINE FLEX
                         newEnemy.ChangeState(new ChaseState());
                         _enemies.Add(newEnemy);
                     }
+                    // If we are spawning a friendly Ally...
                     else if (team == CombatTeam.Player)
                     {
                         var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
                         newAlly.Name = "Reinforcement Soldier";
 
+                        // See if there are any enemies currently alive. If there are, lock on and attack.
                         var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
                         if (bestTarget != null)
                         {
                             CombatSystem.AssignTarget(newAlly, bestTarget);
-                            // THE POLYMORPHIC STATE MACHINE FLEX
                             newAlly.ChangeState(new ChaseState());
+                        }
+                        // If the map is totally clear, just patrol around the player.
+                        else
+                        {
+                            newAlly.ChangeState(new WanderState());
                         }
                         _allies.Add(newAlly);
                     }

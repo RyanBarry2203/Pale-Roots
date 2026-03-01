@@ -51,6 +51,7 @@ namespace Pale_Roots_1
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
         public float AttackCooldown { get; set; }
+        public float AttackRange { get; set; } = GameConstants.MeleeAttackRange;
         private int _deathCountdown;
 
         // Holds whatever behavior state the ally is currently executing (like ChaseState or CombatState).
@@ -96,8 +97,8 @@ namespace Pale_Roots_1
                 _healthBarTexture.SetData(new[] { Color.White });
             }
 
-            // Start the brain! The ally begins by charging forward into the map.
-            ChangeState(new ChargeState());
+            // Start the brain
+            ChangeState(new WanderState());
         }
 
         public override void Update(GameTime gametime)

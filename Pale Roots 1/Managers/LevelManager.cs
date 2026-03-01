@@ -131,39 +131,50 @@ namespace Pale_Roots_1
             int maxItems = 60;
             int itemsPlaced = 0;
 
+            // Keep trying to place random debris until we hit our quota or our safety counter maxes out.
             while (itemsPlaced < maxItems && attempts < 1000)
             {
                 attempts++;
+
+                // Pick a totally random tile somewhere within the main play area.
                 int tx = CombatSystem.RandomInt(6, 54);
                 int ty = CombatSystem.RandomInt(6, 28);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
+
+                // Nudge it off the grid lines for a natural look.
                 pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
 
                 float distToCenter = Vector2.Distance(pos, centerPos);
 
+                // If this random spot is already covered by a tree or ruin, skip this attempt.
                 if (IsSpaceOccupied(pos, 80f)) continue;
 
                 string assetToSpawn = "";
                 bool isSolid = false;
 
-                // --- ZONE LOGIC ---
+
+                // We divide the map into invisible zones to decide what kind of debris should spawn there.
+
+                // If it's near the dead center tree, spawn bones.
                 if (distToCenter < 350 && distToCenter > 100)
                 {
                     assetToSpawn = LevelDataLibrary.BoneObjects[CombatSystem.RandomInt(0, LevelDataLibrary.BoneObjects.Length)];
                 }
+                // If it's on the far left side of the map, spawn graves.
                 else if (tx < 22)
                 {
                     assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
-                    if (assetToSpawn.StartsWith("Grave")) isSolid = false;
                 }
+                // If it's on the far right side of the map, heavily favor ruins.
                 else if (tx > 38)
                 {
                     if (CombatSystem.RandomInt(0, 100) > 70)
                         assetToSpawn = LevelDataLibrary.RuinObjects[CombatSystem.RandomInt(0, LevelDataLibrary.RuinObjects.Length)];
                     else
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
-                    isSolid = false;
+
                 }
+                // Anywhere else, make it a 50/50 split between bones and nature.
                 else
                 {
                     if (CombatSystem.RandomInt(0, 100) > 50)
@@ -172,8 +183,10 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                 }
 
+                // If we successfully picked an asset to spawn.
                 if (assetToSpawn != "")
                 {
+                    // Do one final check to make sure we aren't spawning two identical skulls or trees right next to each other.
                     if (IsTooCloseToIdentical(assetToSpawn, pos, 500f)) continue;
 
                     CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);

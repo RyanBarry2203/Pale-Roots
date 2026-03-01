@@ -20,6 +20,8 @@ namespace Pale_Roots_1
         private float _fadeTimer = 0f;
         private const float FADE_DURATION = 1.5f;
 
+        private Texture2D _bgTexture;
+
         public BossLoreState(Game1 game, Action<bool> onComplete)
         {
             _game = game;
@@ -33,7 +35,17 @@ namespace Pale_Roots_1
                     "Press SPACE or CLICK to face your destiny...";
         }
 
-        public void LoadContent() { }
+        public void LoadContent() 
+        {
+            try
+            {
+                _bgTexture = _game.Content.Load<Texture2D>("Boss_Cutscene");
+            }
+            catch
+            {
+                // Failsafe
+            }
+        }
 
         public void Update(GameTime gameTime)
         {
@@ -68,13 +80,22 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // Wipe the screen to pure black.
+            // Wipe the screen to pure black as a base layer.
             graphicsDevice.Clear(Color.Black);
             spriteBatch.Begin();
 
+            //Draw background image stretched to fit the screen
+            if (_bgTexture != null)
+            {
+                spriteBatch.Draw(_bgTexture, graphicsDevice.Viewport.Bounds, Color.White);
+            }
+
+
+            spriteBatch.Draw(_game.UiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.8f);
+
             if (_game.UiFont != null)
             {
-                // We start with full opacity.
+                // start with full opacity.
                 float alpha = 1.0f;
 
                 // If the player clicked continue, we calculate how far along the fade timer is 

@@ -108,24 +108,23 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // If we are currently loading a song, STOP checking. 
-            // This prevents the "restart loop" that causes the delay.
-            if (_isSwitchingTrack) return;
+            // Safety check: Don't try to pick a new random combat song if we are already transitioning.
+            if (_pendingSong != null || _isSwitchingTrack) return;
 
-            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong || _currentSong == OutroSong);
+            // Figure out if we need to pick a new track. 
+            // We need a new track if the current song isn't in our combat list (e.g., coming from a menu),
+            // OR if the hardware tells us the current track naturally finished playing.
+            bool isWrongTheme = (_currentSong != null && !_combatSongs.Contains(_currentSong));
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
-            if (isWrongTheme)
+            if (isWrongTheme || isSilence)
             {
-                RequestTrack(GetRandomCombatTrack(), false);
-            }
-            else if (isSilence)
-            {
-                // Song finished? 
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
-                    PlayImmediate(next);
+                    // Note: We pass 'false' for loop here, meaning when the song ends naturally, 
+                    // the isSilence check above will trigger and we will pick a new random song for variety!
+                    RequestTrack(next, false);
                 }
             }
         }

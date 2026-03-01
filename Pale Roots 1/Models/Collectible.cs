@@ -15,10 +15,11 @@ namespace Pale_Roots_1
         public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
             : base(game, texture, position, frameCount, 1)
         {
-            Random r = new Random();
-            HealthValue = r.Next(50, 101);
+            // ENGINE FIX: We swapped out 'new Random()' for your custom Utility class!
+            // If the engine spawns 5 collectibles in the exact same frame, they will now correctly have different values.
+            HealthValue = Utility.NextRandom(50, 101);
 
-            // Lazy loading the texture once
+            // Lazy loading: Only the very first Collectible ever created will run this code.
             if (healthBarTexture == null)
             {
                 healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);

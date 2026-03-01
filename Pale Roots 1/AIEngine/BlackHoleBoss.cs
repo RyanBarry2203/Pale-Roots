@@ -28,6 +28,7 @@ namespace Pale_Roots_1
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 40;
+            AttackRange = 150f;
 
             // Load all the specific boss animations. Notice the frame counts and timings 
             // are unique to this massive sprite sheet.
@@ -74,7 +75,7 @@ namespace Pale_Roots_1
             {
                 // If the boss is actively trying to get to the player but the player is running away 
                 // (outside of a 250 pixel range), use the offensive suck ability to pull them back in.
-                if (Vector2.Distance(this.Center, player.Center) > 250f)
+                if (Vector2.Distance(this.Center, player.Center) > 320f)
                 {
                     ExecuteGravityBurst(player, true);
                 }
