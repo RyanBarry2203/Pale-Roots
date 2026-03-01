@@ -76,10 +76,11 @@ namespace Pale_Roots_1
             AudioManager.IntroSong = Content.Load<Song>("Whimsy");
             AudioManager.DeathSong = Content.Load<Song>("Sad");
             AudioManager.OutroSong = Content.Load<Song>("Ihavenoidea");
+
             AudioManager.AddCombatSong(Content.Load<Song>("Guitar"));
             AudioManager.AddCombatSong(Content.Load<Song>("MoreGuitar"));
             AudioManager.AddCombatSong(Content.Load<Song>("Groovy"));
-            AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
+            //AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
             AudioManager.AddCombatSong(Content.Load<Song>("uhm"));
 
             // Load Spell Icons
@@ -561,7 +562,7 @@ namespace Pale_Roots_1
 
             // Ask the CombatSystem to check the distance between us and the target.
             // If we close the gap and get within engagement range, switch to the CombatState.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.CombatEngageRange)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange)
             {
                 npc.ChangeState(new CombatState());
             }
@@ -589,14 +590,14 @@ namespace Pale_Roots_1
 
             // Check with the CombatSystem to see if we are close enough to swing.
             // If we are, and our attack cooldown has reset, hit them.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < GameConstants.MeleeAttackRange && npc.AttackCooldown <= 0)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange && npc.AttackCooldown <= 0)
             {
                 npc.PerformAttack();
             }
 
             // If the target manages to run away and gets outside our combat break range, 
             // stop fighting and go back to chasing them down.
-            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > GameConstants.CombatBreakRange)
+            if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > npc.AttackRange + 30f)
             {
                 npc.ChangeState(new ChaseState());
             }
@@ -704,6 +705,7 @@ namespace Pale_Roots_1
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
         public float AttackCooldown { get; set; }
+        public float AttackRange { get; set; } = GameConstants.MeleeAttackRange;
         private int _deathCountdown;
 
         // Holds whatever behavior state the ally is currently executing (like ChaseState or CombatState).
@@ -749,8 +751,8 @@ namespace Pale_Roots_1
                 _healthBarTexture.SetData(new[] { Color.White });
             }
 
-            // Start the brain! The ally begins by charging forward into the map.
-            ChangeState(new ChargeState());
+            // Start the brain
+            ChangeState(new WanderState());
         }
 
         public override void Update(GameTime gametime)
@@ -907,6 +909,7 @@ namespace Pale_Roots_1
             Health = MaxHealth;
             Scale = 7.0f;
             AttackDamage = 40;
+            AttackRange = 150f;
 
             // Load all the specific boss animations. Notice the frame counts and timings 
             // are unique to this massive sprite sheet.
@@ -953,7 +956,7 @@ namespace Pale_Roots_1
             {
                 // If the boss is actively trying to get to the player but the player is running away 
                 // (outside of a 250 pixel range), use the offensive suck ability to pull them back in.
-                if (Vector2.Distance(this.Center, player.Center) > 250f)
+                if (Vector2.Distance(this.Center, player.Center) > 320f)
                 {
                     ExecuteGravityBurst(player, true);
                 }
@@ -1065,19 +1068,29 @@ namespace Pale_Roots_1
             bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
 
             // Calculate the absolute center of the generated tilemap using our 64x64 tile size.
-            Vector2 mapCenter = new Vector2(1920, 1088);
+            Vector2 mapCenter = new Vector2(1920, 1088 + 150);
 
             // Spawn the boss directly in the middle of the room.
             _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
+
+            // Lock the boss inside the mathematical circle so it doesn't get stuck on jagged tree hitboxes.
+            _boss.UseCircularBounds = true;
+            _boss.CircularBoundsCenter = mapCenter;
+            _boss.CircularBoundsRadius = 1400f;
+
             _bossEngine._enemies.Add(_boss);
 
             // Spawn the player offset to the left so they don't immediately collide with the boss on frame 1.
-            _bossEngine.GetPlayer().Position = mapCenter - new Vector2(400, 0);
+            Player bossArenaPlayer = _bossEngine.GetPlayer();
+            bossArenaPlayer.Position = mapCenter - new Vector2(400, 0);
+
+            // Lock the player inside the exact same mathematical circle to prevent corner cheese from playtesting.
+            bossArenaPlayer.UseCircularBounds = true;
+            bossArenaPlayer.CircularBoundsCenter = mapCenter;
+            bossArenaPlayer.CircularBoundsRadius = 950f;
 
             // Instantly snap the camera to the center so the player doesn't see the camera panning over the black void during setup.
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
-
-            Player bossArenaPlayer = _bossEngine.GetPlayer();
             SpellManager bossArenaSpells = _bossEngine.GetSpellManager();
 
             // We temporarily unlock the player's full arsenal.
@@ -1370,6 +1383,7 @@ namespace Pale_Roots_1
         public Vector2 StartPosition { get; set; }
         public Vector2 WanderTarget { get; set; }
         public float AttackCooldown { get; set; }
+        public float AttackRange { get; set; } = GameConstants.MeleeAttackRange;
 
         protected int _deathCountdown;
 
@@ -1651,6 +1665,7 @@ namespace Pale_Roots_1
         Vector2 StartPosition { get; set; }
         Vector2 WanderTarget { get; set; }
         float AttackCooldown { get; set; }
+        float AttackRange { get; }
 
         // Gives the AI states a way to check what the NPC is currently doing and explicitly force them into a new behavior.
         IAIState CurrentState { get; }
@@ -1685,6 +1700,8 @@ namespace Pale_Roots_1
         private float _fadeTimer = 0f;
         private const float FADE_DURATION = 1.5f;
 
+        private Texture2D _bgTexture;
+
         public BossLoreState(Game1 game, Action<bool> onComplete)
         {
             _game = game;
@@ -1698,7 +1715,17 @@ namespace Pale_Roots_1
                     "Press SPACE or CLICK to face your destiny...";
         }
 
-        public void LoadContent() { }
+        public void LoadContent() 
+        {
+            try
+            {
+                _bgTexture = _game.Content.Load<Texture2D>("Boss_Cutscene");
+            }
+            catch
+            {
+                // Failsafe
+            }
+        }
 
         public void Update(GameTime gameTime)
         {
@@ -1733,13 +1760,22 @@ namespace Pale_Roots_1
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // Wipe the screen to pure black.
+            // Wipe the screen to pure black as a base layer.
             graphicsDevice.Clear(Color.Black);
             spriteBatch.Begin();
 
+            //Draw background image stretched to fit the screen
+            if (_bgTexture != null)
+            {
+                spriteBatch.Draw(_bgTexture, graphicsDevice.Viewport.Bounds, Color.White);
+            }
+
+
+            spriteBatch.Draw(_game.UiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.8f);
+
             if (_game.UiFont != null)
             {
-                // We start with full opacity.
+                // start with full opacity.
                 float alpha = 1.0f;
 
                 // If the player clicked continue, we calculate how far along the fade timer is 
@@ -2477,7 +2513,7 @@ namespace Pale_Roots_1
 
             // Define the layout of the grid.
             int cols = 5;
-            int startY = 180;
+            int startY = 300;
 
             Point mousePos = Mouse.GetState().Position;
 
@@ -2741,24 +2777,23 @@ namespace Pale_Roots_1
 
         private void HandleCombatMusic()
         {
-            // If we are currently loading a song, STOP checking. 
-            // This prevents the "restart loop" that causes the delay.
-            if (_isSwitchingTrack) return;
+            // Safety check: Don't try to pick a new random combat song if we are already transitioning.
+            if (_pendingSong != null || _isSwitchingTrack) return;
 
-            bool isWrongTheme = (_currentSong == MenuSong || _currentSong == IntroSong || _currentSong == OutroSong);
+            // Figure out if we need to pick a new track. 
+            // We need a new track if the current song isn't in our combat list (e.g., coming from a menu),
+            // OR if the hardware tells us the current track naturally finished playing.
+            bool isWrongTheme = (_currentSong != null && !_combatSongs.Contains(_currentSong));
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
-            if (isWrongTheme)
+            if (isWrongTheme || isSilence)
             {
-                RequestTrack(GetRandomCombatTrack(), false);
-            }
-            else if (isSilence)
-            {
-                // Song finished? 
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
-                    PlayImmediate(next);
+                    // Note: We pass 'false' for loop here, meaning when the song ends naturally, 
+                    // the isSilence check above will trigger and we will pick a new random song for variety!
+                    RequestTrack(next, false);
                 }
             }
         }
@@ -2829,22 +2864,31 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // This class handles the playback of narrative image sequences (like the Intro and Outro).
+    // It reads a predefined list of "Slides", handling the timers, image scaling, and text rendering for each one.
     public class CutsceneManager
     {
+        // A dictionary holding the full sequence of slides for any given cinematic.
         private Dictionary<string, Cutscene> _cutscenes = new Dictionary<string, Cutscene>();
         private Cutscene _currentCutscene;
 
+        // Tracks which specific image in the sequence we are currently showing, and how long it's been on screen.
         private int _currentIndex = 0;
         private float _timer = 0f;
+
+        // Basic drawing assets used for the text background.
         private Texture2D _pixel;
         private SpriteFont _font;
 
+        // A flag checked by states like IntroState to know when to hand control back to the game.
         public bool IsFinished { get; private set; } = false;
 
         public CutsceneManager(Game game)
         {
+            // Create a single white pixel to use for drawing the semi-transparent text backing box.
             _pixel = new Texture2D(game.GraphicsDevice, 1, 1);
             _pixel.SetData(new[] { Color.White });
+
             try { _font = game.Content.Load<SpriteFont>("cutsceneFont"); } catch { }
         }
 
@@ -2855,6 +2899,7 @@ namespace Pale_Roots_1
 
         public void Play(string key)
         {
+            // If the requested sequence exists, reset all our playback trackers to start it from the beginning.
             if (_cutscenes.ContainsKey(key))
             {
                 _currentCutscene = _cutscenes[key];
@@ -2866,22 +2911,28 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
+            // Safety check to ensure we aren't trying to advance timers if no cutscene is actually loaded.
             if (IsFinished || _currentCutscene == null) return;
 
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             _timer += dt;
 
-            // Using InputEngine so a held spacebar doesn't instantly skip everything
+            // Listen for the player wanting to skip the entire sequence.
+            // We specifically use InputEngine here instead of standard Keyboard.GetState() so that if the player 
+            // is holding spacebar to attack when the boss dies, they don't instantly skip the outro cinematic.
             if (InputEngine.IsKeyPressed(Keys.Space) || InputEngine.IsKeyPressed(Keys.Enter))
             {
                 IsFinished = true;
             }
 
+            // Check if the current slide has been on screen for its fully allotted duration.
             if (_timer >= _currentCutscene.Slides[_currentIndex].Duration)
             {
+                // Reset the timer and move to the next slide in the sequence.
                 _timer = 0;
                 _currentIndex++;
 
+                // If we just finished the final slide, flag the sequence as over.
                 if (_currentIndex >= _currentCutscene.Slides.Count)
                 {
                     IsFinished = true;
@@ -2893,41 +2944,63 @@ namespace Pale_Roots_1
         {
             if (IsFinished || _currentCutscene == null) return;
 
+            // Grab the specific data for the image we need to draw right now.
             CutsceneSlide slide = _currentCutscene.Slides[_currentIndex];
 
+            // Calculate exactly how far along we are in this specific slide's lifespan, returning a percentage between 0.0 and 1.0.
             float progress = _timer / slide.Duration;
+
+            // Figure out how much we need to scale the raw image so it completely fills the player's current window size.
             float scaleX = (float)screenWidth / slide.Texture.Width;
             float scaleY = (float)screenHeight / slide.Texture.Height;
-            float baseScale = Math.Max(scaleX, scaleY);
 
+            // We take the larger of the two scales and bump it by 12% to ensure there are no black borders 
+            // when we apply the zooming effect later.
+            float baseScale = Math.Max(scaleX, scaleY) * 1.12f;
+
+            // Apply a "Ken Burns" effect: smoothly interpolate the image scale between the defined start and end points based on time passed.
             float currentZoom = MathHelper.Lerp(slide.ZoomStart, slide.ZoomEnd, progress);
             float finalScale = baseScale * currentZoom;
-            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress);
 
+            //Offset so the ugly gemini watermark is not visible during gameplay
+            Vector2 Offset = new Vector2(-20, -20);
+            Vector2 currentPan = Vector2.Lerp(slide.PanStart, slide.PanEnd, progress) + Offset;
+
+            // fade
+            // Calculate a brief window at the start and end of the slide to smoothly transition the opacity.
             float fadeDuration = slide.Duration * 0.15f;
             float alpha = 1.0f;
 
+            // If we are in the first 15% of the slide, fade it in.
             if (_timer < fadeDuration) alpha = _timer / fadeDuration;
+            // If we are in the last 15% of the slide, fade it out to black.
             else if (_timer > slide.Duration - fadeDuration)
             {
                 float timeLeft = slide.Duration - _timer;
                 alpha = timeLeft / fadeDuration;
             }
 
+            // Draw the image, applying all our calculated panning, zooming, and fading math.
             Vector2 origin = new Vector2(slide.Texture.Width / 2, slide.Texture.Height / 2);
             Vector2 screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
 
             spriteBatch.Draw(slide.Texture, screenCenter + currentPan, null, Color.White * alpha, 0f, origin, finalScale, SpriteEffects.None, 0f);
 
+            // text
             if (_font != null)
             {
+                // Measure the subtitle text and center it near the bottom of the screen.
                 Vector2 textSize = _font.MeasureString(slide.Text);
                 Vector2 textPos = new Vector2((screenWidth / 2) - (textSize.X / 2), screenHeight - 200);
 
+                // Draw a semi-transparent black box slightly larger than the text so the white font is always readable.
                 Rectangle bgRect = new Rectangle((int)textPos.X - 20, (int)textPos.Y - 10, (int)textSize.X + 40, (int)textSize.Y + 20);
                 spriteBatch.Draw(_pixel, bgRect, Color.Black * 0.6f * alpha);
+
+                // Draw the actual subtitle text.
                 spriteBatch.DrawString(_font, slide.Text, textPos, Color.White * alpha);
 
+                // Draw a small "Skip" prompt in the bottom right corner so the player knows they aren't trapped.
                 string skipMsg = "Press SPACE to Skip";
                 Vector2 skipSize = _font.MeasureString(skipMsg);
                 Vector2 skipPos = new Vector2(screenWidth - skipSize.X - 40, screenHeight - 60);
@@ -3130,39 +3203,50 @@ namespace Pale_Roots_1
             int maxItems = 60;
             int itemsPlaced = 0;
 
+            // Keep trying to place random debris until we hit our quota or our safety counter maxes out.
             while (itemsPlaced < maxItems && attempts < 1000)
             {
                 attempts++;
+
+                // Pick a totally random tile somewhere within the main play area.
                 int tx = CombatSystem.RandomInt(6, 54);
                 int ty = CombatSystem.RandomInt(6, 28);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
+
+                // Nudge it off the grid lines for a natural look.
                 pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
 
                 float distToCenter = Vector2.Distance(pos, centerPos);
 
+                // If this random spot is already covered by a tree or ruin, skip this attempt.
                 if (IsSpaceOccupied(pos, 80f)) continue;
 
                 string assetToSpawn = "";
                 bool isSolid = false;
 
-                // --- ZONE LOGIC ---
+
+                // We divide the map into invisible zones to decide what kind of debris should spawn there.
+
+                // If it's near the dead center tree, spawn bones.
                 if (distToCenter < 350 && distToCenter > 100)
                 {
                     assetToSpawn = LevelDataLibrary.BoneObjects[CombatSystem.RandomInt(0, LevelDataLibrary.BoneObjects.Length)];
                 }
+                // If it's on the far left side of the map, spawn graves.
                 else if (tx < 22)
                 {
                     assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
-                    if (assetToSpawn.StartsWith("Grave")) isSolid = false;
                 }
+                // If it's on the far right side of the map, heavily favor ruins.
                 else if (tx > 38)
                 {
                     if (CombatSystem.RandomInt(0, 100) > 70)
                         assetToSpawn = LevelDataLibrary.RuinObjects[CombatSystem.RandomInt(0, LevelDataLibrary.RuinObjects.Length)];
                     else
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
-                    isSolid = false;
+
                 }
+                // Anywhere else, make it a 50/50 split between bones and nature.
                 else
                 {
                     if (CombatSystem.RandomInt(0, 100) > 50)
@@ -3171,8 +3255,10 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                 }
 
+                // If we successfully picked an asset to spawn.
                 if (assetToSpawn != "")
                 {
+                    // Do one final check to make sure we aren't spawning two identical skulls or trees right next to each other.
                     if (IsTooCloseToIdentical(assetToSpawn, pos, 500f)) continue;
 
                     CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
@@ -3476,12 +3562,13 @@ namespace Pale_Roots_1
                 float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
                 if (progress > 1f) progress = 1f;
 
-            
-                    spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
 
-                    string warText = "WAR DOMINANCE";
-                    Vector2 textSize = _uiFont.MeasureString(warText);
-                    spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
+                spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
+
+                // Add the menacing text right under the bar.
+                string warText = "WAR DOMINANCE";
+                Vector2 textSize = _uiFont.MeasureString(warText);
+                spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
             }
 
             int iconSize = 64;
@@ -4231,25 +4318,25 @@ namespace Pale_Roots_1
         // Subscribe to CombatSystem events to react to kills and damage.
         private void SetupCombatEvents()
         {
+            // We subscribe to the static CombatSystem event. 
+            // This means anytime *any* character dies anywhere in the game, this block of code automatically runs.
             CombatSystem.OnCombatantKilled += (killer, victim) =>
             {
+                // If an enemy died, increase the player's score. 
+                // Then immediately spawn either 1 or 2 new enemies off-screen to replace them.
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    // Coin flip between 1 and 2 spawns to prevent overwhelming the player
-                    SpawnReinforcements(CombatTeam.Enemy, CombatSystem.RandomInt(1, 3));
+                    int spawnCount = (CombatSystem.RandomInt(0, 100) < 80) ? 1 : 2;
+                    SpawnReinforcements(CombatTeam.Enemy, spawnCount);
                 }
+                // If a friendly NPC died, track the loss and spawn 1 to 3 new soldiers to help the player.
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
                     AlliesLost++;
                     SpawnReinforcements(CombatTeam.Player, CombatSystem.RandomInt(1, 3));
                 }
             };
-
-            //CombatSystem.OnDamageDealt += (attacker, target, damage) =>
-            //{
-            //    // Lightweight hook for SFX/VFX/analytics; keep handlers small.
-            //};
         }
 
         // Per-frame update called by Game1.Update
@@ -4257,12 +4344,13 @@ namespace Pale_Roots_1
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
 
+            // Before the battle officially starts, the player can freely run around the map without enemies attacking.
             if (!_battleStarted)
             {
-                // Pre-battle: let player roam and inspect the level
-                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+                // We must still update the player so they can walk, passing in the empty enemy lists so collision math doesn't break.
+                _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
-                // Quick demo input to start battle
+                // Listen for a specific debug key to trigger the start of the massive battle.
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
                 {
                     _battleStarted = true;
@@ -4270,6 +4358,7 @@ namespace Pale_Roots_1
             }
             else
             {
+                // Once the battle begins, hand control over to the main physics loop.
                 UpdateBattle(gameTime, vp);
             }
         }
@@ -4281,7 +4370,7 @@ namespace Pale_Roots_1
             _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
             // Update player first so others react to player's new state this same frame
-            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies);
+            _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
             // Update level objects
             _levelManager.Update(gameTime, _player);
@@ -4393,21 +4482,30 @@ namespace Pale_Roots_1
         // Spawn reinforcements around the map (uses shared RNG utilities)
         private void SpawnReinforcements(CombatTeam team, int count)
         {
-            Vector2 center = new Vector2(_mapSize.X / 2, _mapSize.Y / 2);
-            float spawnRadius = 1800f;
-
             if (!SpawningBlocked)
             {
                 for (int i = 0; i < count; i++)
                 {
+                    // Pick a random angle (0 to 360 degrees) and a distance far off-screen.
                     float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
-                    Vector2 spawnPos = center + new Vector2(
-                        (float)Math.Cos(angle) * spawnRadius,
-                        (float)Math.Sin(angle) * spawnRadius
+                    float distance = CombatSystem.RandomFloat(900f, 1300f);
+
+                    // Use standard trigonometry to calculate exactly where that spawn point is relative to the player.
+                    Vector2 spawnPos = _player.Position + new Vector2(
+                        (float)Math.Cos(angle) * distance,
+                        (float)Math.Sin(angle) * distance
                     );
 
+                    // Even though they spawn off-screen, we must ensure they don't accidentally spawn completely outside the map boundary.
+                    float safeMarginX = 300f;
+                    float safeMarginY = 600f;
+                    spawnPos.X = MathHelper.Clamp(spawnPos.X, safeMarginX, _mapSize.X - safeMarginX);
+                    spawnPos.Y = MathHelper.Clamp(spawnPos.Y, safeMarginY, _mapSize.Y - safeMarginY);
+
+                    // If we are spawning a new Enemy...
                     if (team == CombatTeam.Enemy)
                     {
+                        // Roll a quick percentage chance to decide if it's a Grunt, Warrior, or massive Captain.
                         int roll = CombatSystem.RandomInt(0, 100);
                         int typeIndex = 0;
 
@@ -4421,23 +4519,28 @@ namespace Pale_Roots_1
                         if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
                         if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
 
-                        // Immediately assign player as target so they behave aggressively on spawn
+                        // Immediately lock them onto the player so they come charging onto the screen aggressively.
                         CombatSystem.AssignTarget(newEnemy, _player);
-                        // THE POLYMORPHIC STATE MACHINE FLEX
                         newEnemy.ChangeState(new ChaseState());
                         _enemies.Add(newEnemy);
                     }
+                    // If we are spawning a friendly Ally...
                     else if (team == CombatTeam.Player)
                     {
                         var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
                         newAlly.Name = "Reinforcement Soldier";
 
+                        // See if there are any enemies currently alive. If there are, lock on and attack.
                         var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
                         if (bestTarget != null)
                         {
                             CombatSystem.AssignTarget(newAlly, bestTarget);
-                            // THE POLYMORPHIC STATE MACHINE FLEX
                             newAlly.ChangeState(new ChaseState());
+                        }
+                        // If the map is totally clear, just patrol around the player.
+                        else
+                        {
+                            newAlly.ChangeState(new WanderState());
                         }
                         _allies.Add(newAlly);
                     }
@@ -5443,10 +5546,11 @@ namespace Pale_Roots_1
         public Collectible(Game game, Texture2D texture, Vector2 position, int frameCount)
             : base(game, texture, position, frameCount, 1)
         {
-            Random r = new Random();
-            HealthValue = r.Next(50, 101);
+            // ENGINE FIX: We swapped out 'new Random()' for your custom Utility class!
+            // If the engine spawns 5 collectibles in the exact same frame, they will now correctly have different values.
+            HealthValue = Utility.NextRandom(50, 101);
 
-            // Lazy loading the texture once
+            // Lazy loading: Only the very first Collectible ever created will run this code.
             if (healthBarTexture == null)
             {
                 healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
@@ -5780,7 +5884,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d509b210f90db846789ddd184cad86055c909b35")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+566c1f20052c556d05092baf514cfb7b0d3efb3f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pale Roots 1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
@@ -5797,111 +5901,79 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // Player: controllable ICombatant with movement, dash and melee attack state machine.
-    // - Uses AnimationManager for visuals and GameConstants for shared tuning.
-    // - Interacts with CombatSystem for damage and ChaseAndFireEngine/LevelManager for world queries.
+    // The central controllable entity. 
+    // It implements ICombatant so it can participate in the global CombatSystem (taking damage, being targeted).
+    // It inherits from Sprite to utilize basic positional and drawing properties.
     public class Player : Sprite, ICombatant
     {
-        // ICombatant surface
+        // --- ICOMBATANT IMPLEMENTATION ---
         public string Name { get; set; } = "Hero";
         public float DamageMultiplier { get; set; } = 1.0f;
         public CombatTeam Team => CombatTeam.Player;
-
-        // Cached mouse world position used for aiming attacks
-        private Vector2 _mouseWorldPosition;
-
-        // Dash timers exposed for UI
-        public float DashTimer => _dashCooldownTimer;
-        public float DashDuration => _dashCooldownDuration;
-
-        // Health / combat members (MaxHealth/Health from Sprite base)
         public int MaxHealth { get; set; }
         public int AttackDamage { get; protected set; }
         public bool IsAlive => Health > 0;
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
 
-        public new Vector2 Position
-        {
-            get => position;
-            set => position = value;
-        }
-
+        // Expose internal sprite properties to the world using the new keyword to clarify intent.
+        public new Vector2 Position { get => position; set => position = value; }
         public Game Game => game;
         public Vector2 CentrePos => Center;
 
-        // Movement & state
+        // --- PHYSICS & MOVEMENT ---
         private float _speed;
         private Vector2 _velocity;
+
+        // Handles momentum from external sources like boss gravity or enemy hits.
         private Vector2 _externalVelocity = Vector2.Zero;
 
-        // Player state machine for movement/combat/interrupts
-        public enum PlayerState
-        {
-            Idle,
-            Run,
-            Attack1,
-            Attack2,
-            Dash,
-            Hurt,
-            Dead
-        }
+        // --- STATE MACHINE ---
+        // This enum controls exactly what the player is allowed to do at any given frame.
+        public enum PlayerState { Idle, Run, Attack1, Attack2, Dash, Hurt, Dead }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
 
-        // Facing and unlockables
+        // --- COMBAT & ABILITIES ---
+        private Vector2 _mouseWorldPosition;
         private Vector2 _facingDirection = new Vector2(0, 1);
         public bool IsHeavyAttackUnlocked { get; set; } = false;
         public bool IsDashUnlocked { get; set; } = false;
 
-        // Dash variables
+        // Dash mechanics
         private float _dashSpeed = 12f;
         private Vector2 _dashDirection;
-
-        // Timers / combo buffering
-        private float _stateTimer = 0f;
-        private bool _comboBuffered = false;
-        private float _cooldownTimer = 0f;
-
-        // Enemies already hit this swing (prevents multi-hit per swing)
-        private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
-
-        // Animation / direction
-        public enum Direction { Down = 0, Left = 0, Right = 2, Up = 3 }
-        private Direction _currentDirection = Direction.Down;
-        private int _currentDirectionIndex = 2;
-
-        // Dash cooldown / invincibility flag during dash
         private float _dashCooldownTimer = 0f;
         private float _dashCooldownDuration = 800f;
         private bool _isInvincible = false;
 
-        // Visual offset used when drawing (adjust to align sprite to logic position)
-        private Vector2 _visualOffset = new Vector2(0, 32);
+        public float DashTimer => _dashCooldownTimer;
+        public float DashDuration => _dashCooldownDuration;
 
-        // Per-state textures (loaded in ctor) and animation manager
-        private Texture2D _txIdle;
-        private Texture2D _txRun;
-        private Texture2D _txAttack1;
-        private Texture2D _txAttack2;
-        private Texture2D _txHurt;
-        private Texture2D _txDeath;
-        private Texture2D _txDash;
+        // Timing & Logic lists
+        private float _stateTimer = 0f;
+        private float _cooldownTimer = 0f;
+        private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
+
+        // Animation state
+        private int _currentDirectionIndex = 2; // Maps to sprite sheet rows
         private AnimationManager _animManager;
         private SpriteEffects _flipEffect = SpriteEffects.None;
 
-        // Shared 1x1 texture used for debug/health bar drawing
+        // Textures & Visuals
+        private Texture2D _txIdle, _txRun, _txAttack1, _txAttack2, _txHurt, _txDeath, _txDash;
         private static Texture2D _healthBarTexture;
 
-        // Constructor: load textures, set stats and register animations
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount, 1)
         {
+            // Initialize base stats from our global configuration file.
             _speed = GameConstants.DefaultPlayerSpeed;
             MaxHealth = GameConstants.DefaultHealth;
             Health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
             Scale = 3f;
 
+            // Load a 1x1 white pixel for health bars if it hasn't been created yet.
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
@@ -5910,7 +5982,7 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // 1. Load texture sheets from Content
+            // Load the various animation sheets.
             _txIdle = game.Content.Load<Texture2D>("Player/Idle");
             _txRun = game.Content.Load<Texture2D>("Player/Run");
             _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1");
@@ -5919,13 +5991,12 @@ namespace Pale_Roots_1
             _txDeath = game.Content.Load<Texture2D>("Player/Death");
             _txDash = game.Content.Load<Texture2D>("Player/Dash");
 
-            // 2. Register animations (use Idle width as standard frame width for some sheets)
+            // Register animations with the manager.
             int standardWidth = _txIdle.Width / 7;
-
             _animManager.AddAnimation("Idle", new Animation(_txIdle, 7, 0, 150f, true));
             _animManager.AddAnimation("Run", new Animation(_txRun, 8, 0, 120f, true));
-            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false, 1, standardWidth));
-            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 10, 0, 100f, false, 1, standardWidth));
+            _animManager.AddAnimation("Attack1", new Animation(_txAttack1, 10, 0, 100f, false));
+            _animManager.AddAnimation("Attack2", new Animation(_txAttack2, 15, 0, 100f, false, 1, standardWidth));
             _animManager.AddAnimation("Dash", new Animation(_txDash, 4, 0, 125f, false, 1, standardWidth));
             _animManager.AddAnimation("Hurt", new Animation(_txHurt, 3, 0, 150f, false, 1, standardWidth));
             _animManager.AddAnimation("Death", new Animation(_txDeath, 15, 0, 150f, false, 1, standardWidth));
@@ -5933,71 +6004,71 @@ namespace Pale_Roots_1
             _animManager.Play("Idle");
         }
 
-        // Main update called by the engine each frame.
-        // - currentLayer used for collision/tile checks
-        // - enemies list used for attack collision tests
-        public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies)
+        public void Update(GameTime gameTime, TileLayer currentLayer, List<Enemy> enemies, List<WorldObject> obstacles)
         {
-
-            if (_externalVelocity != Vector2.Zero)
-            {
-                position += _externalVelocity;
-                _externalVelocity *= GameConstants.KnockbackFriction;
-
-                if (_externalVelocity.Length() < 0.1f)
-                    _externalVelocity = Vector2.Zero;
-
-                ClampToMap();
-            }
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Timers
+            // --- 1. EXTERNAL PHYSICS ---
+            // Process knockback or gravitational pulls before player-controlled movement.
+            if (_externalVelocity != Vector2.Zero)
+            {
+                Vector2 proposedPos = position + _externalVelocity;
+                if (CanMoveTo(proposedPos, currentLayer, obstacles))
+                {
+                    position = proposedPos;
+                }
+                else
+                {
+                    _externalVelocity = Vector2.Zero; // Stop instantly if we hit a wall.
+                }
+
+                _externalVelocity *= GameConstants.KnockbackFriction;
+                if (_externalVelocity.Length() < 0.1f) _externalVelocity = Vector2.Zero;
+            }
+
+            // Update internal timers.
             if (_cooldownTimer > 0) _cooldownTimer -= dt;
             if (_dashCooldownTimer > 0) _dashCooldownTimer -= dt;
 
-            // Compute mouse world position from screen center and player center
+            // --- 2. MOUSE WORLD COORDINATES ---
+            // We calculate where the mouse is in the world by comparing its screen position 
+            // to the center of the screen (the camera lens) and adding that offset to the player's center.
             MouseState mouseState = Mouse.GetState();
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
-            // State machine dispatch
+            // --- 3. STATE DISPATCH ---
+            // Route logic based on our current FSM state.
             switch (CurrentState)
             {
                 case PlayerState.Idle:
                 case PlayerState.Run:
-                    HandleInput(currentLayer, true); // allow switching Run/Idle
+                    HandleInput(currentLayer, obstacles, true);
                     CheckForCombatInput(enemies);
                     break;
 
                 case PlayerState.Attack1:
                 case PlayerState.Attack2:
-                    HandleInput(currentLayer, false); // allow movement but don't change attack state
+                    HandleInput(currentLayer, obstacles, false); // Allow movement but don't switch to Run state.
                     UpdateAttack(gameTime, enemies, (CurrentState == PlayerState.Attack1 ? 1 : 2));
                     break;
 
                 case PlayerState.Dash:
-                    UpdateDash(gameTime, currentLayer);
+                    UpdateDash(gameTime, currentLayer, obstacles);
                     break;
 
                 case PlayerState.Hurt:
-                    HandleInput(currentLayer, false);
+                    HandleInput(currentLayer, obstacles, false);
                     UpdateHurt(gameTime);
-                    break;
-
-                case PlayerState.Dead:
                     break;
             }
 
             UpdateAnimation(gameTime);
         }
 
-        // Check input for combat actions (dash or mouse buttons)
         private void CheckForCombatInput(List<Enemy> enemies)
         {
-            // REFACTORED: Decoupled from hardware using Action API
-
-            // Dash input
             if (IsDashUnlocked && InputEngine.IsActionPressed("Dash"))
             {
                 StartDash();
@@ -6006,7 +6077,6 @@ namespace Pale_Roots_1
 
             if (_cooldownTimer > 0) return;
 
-            // Attack input
             if (InputEngine.IsActionPressed("LightAttack"))
             {
                 StartAttack(enemies, 1);
@@ -6017,7 +6087,6 @@ namespace Pale_Roots_1
             }
         }
 
-        // Begin dash: set invincibility, direction and timers
         private void StartDash()
         {
             if (_dashCooldownTimer > 0) return;
@@ -6025,27 +6094,27 @@ namespace Pale_Roots_1
             CurrentState = PlayerState.Dash;
             _dashSpeed = 20f;
             _stateTimer = 150f;
-
             _dashCooldownTimer = _dashCooldownDuration;
             _isInvincible = true;
 
-            // If moving, dash that direction. Otherwise dash horizontally based on facing index.
+            // Dash in the direction of movement, or default to horizontal facing.
             if (_velocity != Vector2.Zero)
                 _dashDirection = Vector2.Normalize(_velocity);
             else
-            {
-                if (_currentDirectionIndex == 2) _dashDirection = new Vector2(-1, 0);
-                else _dashDirection = new Vector2(1, 0);
-            }
+                _dashDirection = (_currentDirectionIndex == 2) ? new Vector2(-1, 0) : new Vector2(1, 0);
         }
 
-        // Dash state update: move for duration then clear invincibility
-        private void UpdateDash(GameTime gameTime, TileLayer layer)
+        private void UpdateDash(GameTime gameTime, TileLayer layer, List<WorldObject> obstacles)
         {
-            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            _stateTimer -= dt;
+            _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            Vector2 proposedPosition = position + (_dashDirection * _dashSpeed);
 
-            position += _dashDirection * _dashSpeed;
+            if (layer == null || CanMoveTo(proposedPosition, layer, obstacles))
+            {
+                position = proposedPosition;
+            }
+
+            ClampToMap();
 
             if (_stateTimer <= 0)
             {
@@ -6055,7 +6124,6 @@ namespace Pale_Roots_1
             }
         }
 
-        // Hurt state countdown then return to Idle
         private void UpdateHurt(GameTime gameTime)
         {
             _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -6066,13 +6134,10 @@ namespace Pale_Roots_1
             }
         }
 
-        // Read Input API, set velocity and attempt movement against the tile layer.
-        // updateState = false prevents state switches (used during attacks/hurt).
-        private void HandleInput(TileLayer currentLayer, bool updateState)
+        private void HandleInput(TileLayer currentLayer, List<WorldObject> obstacles, bool updateState)
         {
             Vector2 inputDirection = Vector2.Zero;
 
-            // REFACTORED: Using InputEngine Action API instead of raw Keys
             if (InputEngine.IsActionHeld("MoveUp")) inputDirection.Y -= 1;
             if (InputEngine.IsActionHeld("MoveDown")) inputDirection.Y += 1;
             if (InputEngine.IsActionHeld("MoveLeft")) inputDirection.X -= 1;
@@ -6084,20 +6149,14 @@ namespace Pale_Roots_1
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                // Only update facing direction if we are NOT attacking.
-                // This ensures the hitbox stays locked to the mouse click direction 
-                // even if we strafe sideways during the swing.
+                // Don't change facing direction while swinging the sword.
                 if (CurrentState != PlayerState.Attack1 && CurrentState != PlayerState.Attack2)
                 {
                     _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
                 }
 
                 Vector2 proposedPosition = position + _velocity;
-                if (currentLayer != null && CanMoveTo(proposedPosition, currentLayer))
-                {
-                    position = proposedPosition;
-                }
-                else if (currentLayer == null)
+                if (CanMoveTo(proposedPosition, currentLayer, obstacles))
                 {
                     position = proposedPosition;
                 }
@@ -6107,152 +6166,104 @@ namespace Pale_Roots_1
                 _velocity = Vector2.Zero;
             }
 
-            // Only change Run/Idle when allowed (prevents attack animation override).
+            ClampToMap();
             if (updateState)
             {
-                if (_velocity != Vector2.Zero)
-                    CurrentState = PlayerState.Run;
-                else
-                    CurrentState = PlayerState.Idle;
+                CurrentState = (_velocity != Vector2.Zero) ? PlayerState.Run : PlayerState.Idle;
             }
         }
 
-        // Map a direction vector to an animation row index
         private int GetDirectionFromVector(Vector2 dir)
         {
+            // Maps the 2D vector to the indices of our sprite sheet rows (Down, Up, Left, Right).
             if (Math.Abs(dir.X) > Math.Abs(dir.Y))
-            {
                 return (dir.X > 0) ? 3 : 2;
-            }
             else
-            {
                 return (dir.Y > 0) ? 0 : 1;
-            }
         }
 
-        // Collision / tile movement check. Computes a small "feet" rectangle for passability tests.
-        private bool CanMoveTo(Vector2 newPos, TileLayer layer)
+        private bool CanMoveTo(Vector2 newPos, TileLayer layer, List<WorldObject> obstacles)
         {
+            // Calculate a tiny hitbox around the player's feet.
+            // This allows the player to walk "behind" trees and rocks before being blocked by the base.
             float scale = (float)Scale;
             int playerW = (int)(spriteWidth * scale * 0.4f);
             int playerH = (int)(spriteHeight * scale * 0.2f);
-
             int playerX = (int)(newPos.X - (playerW / 2));
             int playerY = (int)(newPos.Y + (spriteHeight * scale / 2) - playerH);
 
             Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
 
+            // Bounds check against map edges.
             float mapWidth = layer.Tiles.GetLength(1) * 64;
             float mapHeight = layer.Tiles.GetLength(0) * 64;
+            if (newPos.X < 0 || newPos.Y < 0 || newPos.X > mapWidth || newPos.Y > mapHeight) return false;
 
-            // Basic bounds checks
-            if (newPos.X < 0 || newPos.Y < 0) return false;
-            if (newPos.X + (spriteWidth * Scale) > mapWidth) return false;
-            if (newPos.Y + (spriteHeight * Scale) > mapHeight) return false;
-
-            // Tile passability checks would go here (sample surrounding tiles using futurePlayerBox).
-            // This function currently returns true (placeholder for your tile queries).
-            return true;
+            // Check against solid WorldObjects (trees, rocks, ruins).
+            return !IsColliding(newPos, obstacles);
         }
 
-        // -----------------------
-        // COMBAT
-        // -----------------------
+        // --- COMBAT LOGIC ---
 
-        // Initialize attack: set facing to mouse, start animation and reset hit list.
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
+            // Lock facing direction toward the mouse click.
             Vector2 dirToMouse = _mouseWorldPosition - this.Center;
             dirToMouse.Normalize();
             _currentDirectionIndex = GetDirectionFromVector(dirToMouse);
 
-            if (_currentDirectionIndex == 2) _flipEffect = SpriteEffects.FlipHorizontally;
-            else _flipEffect = SpriteEffects.None;
+            // Flip the sprite if attacking left.
+            _flipEffect = (_currentDirectionIndex == 2) ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
-            float frameSpeed = (attackNum == 1) ? 80f : 120f;
-
-            // Reduce duration to 7 frames instead of the full 10.
-            // This makes the hitbox active for less time and lets the player move/attack again sooner.
-            float duration = 7 * frameSpeed;
+            float duration = (attackNum == 1) ? 1000f : 1500f;
 
             CurrentState = (attackNum == 1) ? PlayerState.Attack1 : PlayerState.Attack2;
             _stateTimer = duration;
-            _comboBuffered = false;
-
-            // Reset hit list so each swing can hit targets again
             _enemiesHitThisAttack.Clear();
+            _animManager.Play(animName);
         }
 
-        // Per-frame attack update: perform hit checks and end attack when timer expires
         private void UpdateAttack(GameTime gameTime, List<Enemy> enemies, int attackNum)
         {
-            float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            _stateTimer -= dt;
+            _stateTimer -= (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Perform the hit detection each frame while in attack state
-            if (attackNum == 1)
-                PerformSwordHit(enemies, 1.0f, 1.0f);
-            else
-                PerformSwordHit(enemies, 2.0f, 1.5f);
+            if (attackNum == 1) PerformSwordHit(enemies, 1.0f, 1.0f);
+            else PerformSwordHit(enemies, 2.0f, 1.5f);
 
-            // End attack and set cooldown
             if (_stateTimer <= 0)
             {
                 CurrentState = PlayerState.Idle;
                 _cooldownTimer = GameConstants.SwordCooldown;
-                _debugSwordBox = Rectangle.Empty;
             }
         }
 
-        private Rectangle _debugSwordBox;
-
-        // Sword hit detection: builds a chest-relative hitbox and checks enemy intersections
         private void PerformSwordHit(List<Enemy> enemies, float damageMult, float knockbackMult)
         {
-            // Chest position used as sword origin (updates as player moves)
+            // Create a hitbox in front of the player's chest.
             Vector2 chestPosition = new Vector2(position.X, position.Y - 50);
+            Vector2[] directions = { new Vector2(0, 1), new Vector2(0, -1), new Vector2(-1, 0), new Vector2(1, 0) };
+            Vector2 attackDir = directions[_currentDirectionIndex];
 
-            // Cardinal attack directions based on currentDirectionIndex
-            Vector2 attackDir = Vector2.Zero;
-            if (_currentDirectionIndex == 0) attackDir = new Vector2(0, 1);  // Down
-            if (_currentDirectionIndex == 1) attackDir = new Vector2(0, -1); // Up
-            if (_currentDirectionIndex == 2) attackDir = new Vector2(-1, 0); // Left
-            if (_currentDirectionIndex == 3) attackDir = new Vector2(1, 0);  // Right
-
-            // Build a square hitbox out in front of the chest
             float reach = 80f * knockbackMult;
             Vector2 hitCenter = chestPosition + (attackDir * reach);
             int boxSize = (int)(80 * knockbackMult);
 
-            Rectangle swordHitbox = new Rectangle(
-                (int)(hitCenter.X - boxSize / 2),
-                (int)(hitCenter.Y - boxSize / 2),
-                boxSize,
-                boxSize
-            );
+            Rectangle swordHitbox = new Rectangle((int)(hitCenter.X - boxSize / 2), (int)(hitCenter.Y - boxSize / 2), boxSize, boxSize);
 
-            // Keep debug rectangle for drawing/inspection
-            _debugSwordBox = swordHitbox;
-
-            // Collision test per enemy; skip already-hit targets this swing
             foreach (var enemy in enemies.ToArray())
             {
-                if (!enemy.IsAlive) continue;
-                if (_enemiesHitThisAttack.Contains(enemy)) continue;
+                if (!enemy.IsAlive || _enemiesHitThisAttack.Contains(enemy)) continue;
 
-                Rectangle enemyRect = new Rectangle(
-                    (int)enemy.Position.X - 30,
-                    (int)enemy.Position.Y - 80,
-                    60,
-                    80
-                );
+                // Simple enemy hurtbox centered on their body.
+                Rectangle enemyRect = new Rectangle((int)enemy.Position.X - 30, (int)enemy.Position.Y - 80, 60, 80);
 
                 if (swordHitbox.Intersects(enemyRect))
                 {
                     int finalDamage = (int)(GameConstants.SwordDamage * damageMult * DamageMultiplier);
                     CombatSystem.DealDamage(this, enemy, finalDamage);
 
+                    // Apply knockback away from the player.
                     Vector2 kb = enemy.Position - this.position;
                     if (kb != Vector2.Zero) kb.Normalize();
                     enemy.ApplyKnockback(kb * GameConstants.SwordKnockback * knockbackMult);
@@ -6262,22 +6273,12 @@ namespace Pale_Roots_1
             }
         }
 
-        // -----------------------
-        // ICombatant methods
-        // -----------------------
-
         public void TakeDamage(int amount, ICombatant attacker)
         {
-            // Respect invincibility frames (dash)
-            if (_isInvincible) return;
-            if (!IsAlive) return;
+            if (_isInvincible || !IsAlive) return;
 
             Health -= amount;
-
-            if (Health <= 0)
-            {
-                Die();
-            }
+            if (Health <= 0) Die();
             else
             {
                 CurrentState = PlayerState.Hurt;
@@ -6286,26 +6287,14 @@ namespace Pale_Roots_1
             }
         }
 
-        // Not used; CombatSystem.DealDamage is called directly from attack code
-        public void PerformAttack() { }
+        public void PerformAttack() { } // Handled by StartAttack/UpdateAttack
 
-        // Choose animation key and flip sprite based on state and velocity
         private void UpdateAnimation(GameTime gameTime)
         {
-            string animKey = "Idle";
+            string animKey = CurrentState.ToString();
+            if (CurrentState == PlayerState.Dead) animKey = "Death";
 
-            switch (CurrentState)
-            {
-                case PlayerState.Idle: animKey = "Idle"; break;
-                case PlayerState.Run: animKey = "Run"; break;
-                case PlayerState.Attack1: animKey = "Attack1"; break;
-                case PlayerState.Attack2: animKey = "Attack2"; break;
-                case PlayerState.Dash: animKey = "Dash"; break;
-                case PlayerState.Hurt: animKey = "Hurt"; break;
-                case PlayerState.Dead: animKey = "Death"; break;
-            }
-
-            // Only flip during non-attack movement states so attack facing stays locked to click direction.
+            // Only flip sprites during standard movement; attacks are manually flipped based on mouse aim.
             if (CurrentState == PlayerState.Run || CurrentState == PlayerState.Idle || CurrentState == PlayerState.Dash)
             {
                 if (_velocity.X < -0.1f) _flipEffect = SpriteEffects.FlipHorizontally;
@@ -6316,36 +6305,20 @@ namespace Pale_Roots_1
             _animManager.Update(gameTime);
         }
 
-        // Enter death state; keep sprite visible so death animation plays
         public void Die()
         {
             CurrentState = PlayerState.Dead;
             CombatSystem.ClearTarget(this);
         }
 
-        public void ApplyExternalForce(Vector2 force)
-        {
-            _externalVelocity += force;
-        }
-        public void ClearExternalForces()
-        {
-            _externalVelocity = Vector2.Zero;
-        }
+        public void ApplyExternalForce(Vector2 force) => _externalVelocity += force;
+        public void ClearExternalForces() => _externalVelocity = Vector2.Zero;
 
-        // -----------------------
-        // DRAW
-        // -----------------------
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // Visual offset corrects sprite drawing so feet align with logic position
-            Vector2 visualOffset = new Vector2(0, 175);
-            Vector2 drawPos = position + visualOffset;
-
-            // Draw animation using AnimationManager
+            // Apply a visual offset so the sprite's feet align with the logical physics position.
+            Vector2 drawPos = position + new Vector2(0, 175);
             _animManager.Draw(spriteBatch, drawPos, (float)Scale, _flipEffect, _currentDirectionIndex);
-
-            // Debug drawing (commented out) shows hitboxes and logic dot; useful while tuning alignment.
-            // Examples left in file for quick experiments.
         }
     }
 }
@@ -6354,11 +6327,12 @@ using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
-    // RotatingSprite: adds rotation helpers and obstacle-aware movement on top of Sprite.
-    // - Used by Enemy, Sentry, Projectile and Ally to aim and move while respecting collisions.
+    // This class extends the basic Sprite by adding "intelligence" for rotation and navigation.
+    // It is the base for anything that needs to aim, turn, or move around the world (Enemies, Allies, Projectiles).
     public class RotatingSprite : Sprite
     {
-        // How quickly the sprite can turn toward a target (radians per update).
+        // Controls the 'steering' weight. A high value means instant turns, 
+        // while a low value creates a heavy, sweeping rotation.
         public float rotationSpeed;
 
         public RotatingSprite(Game g, Microsoft.Xna.Framework.Graphics.Texture2D tx, Vector2 StartPosition, int NoOfFrames)
@@ -6366,24 +6340,90 @@ namespace Pale_Roots_1
         {
         }
 
-        // Rotate smoothly to face another sprite instance (uses TurnToFace under the hood).
+        // --- SMOOTH ROTATION ---
+
+        // Commands the sprite to slowly turn its "face" toward another sprite over several frames.
         public void follow(Sprite sp)
         {
             this.angleOfRotation = TurnToFace(position, sp.position, angleOfRotation, rotationSpeed);
         }
 
-        // Compute a bounded rotation toward a point.
-        // - Returns a new angle clamped by turnSpeed so rotation is smooth over multiple frames.
+        // The core math for smooth turning. It calculates the desired angle using Atan2, 
+        // finds the shortest path to get there, and clamps the change by the rotationSpeed.
         protected static float TurnToFace(Vector2 position, Vector2 faceThis, float currentAngle, float turnSpeed)
         {
             float x = faceThis.X - position.X;
             float y = faceThis.Y - position.Y;
+
+            // Atan2 converts the X/Y distance into a radian angle.
             float desiredAngle = (float)Math.Atan2(y, x);
 
+            // We calculate the difference and "Wrap" it to ensure the sprite doesn't spin 
+            // 350 degrees just to turn 10 degrees to the left.
             float difference = WrapAngle(desiredAngle - currentAngle);
             difference = MathHelper.Clamp(difference, -turnSpeed, turnSpeed);
 
             return WrapAngle(currentAngle + difference);
+        }
+
+        // Helper to keep radians within the -PI to PI range.
+        private static float WrapAngle(float radians)
+        {
+            while (radians < -MathHelper.Pi) radians += MathHelper.TwoPi;
+            while (radians > MathHelper.Pi) radians -= MathHelper.TwoPi;
+            return radians;
+        }
+
+        // --- SLIDING COLLISION NAVIGATION ---
+
+        // Moves the sprite toward a world coordinate while checking for solid WorldObjects.
+        public void MoveToward(Vector2 target, float speed, System.Collections.Generic.List<WorldObject> obstacles)
+        {
+            Vector2 direction = target - position;
+
+            if (direction != Vector2.Zero)
+            {
+                direction.Normalize();
+                Vector2 velocity = direction * speed;
+
+                // --- AXIS SEPARATION ---
+                // We check X and Y independently. This allows the sprite to "slide" along walls.
+                // If the path forward is blocked diagonally, the sprite can still move horizontally.
+
+                // 1. Try moving along the X axis.
+                Vector2 futurePosX = new Vector2(position.X + velocity.X, position.Y);
+                if (!IsColliding(futurePosX, obstacles))
+                {
+                    position.X = futurePosX.X;
+                }
+
+                // 2. Try moving along the Y axis.
+                Vector2 futurePosY = new Vector2(position.X, position.Y + velocity.Y);
+                if (!IsColliding(futurePosY, obstacles))
+                {
+                    position.Y = futurePosY.Y;
+                }
+
+                // Update the rotation so the sprite always looks where it is walking.
+                angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
+
+                // Inherited from Sprite: prevent the sprite from walking off the world map.
+                ClampToMap();
+            }
+        }
+
+        // Instantly snaps the rotation to a point with no transition time.
+        public void SnapToFace(Vector2 target)
+        {
+            float x = target.X - position.X;
+            float y = target.Y - position.Y;
+            angleOfRotation = (float)Math.Atan2(y, x);
+        }
+
+        // A wrapper that lets the AI target a raw Vector2 coordinate instead of a full Sprite object.
+        public void Follow(Vector2 targetPosition)
+        {
+            this.angleOfRotation = TurnToFace(position, targetPosition, angleOfRotation, rotationSpeed);
         }
 
         public override void Update(GameTime gametime)
@@ -6395,68 +6435,6 @@ namespace Pale_Roots_1
         {
             base.Draw(spriteBatch);
         }
-
-        // Normalize an angle into [-PI, PI] so shortest rotation direction is used.
-        private static float WrapAngle(float radians)
-        {
-            while (radians < -MathHelper.Pi)
-            {
-                radians += MathHelper.TwoPi;
-            }
-            while (radians > MathHelper.Pi)
-            {
-                radians -= MathHelper.TwoPi;
-            }
-            return radians;
-        }
-
-        // Move toward a target while checking collisions against obstacles.
-        // - Movement resolves X and Y separately so the sprite can slide along obstacles.
-        // - Updates angleOfRotation to face travel direction.
-        public void MoveToward(Vector2 target, float speed, System.Collections.Generic.List<WorldObject> obstacles)
-        {
-            Vector2 direction = target - position;
-
-            if (direction != Vector2.Zero)
-            {
-                direction.Normalize();
-                Vector2 velocity = direction * speed;
-
-                // Try X axis move; apply only if not colliding at the new X.
-                Vector2 futurePosX = new Vector2(position.X + velocity.X, position.Y);
-                if (!IsColliding(futurePosX, obstacles))
-                {
-                    position.X = futurePosX.X;
-                }
-
-                // Try Y axis move; apply only if not colliding at the new Y.
-                Vector2 futurePosY = new Vector2(position.X, position.Y + velocity.Y);
-                if (!IsColliding(futurePosY, obstacles))
-                {
-                    position.Y = futurePosY.Y;
-                }
-
-                // Face movement direction immediately.
-                angleOfRotation = (float)Math.Atan2(direction.Y, direction.X);
-
-                // Keep sprite inside map bounds (implemented on Sprite).
-                ClampToMap();
-            }
-        }
-
-        // Instantly set rotation to face a world point (no smoothing).
-        public void SnapToFace(Vector2 target)
-        {
-            float x = target.X - position.X;
-            float y = target.Y - position.Y;
-            angleOfRotation = (float)Math.Atan2(y, x);
-        }
-
-        // Smooth follow wrapper that accepts a position rather than a Sprite.
-        public void Follow(Vector2 targetPosition)
-        {
-            this.angleOfRotation = TurnToFace(position, targetPosition, angleOfRotation, rotationSpeed);
-        }
     }
 }
 using Microsoft.Xna.Framework;
@@ -6466,50 +6444,50 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // Base Sprite: minimal drawable game object with simple animation and basic collision helpers.
-    // - Used by Player, Enemy, Ally, WorldObject, Projectile and other actors.
-    // - Provides sprite sheet frame logic, a simple "feet" collision box helper and map clamping.
+    // The foundational class for every physical object in the game.
+    // It handles the basic requirements of "existing": having a position, playing an animation,
+    // staying inside the map, and not walking through trees.
     public class Sprite
     {
-        // Texture and rendering helpers
+        // --- VISUALS ---
         protected Texture2D spriteImage;
         protected Game game;
-        protected Vector2 origin;
+        protected Vector2 origin; // The "handle" of the sprite, mathematically centered for rotation.
         protected float angleOfRotation;
         protected int spriteDepth = 1;
 
-        // Battle / gameplay bookkeeping (kept lightweight so CombatSystem can read/write)
+        // --- CIRCULAR ARENA PHYSICS ---
+        // Used primarily for the Boss Fight to keep the player locked in a circular zone.
+        public bool UseCircularBounds { get; set; } = false;
+        public Vector2 CircularBoundsCenter { get; set; }
+        public float CircularBoundsRadius { get; set; }
+
+        // --- COMBAT DATA ---
         public int AttackerCount { get; set; } = 0;
         public Sprite CurrentCombatPartner;
         public bool Visible = true;
         public int Health { get; set; } = 10000;
         public float AttackCooldown = 0f;
-        public float AttackSpeed = 1000f; // milliseconds per attack
+        public float AttackSpeed = 1000f;
 
-        // World position and scale (position is treated as the logical center point)
-        public Vector2 position;
+        // --- TRANSFORM ---
+        public Vector2 position; // The logical center point of the object in the world.
         public double Scale { get; set; }
 
-        // Animation / spritesheet fields
+        // --- ANIMATION ---
         protected int numberOfFrames = 0;
         protected int currentFrame = 0;
         protected int mililsecondsBetweenFrames = 100;
         protected float timer = 0f;
         public int spriteWidth = 0;
         public int spriteHeight = 0;
-        public Rectangle sourceRectangle;
+        public Rectangle sourceRectangle; // The "window" into the sprite sheet showing the current frame.
 
-        // Optional source rect offset for spritesheets that pack many sprites
         protected int _sheetStartX = 0;
         protected int _sheetStartY = 0;
 
-        // Convenience: center for systems that use a logical center point for targeting
-        public Vector2 Center
-        {
-            get { return position; }
-        }
+        public Vector2 Center => position;
 
-        // Constructor sets texture, frame count, scale and origin based on the supplied sheet.
         public Sprite(Game g, Texture2D texture, Vector2 userPosition, int framecount, double scale)
         {
             this.game = g;
@@ -6519,16 +6497,17 @@ namespace Pale_Roots_1
             this.Scale = scale;
             this.spriteHeight = spriteImage.Height;
             this.spriteWidth = spriteImage.Width / framecount;
+
+            // Set the origin to the center of a single frame so rotation and scaling happen from the middle.
             this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
             this.sourceRectangle = new Rectangle(0, 0, spriteWidth, spriteHeight);
         }
 
-        // Virtual placeholder; some subclasses (RotatingSprite) use a follow implementation.
         public virtual void follow(Sprite target) { }
 
-        // Advance animation frames and update the source rectangle to the current frame.
         public virtual void Update(GameTime gametime)
         {
+            // --- ANIMATION ENGINE ---
             timer += (float)gametime.ElapsedGameTime.TotalMilliseconds;
             if (timer > mililsecondsBetweenFrames)
             {
@@ -6537,57 +6516,76 @@ namespace Pale_Roots_1
                 timer = 0f;
             }
 
+            // Calculate the X-offset on the sprite sheet to show the next frame of animation.
             int frameOffsetX = currentFrame * spriteWidth;
             sourceRectangle = new Rectangle(_sheetStartX + frameOffsetX, _sheetStartY, spriteWidth, spriteHeight);
         }
 
-        // Set a different source rectangle on the sheet (useful for Helper / WorldObject).
         public void SetSpriteSheetLocation(Rectangle source)
         {
+            // Manually slice a specific part of the sheet. Used for static world props like rocks.
             _sheetStartX = source.X;
             _sheetStartY = source.Y;
-
             this.spriteWidth = source.Width;
             this.spriteHeight = source.Height;
             this.sourceRectangle = source;
-
             this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
         }
 
-        // Keep the logical center point inside the map bounds (uses GameConstants.DefaultMapSize).
-        // Call this after movement to avoid showing outside the world.
         protected void ClampToMap()
         {
-            float mapW = GameConstants.DefaultMapSize.X;
-            float mapH = GameConstants.DefaultMapSize.Y;
+            // --- RADIAL CLAMPING (BOSS ARENA) ---
+            if (UseCircularBounds)
+            {
+                float dist = Vector2.Distance(position, CircularBoundsCenter);
 
-            float halfWidth = (spriteWidth * (float)Scale) / 2f;
-            float halfHeight = (spriteHeight * (float)Scale) / 2f;
+                // Account for the sprite's width so the edge of the character doesn't poke out of the circle.
+                float spriteRadius = (spriteWidth * (float)Scale) / 3f;
+                float maxDist = CircularBoundsRadius - spriteRadius;
 
-            if (position.X < halfWidth) position.X = halfWidth;
-            if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+                if (dist > maxDist)
+                {
+                    // If the sprite tries to leave the circle, find the angle of exit and force them back onto the rim.
+                    Vector2 dir = position - CircularBoundsCenter;
+                    if (dir != Vector2.Zero) dir.Normalize();
+                    position = CircularBoundsCenter + (dir * maxDist);
+                }
+            }
+            // --- RECTANGULAR CLAMPING (OVERWORLD) ---
+            else
+            {
+                float mapW = GameConstants.DefaultMapSize.X;
+                float mapH = GameConstants.DefaultMapSize.Y;
 
-            if (position.Y < halfHeight) position.Y = halfHeight;
-            if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+                float halfWidth = (spriteWidth * (float)Scale) / 2f;
+                float halfHeight = (spriteHeight * (float)Scale) / 2f;
+
+                // Stop the sprite from moving past the 0 or Max edges of the coordinate system.
+                if (position.X < halfWidth) position.X = halfWidth;
+                if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
+                if (position.Y < halfHeight) position.Y = halfHeight;
+                if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+            }
         }
 
-        // Simple collision check used by movement helpers:
-        // - Builds a small "feet" rectangle from newPos and checks against solid WorldObjects' CollisionBox.
-        // - Returns true when a collision would occur (caller should avoid moving there).
         protected bool IsColliding(Vector2 newPos, List<WorldObject> objects)
         {
             if (objects == null) return false;
 
-            // Feet box is a small rectangle near the bottom-center of the sprite.
+            // --- "FEET" COLLISION LOGIC ---
+            // We don't check for collisions on the whole body. We create a small box at the 
+            // bottom 20% of the sprite. This allows the player to walk behind the tops of 
+            // trees while still being blocked by the physical trunks.
             float scale = (float)Scale;
-            int w = (int)(spriteWidth * scale * 0.4f); // 40% of sprite width
-            int h = (int)(spriteHeight * scale * 0.2f); // 20% of sprite height
+            int w = (int)(spriteWidth * scale * 0.4f);
+            int h = (int)(spriteHeight * scale * 0.2f);
 
             int x = (int)(newPos.X - (w / 2));
             int y = (int)(newPos.Y + (spriteHeight * scale / 2) - h);
 
             Rectangle futureFeetBox = new Rectangle(x, y, w, h);
 
+            // Check if this "feet" box would intersect with any solid objects in the world.
             foreach (var obj in objects)
             {
                 if (obj.IsSolid && futureFeetBox.Intersects(obj.CollisionBox))
@@ -6599,11 +6597,11 @@ namespace Pale_Roots_1
             return false;
         }
 
-        // Draw the sprite at `position` using the current sourceRectangle and origin.
         public virtual void Draw(SpriteBatch spriteBatch)
         {
             if (Visible)
             {
+                // Draw the current animation frame to the screen.
                 spriteBatch.Draw(spriteImage, position, sourceRectangle,
                     Color.White, angleOfRotation, origin,
                     (float)Scale, SpriteEffects.None, spriteDepth);

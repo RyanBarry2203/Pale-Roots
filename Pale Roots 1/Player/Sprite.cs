@@ -118,14 +118,13 @@ namespace Pale_Roots_1
                 float mapW = GameConstants.DefaultMapSize.X;
                 float mapH = GameConstants.DefaultMapSize.Y;
 
-                float halfWidth = (spriteWidth * (float)Scale) / 2f;
-                float halfHeight = (spriteHeight * (float)Scale) / 2f;
+                float clampPaddingX = 50f;
+                float clampPaddingY = 50f;
 
-                // Stop the sprite from moving past the 0 or Max edges of the coordinate system.
-                if (position.X < halfWidth) position.X = halfWidth;
-                if (position.X > mapW - halfWidth) position.X = mapW - halfWidth;
-                if (position.Y < halfHeight) position.Y = halfHeight;
-                if (position.Y > mapH - halfHeight) position.Y = mapH - halfHeight;
+                if (position.X < clampPaddingX) position.X = clampPaddingX;
+                if (position.X > mapW - clampPaddingX) position.X = mapW - clampPaddingX;
+                if (position.Y < clampPaddingY) position.Y = clampPaddingY;
+                if (position.Y > mapH - clampPaddingY) position.Y = mapH - clampPaddingY;
             }
         }
 
