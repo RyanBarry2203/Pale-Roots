@@ -5,7 +5,8 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // This state runs the boss fight level and controls the arena and rules.
+    // This state runs the boss fight level and controls the arena and rules, becauyse we push and pop this state and everything used in the state
+    // is freshly initiliased, once we leave this state every morcel of data used in it is gone, making the architecture clean and efficient.
     public class BossBattleState : IGameState
     {
         private Game1 _game;
@@ -48,7 +49,7 @@ namespace Pale_Roots_1
             bossTextures["Hurt"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_hurt");
             bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
 
-            // Compute the center position for the arena.
+            // Compute the center position for the arena and offset slightly.
             Vector2 mapCenter = new Vector2(1920, 1088 + 150);
 
             // Spawn the boss at the center of the room.

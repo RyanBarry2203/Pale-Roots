@@ -1,7 +1,6 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-//using AnimatedSprite; // Needed to see the Sprite base class
 
 namespace Pale_Roots_1
 {

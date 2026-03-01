@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Pale_Roots_1
 {
     // Represents a friendly NPC that fights alongside the player.
-    // Extends RotatingSprite and implements INpcActor for AI and rendering.
+    // Extends RotatingSprite and implements INpcActor for AI brain and rendering.
     public class Ally : RotatingSprite, INpcActor
     {
         // Tracks the ally's lifecycle for death handling.
@@ -147,7 +147,7 @@ namespace Pale_Roots_1
 
         protected virtual void UpdateDying(GameTime gameTime)
         {
-            // Countdown to fully dead and hide the sprite.
+            // Countdown to fully dead so the full animation plays and hide the sprite.
             _deathCountdown--;
             if (_deathCountdown <= 0) { LifecycleState = ALLYSTATE.DEAD; Visible = false; }
         }
@@ -201,7 +201,7 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // Draw the current animation frame and optional health bar.
+            // Draw the current animation frame and health bar.
             if (Visible) _animManager.Draw(spriteBatch, position, (float)Scale, _flipEffect, _currentDirectionIndex);
 
             if (_drawHealthBar && IsAlive) DrawHealthBar(spriteBatch);

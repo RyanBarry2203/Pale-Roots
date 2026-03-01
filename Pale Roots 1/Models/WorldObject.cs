@@ -100,21 +100,21 @@ namespace Pale_Roots_1
 
         // Draw a red rectangle around the computed CollisionBox for debugging purposes.
         // Lazily creates a 1x1 debug texture when first needed.
-        public void DrawDebug(SpriteBatch spriteBatch)
-        {
-            if (_debugTexture == null)
-            {
-                _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
-                _debugTexture.SetData(new[] { Color.Red });
-            }
+        //public void DrawDebug(SpriteBatch spriteBatch)
+        //{
+        //    if (_debugTexture == null)
+        //    {
+        //        _debugTexture = new Texture2D(game.GraphicsDevice, 1, 1);
+        //        _debugTexture.SetData(new[] { Color.Red });
+        //    }
 
-            Rectangle box = CollisionBox;
-            int thickness = 2;
+        //    Rectangle box = CollisionBox;
+        //    int thickness = 2;
 
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
-            spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
-        }
+        //    spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, box.Width, thickness), Color.Red);
+        //    spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Bottom, box.Width, thickness), Color.Red);
+        //    spriteBatch.Draw(_debugTexture, new Rectangle(box.X, box.Y, thickness, box.Height), Color.Red);
+        //    spriteBatch.Draw(_debugTexture, new Rectangle(box.Right, box.Y, thickness, box.Height), Color.Red);
+        //}
     }
 }

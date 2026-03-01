@@ -5,6 +5,7 @@ namespace Pale_Roots_1
 {
     // Shared numeric constants used by gameplay systems like Player, Enemy, Camera, and AI.
     // Other classes read these values for speeds, ranges, timers, and map dimensions.
+    // i know this is a lot of constants but it helps keep magic numbers out of the code and makes tuning easier.
     public static class GameConstants
     {
         public const float SwordSwingDuration = 250f;
@@ -74,7 +75,7 @@ namespace Pale_Roots_1
     }
 
     // Central combat helper used to deal damage, manage targets, and emit combat events.
-    // Systems subscribe to events and use the RNG helpers to produce consistent randomness.
+    // Systems subscribe to events and use the RNG helpers to produce consistent randomness for every run.
     public static class CombatSystem
     {
         // Events for damage, kills, and target assignment used across the project.
@@ -112,8 +113,6 @@ namespace Pale_Roots_1
 
             return finalDamage;
         }
-
-        // Cleanup attacker bookkeeping and notify listeners about the kill.
         private static void HandleKill(ICombatant killer, ICombatant victim)
         {
             if (victim.CurrentTarget != null)

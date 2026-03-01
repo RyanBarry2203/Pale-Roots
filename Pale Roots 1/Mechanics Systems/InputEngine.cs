@@ -19,7 +19,7 @@ namespace Pale_Roots_1
         // Maps action names to keyboard keys.
         private static Dictionary<string, Keys> _keyBindings = new Dictionary<string, Keys>();
 
-        // Maps action names to mouse button indices (0=Left, 1=Right, 2=Middle).
+        // Maps action names to mouse buttons
         private static Dictionary<string, int> _mouseBindings = new Dictionary<string, int>();
 
         // GamePad state history used for pressed/held detection.

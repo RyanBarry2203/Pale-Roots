@@ -22,7 +22,6 @@ namespace Pale_Roots_1
         // Backing rectangle kept for API compatibility.
         Rectangle healthRect;
 
-        // Top-left screen position where the bar is drawn.
         public Vector2 position;
 
         // Rectangle sized to `health` and a fixed height.
@@ -40,15 +39,6 @@ namespace Pale_Roots_1
             // Create a 1x1 white pixel used to draw the bar.
             TxHealthBar = new Texture2D(g.GraphicsDevice, 1, 1);
             TxHealthBar.SetData(new[] { Color.White });
-        }
-
-        // Test helper that decreases health while the Down key is held.
-        public void Update()
-        {
-            if (health > 0)
-            {
-                if (Keyboard.GetState().IsKeyDown(Keys.Down)) health--;
-            }
         }
 
         // Render the health bar with color based on health tiers.

@@ -4,7 +4,8 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // Loads and registers the project's predefined cutscenes into the CutsceneManager.
+    // Loads and registers the project's cutscenes into the CutsceneManager.
+    // *insert pen on fire gif*
     public static class CutsceneLibrary
     {
         public static void LoadAllCutscenes(CutsceneManager manager, Game game)

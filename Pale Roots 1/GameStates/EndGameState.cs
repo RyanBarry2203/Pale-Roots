@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // Shows the victory or game over screen based on a flag.
+    // Shows the victory or game over screen based on a boolean flag _isVictory
     public class EndGameState : IGameState
     {
         private Game1 _game;

@@ -107,7 +107,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Reduce incoming knockback for this large boss.
+        // Reduce incoming knockback for large boss to make him feel strogner and more powerful than other enemies.
         public override void ApplyKnockback(Vector2 force)
         {
             base.ApplyKnockback(force * 0.05f);
@@ -123,7 +123,7 @@ namespace Pale_Roots_1
         protected override void DrawHealthBar(SpriteBatch spriteBatch)
         {
             // Do not draw the standard floating health bar for this boss.
-            // The UIManager draws the boss health bar in the HUD instead.
+            // The UIManager draws the boss health bar in the HUD instead, again reinforce the significance of this boss.
         }
     }
 }

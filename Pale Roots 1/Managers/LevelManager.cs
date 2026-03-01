@@ -83,6 +83,9 @@ namespace Pale_Roots_1
 
                             // pick a random nature asset from the data library and place it.
                             string randomNature = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
+                            // used to have colliders on the objects but i just didnt like hwo it tightened up everyones movement, i felt opening everything up,
+                            // made the gameplay more fuild and chaotic and fun, and made the abilitys more efficient and meanigful because,
+                            // you could trail enemies easier so i set isSolid to false on all objects
                             CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
                         }
                     }
@@ -95,6 +98,10 @@ namespace Pale_Roots_1
         private bool IsSpaceOccupied(Vector2 pos, float minGap)
         {
             // check existing map objects to ensure a minimum spacing around a candidate position.
+            // very much was a perfectionist when it came to how the map looked and wanted to make sure there was enough space around each
+            // object so they didnt look cluttered or like they were spawning on top of each other,
+            // this function checks the distance to existing objects and their size to ensure a natural spacing.
+            // similar philosophy for the IsTooCloseToIdentical method.
             foreach (var obj in MapObjects)
             {
                 float objectRadius = (obj.spriteWidth * (float)obj.Scale) / 2.5f;
@@ -129,6 +136,9 @@ namespace Pale_Roots_1
 
         private void FillZones(Vector2 centerPos)
         {
+            // prodecurally fill the map with decorative debris based on distance zones from the center landmark and spacing rules.
+            // i wanted the map to be prodecurally generate to make it more dynamic but i still have a rough image of how the level should be 
+            // composed, eg graves on the left to strike fear into enemies etc.
             int attempts = 0;
             int maxItems = 60;
             int itemsPlaced = 0;

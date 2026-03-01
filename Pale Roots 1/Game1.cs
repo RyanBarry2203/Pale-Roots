@@ -11,9 +11,6 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         public SpriteBatch SpriteBatch { get; private set; }
 
-        // optional saved gameplay state for boss transitions
-        //public GameplayState SavedMainGameState { get; set; }
-
         // engine manager instances used by the game
         public GameStateManager StateManager { get; private set; }
         public AudioManager AudioManager { get; private set; }

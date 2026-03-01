@@ -11,7 +11,7 @@ namespace Pale_Roots_1
     // Uses Sprite for position and drawing.
     public class Player : Sprite, ICombatant
     {
-        // --- ICOMBATANT IMPLEMENTATION ---
+        // ICombatant contract requiremnets
         public string Name { get; set; } = "Hero";
         public float DamageMultiplier { get; set; } = 1.0f;
         public CombatTeam Team => CombatTeam.Player;
@@ -21,24 +21,22 @@ namespace Pale_Roots_1
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
 
-        // Expose internal sprite properties to the world.
+        // internal sprite properties
         public new Vector2 Position { get => position; set => position = value; }
         public Game Game => game;
         public Vector2 CentrePos => Center;
 
-        // --- PHYSICS & MOVEMENT ---
+        // movement and physics
         private float _speed;
         private Vector2 _velocity;
 
         // External momentum from forces or knockback.
         private Vector2 _externalVelocity = Vector2.Zero;
 
-        // --- STATE MACHINE ---
         // Controls what the player can do each frame.
         public enum PlayerState { Idle, Run, Attack1, Attack2, Dash, Hurt, Dead }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
 
-        // --- COMBAT & ABILITIES ---
         private Vector2 _mouseWorldPosition;
         private Vector2 _facingDirection = new Vector2(0, 1);
         public bool IsHeavyAttackUnlocked { get; set; } = false;
@@ -113,7 +111,6 @@ namespace Pale_Roots_1
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // --- 1. EXTERNAL PHYSICS ---
             // Apply external forces before player input movement.
             if (_externalVelocity != Vector2.Zero)
             {
@@ -135,14 +132,12 @@ namespace Pale_Roots_1
             if (_cooldownTimer > 0) _cooldownTimer -= dt;
             if (_dashCooldownTimer > 0) _dashCooldownTimer -= dt;
 
-            // --- 2. MOUSE WORLD COORDINATES ---
             // Convert mouse screen position to a world position relative to the player center.
             MouseState mouseState = Mouse.GetState();
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
-            // --- 3. STATE DISPATCH ---
             // Run logic based on the current finite state machine state.
             switch (CurrentState)
             {
@@ -306,7 +301,6 @@ namespace Pale_Roots_1
             return !IsColliding(newPos, obstacles);
         }
 
-        // --- COMBAT LOGIC ---
 
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
@@ -358,7 +352,7 @@ namespace Pale_Roots_1
             {
                 if (!enemy.IsAlive || _enemiesHitThisAttack.Contains(enemy)) continue;
 
-                // Approximate enemy hurtbox.
+                // enemy hurtbox.
                 Rectangle enemyRect = new Rectangle((int)enemy.Position.X - 30, (int)enemy.Position.Y - 80, 60, 80);
 
                 if (swordHitbox.Intersects(enemyRect))

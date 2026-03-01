@@ -117,7 +117,7 @@ namespace Pale_Roots_1
             var spells = _spellManager.AllSpells;
             for (int i = 0; i < spells.Count; i++)
             {
-                int index = i; // Capture for lambda
+                int index = i; 
                 Spell s = spells[i];
                 s.Icon = _spellIcons[i]; // Bind the UI icon directly to the spell object
 

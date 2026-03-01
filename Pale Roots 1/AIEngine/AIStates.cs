@@ -93,7 +93,7 @@ namespace Pale_Roots_1
             // If no wander target is set or the npc is close to it, pick a new one.
             if (npc.WanderTarget == Vector2.Zero || Vector2.Distance(npc.Position, npc.WanderTarget) < 5f)
             {
-                // Use CombatSystem random to compute a new wander target within the configured radius.
+                // Use CombatSystem random to compute a new wander target within the radius.
                 npc.WanderTarget = npc.StartPosition + new Vector2(
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)

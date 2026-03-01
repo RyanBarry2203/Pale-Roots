@@ -8,20 +8,18 @@ namespace Pale_Roots_1
     // Base class for visible game objects that handles position, animation, collision, and drawing.
     public class Sprite
     {
-        // --- VISUALS ---
+
         protected Texture2D spriteImage;
         protected Game game;
         protected Vector2 origin; // center point used for rotation and scaling
         protected float angleOfRotation;
         protected int spriteDepth = 1;
 
-        // --- CIRCULAR ARENA PHYSICS ---
         // Enables circular bounds used by the boss arena logic.
         public bool UseCircularBounds { get; set; } = false;
         public Vector2 CircularBoundsCenter { get; set; }
         public float CircularBoundsRadius { get; set; }
 
-        // --- COMBAT DATA ---
         public int AttackerCount { get; set; } = 0;
         public Sprite CurrentCombatPartner;
         public bool Visible = true;
@@ -29,11 +27,9 @@ namespace Pale_Roots_1
         public float AttackCooldown = 0f;
         public float AttackSpeed = 1000f;
 
-        // --- TRANSFORM ---
         public Vector2 position; // world position used as the object's logical center
         public double Scale { get; set; }
 
-        // --- ANIMATION ---
         protected int numberOfFrames = 0;
         protected int currentFrame = 0;
         protected int mililsecondsBetweenFrames = 100;

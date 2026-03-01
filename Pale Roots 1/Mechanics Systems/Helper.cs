@@ -12,6 +12,7 @@ namespace Pale_Roots_1
         public static Texture2D SpriteSheet { get; set; }
 
         // Map of asset keys to their source rectangle on the sprite sheet.
+        // i know this should be a database.
         public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
         {
             { "Big_Rock", new Rectangle(16, 192, 64, 64)},

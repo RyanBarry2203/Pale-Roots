@@ -60,7 +60,7 @@ namespace Pale_Roots_1
             Vector2 instSize = _game.UiFont.MeasureString(instructions);
             spriteBatch.DrawString(_game.UiFont, instructions, new Vector2(graphicsDevice.Viewport.Width / 2 - instSize.X / 2, 30), Color.White);
 
-            // Get all upgrade cards except hidden boss trigger cards.
+            // Get all upgrade cards except hidden boss trigger cards... because its an "easter egg"
             List<UpgradeManager.UpgradeOption> allCards = _game.UpgradeManager.GetAllUpgrades()
                 .FindAll(card => card.Type != UpgradeManager.UpgradeType.BossTrigger);
 
@@ -104,7 +104,7 @@ namespace Pale_Roots_1
             spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.X, _backBtnRect.Y, b, _backBtnRect.Height), bc);
             spriteBatch.Draw(pixel, new Rectangle(_backBtnRect.Right - b, _backBtnRect.Y, b, _backBtnRect.Height), bc);
 
-            // Center and draw the back button label.
+            // Center and draw the back button label...quite an ugly button but it gets the job done:(
             Vector2 backSize = _game.UiFont.MeasureString("BACK");
             spriteBatch.DrawString(_game.UiFont, "BACK", new Vector2(_backBtnRect.Center.X - backSize.X / 2, _backBtnRect.Center.Y - backSize.Y / 2), Color.White);
 

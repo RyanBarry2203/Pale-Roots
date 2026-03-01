@@ -9,7 +9,7 @@ namespace Pale_Roots_1
     {
         private Game1 _game;
 
-        // Number of enemy kills required for final victory.
+        // Number of enemy kills required for final victory, was 180 origionally, slowly dropped through playtesting.
         private const int WIN_CONDITION_KILLS = 120;
 
         // Flags tracking end of game and outcome.
@@ -73,7 +73,7 @@ namespace Pale_Roots_1
                             _game.StateManager.ChangeState(new LevelUpState(_game));
                         }
 
-                        // Recalculate thresholds for the next level up.
+                        // Recalculate thresholds for the next level up, levels get exponentially more expensive as you become more powerful.
                         _game.PreviousLevelThreshold = _game.NextLevelThreshold;
                         _game.LevelStep += 4;
                         _game.NextLevelThreshold += _game.LevelStep;

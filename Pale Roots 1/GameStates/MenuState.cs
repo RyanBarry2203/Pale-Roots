@@ -10,7 +10,7 @@ namespace Pale_Roots_1
     {
         private Game1 _game;
 
-        // Invisible rectangles used as mouse click hitboxes.
+        // Invisible rectangles used as mouse click hitboxes, in full screen they are slightly off...
         private Rectangle _playBtnRect;
         private Rectangle _tutorialBtnRect;
         private Rectangle _quitBtnRect;

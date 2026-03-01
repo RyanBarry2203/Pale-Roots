@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // Plays the final cinematic after the boss is defeated using the CutsceneManager.
+    // Plays the final cinematic after the boss is defeated using the CutsceneManager. *Insert CINEMA meme here*.
     public class OutroState : IGameState
     {
         private Game1 _game;

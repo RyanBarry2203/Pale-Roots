@@ -67,7 +67,7 @@ namespace Pale_Roots_1
 
         protected int _deathCountdown;
 
-        // The active AI behavior (like WanderState, ChaseState, etc.).
+        // The active AI behavior like WanderState, ChaseState, etc
         public IAIState CurrentState { get; private set; }
 
         // Cleanly swaps the AI state by triggering the exit logic of the old one before entering the new one.
@@ -96,25 +96,6 @@ namespace Pale_Roots_1
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 8, 0, 125f, false, 4, 0, true));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 6, 0, 150f, false, 4, 0, true));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 8, 0, 150f, false, 4, 0, true));
-            _animManager.Play("Idle");
-
-            SetupHealthBar(g);
-        }
-
-        // Legacy constructor for simpler enemies that only have a single sprite sheet.
-        public Enemy(Game g, Texture2D texture, Vector2 userPosition, int framecount)
-            : base(g, texture, userPosition, framecount)
-        {
-            SetupCommonStats(userPosition);
-            Scale = 3.0;
-
-            _animManager = new AnimationManager();
-            var legacyAnim = new Animation(texture, framecount, 0, 200f, true, 1, 0, false);
-            _animManager.AddAnimation("Idle", legacyAnim);
-            _animManager.AddAnimation("Walk", legacyAnim);
-            _animManager.AddAnimation("Attack", legacyAnim);
-            _animManager.AddAnimation("Hurt", legacyAnim);
-            _animManager.AddAnimation("Death", legacyAnim);
             _animManager.Play("Idle");
 
             SetupHealthBar(g);

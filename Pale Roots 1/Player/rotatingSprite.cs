@@ -36,8 +36,6 @@ namespace Pale_Roots_1
             // Return the new wrapped angle.
             return WrapAngle(currentAngle + difference);
         }
-
-        // Keep angles within the -PI to PI range.
         private static float WrapAngle(float radians)
         {
             while (radians < -MathHelper.Pi) radians += MathHelper.TwoPi;

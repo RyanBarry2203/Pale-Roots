@@ -12,7 +12,7 @@ namespace Pale_Roots_1
         // Tracks the vertical position of the entire block of text as it moves up the screen.
         private float _creditsScrollY;
 
-        // Hardcoded credits text.
+        // Hardcoded credits text displaying the work of a very talented developer.
         private string _creditsText =
             "PALE ROOTS\n\n" +
             "A Game by Ryan Barry\n\n" +

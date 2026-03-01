@@ -5,7 +5,8 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // Controls background music playback and crossfading between tracks.
+    // Controls background music playback and crossfading between tracks...still kindof not 100% consistent but i cannot for the life of me figure out why,
+    // figured out the main bug it had but sometimes still has long pauses between tracks, and sometimes the fade out doesn't work, but rarely.. i think.
     public class AudioManager
     {
         // Configuration values for fade speed and maximum volume.

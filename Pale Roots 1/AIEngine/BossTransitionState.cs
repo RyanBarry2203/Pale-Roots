@@ -5,7 +5,7 @@ using System;
 namespace Pale_Roots_1
 {
     // Creates a cinematic transition into or out of the boss fight.
-    // Renders a frozen snapshot of the engine while animating the player being pulled into a void.
+    // Renders a frozen snapshot of the engine while animating the player being pulled into a void by shrinking the player.
     public class BossTransitionState : IGameState
     {
         private Game1 _game;
@@ -39,7 +39,7 @@ namespace Pale_Roots_1
             else if (_playerWon) _text = "You draw on the power of the mighty creature.\nThe void empowers you.";
             else _text = "The void consumes what you knew.\nOnly a fragment remains.";
 
-            // Switch the music to the dramatic track for the transition.
+            // Switch the music to the dramatic track for the transition, same as the death music.
             _game.AudioManager.HandleMusicState(GameState.GameOver);
         }
 

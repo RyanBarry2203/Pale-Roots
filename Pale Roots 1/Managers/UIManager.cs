@@ -5,6 +5,7 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // full of a disgusting amount of draw calls but atleast theyre all in one place. just looking at this code hurts my brain.
     public class UIManager
     {
         private Texture2D _uiPixel;

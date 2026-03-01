@@ -8,6 +8,8 @@ using System.Linq;
 namespace Pale_Roots_1
 {
     // Engine that runs the battle mode and coordinates level, camera, player, allies, and enemies.
+    // abit of a god class but not as bad as it was before the refactor,
+    // and it centralizes the battle logic in one place instead of spreading it across the player and enemy classes.
     public class ChaseAndFireEngine
     {
         // Runtime tuning flags.
@@ -37,7 +39,6 @@ namespace Pale_Roots_1
         private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
         private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
-        // Texture sets for unit types.
         private List<Dictionary<string, Texture2D>> _allOrcTypes = new List<Dictionary<string, Texture2D>>();
         private Dictionary<string, Texture2D> _allyTextures = new Dictionary<string, Texture2D>();
 
@@ -87,7 +88,7 @@ namespace Pale_Roots_1
 
             _spellManager = new SpellManager(this, txSmite, txNova, txFury, txShield, txElectric, txJustice);
 
-            // Prepare armies and subscribe to combat events.
+            // Prepare armies
             InitializeArmies();
             SetupCombatEvents();
         }
@@ -106,7 +107,7 @@ namespace Pale_Roots_1
                 _allOrcTypes.Add(newOrcDict);
             }
 
-            // Load ally atlas textures.
+            // Load ally textures.
             _allyTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Walk");
             _allyTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Slash");
             _allyTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Idle");
@@ -181,7 +182,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Subscribe to combat events to handle kills and friendly losses.
+        // combat events to handle kills and friendly losses.
         private void SetupCombatEvents()
         {
             // React to the global combatant killed event.
@@ -203,7 +204,7 @@ namespace Pale_Roots_1
             };
         }
 
-        // Per frame update called by Game1.
+        // update called by Game1.
         public void Update(GameTime gameTime)
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
@@ -405,8 +406,6 @@ namespace Pale_Roots_1
                 }
             }
         }
-
-        // Expose the spell manager.
         public SpellManager GetSpellManager() => _spellManager;
 
         // Draw level then sprites sorted by depth and finally spell effects.

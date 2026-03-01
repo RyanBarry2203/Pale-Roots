@@ -32,10 +32,6 @@ namespace Pale_Roots_1
         // True when the sheet uses directional rows instead of sprite flipping.
         public bool IsGrid { get; set; }
 
-        // texture: the sprite sheet. frameCount: frames across the row.
-        // sheetRow: which vertical row to use. frameSpeed: ms per frame.
-        // isLooping: loop behavior. totalRows: rows in sheet for grid layouts.
-        // customWidth: optional override for frame width. isGrid: directional sheet flag.
         public Animation(Texture2D texture, int frameCount, int sheetRow, float frameSpeed, bool isLooping, int totalRows = 1, int customWidth = 0, bool isGrid = false)
         {
             Texture = texture;

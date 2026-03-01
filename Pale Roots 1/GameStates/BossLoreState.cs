@@ -52,7 +52,6 @@ namespace Pale_Roots_1
             // Make sure the player can actually see their mouse if they want to click to continue.
             _game.IsMouseVisible = true;
 
-            // If we are just sitting on the screen reading...
             if (!_isFadingOut)
             {
                 // Listen to the InputEngine for the player's go-ahead.
