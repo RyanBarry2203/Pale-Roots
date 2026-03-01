@@ -7,48 +7,48 @@ using System.Linq;
 
 namespace Pale_Roots_1
 {
-    // Engine that runs the battle mode: owns level, camera, player/allies/enemies and coordinates update/draw/targeting.
+    // Engine that runs the battle mode and coordinates level, camera, player, allies, and enemies.
     public class ChaseAndFireEngine
     {
-        // Simple runtime tuning flags
+        // Runtime tuning flags.
         public bool SpawningBlocked { get; set; } = false;
         public float GlobalPlayerDamageMult { get; set; } = 1.0f;
         public float GlobalEnemyHealthMult { get; set; } = 1.0f;
         public bool IsBossArena { get; set; } = false;
 
-        // Major subsystems (public so Game1 can access camera matrix before drawing)
+        // Major subsystems accessible to the game.
         public LevelManager _levelManager;
         public Camera _camera;
         public Game _gameOwnedBy;
 
-        // --- GRAPHICS PIPELINE ---
+        // Rendering pipeline.
         public RenderPipeline Renderer { get; private set; }
 
-        // Runtime entity lists
+        // Runtime entity lists.
         private Player _player;
         public List<Ally> _allies = new List<Ally>();
         public List<Enemy> _enemies = new List<Enemy>();
         private SpellManager _spellManager;
 
-        // Battle state + spawn/origin positions
+        // Battle state and spawn positions.
         private bool _battleStarted = false;
         private Vector2 _mapSize;
         private Vector2 _playerSpawnPos = new Vector2(500, 1230);
         private Vector2 _allySpawnOrigin = new Vector2(400, 1100);
         private Vector2 _enemySpawnOrigin = new Vector2(3200, 1230);
 
-        // Shared texture dictionaries for enemy/ally types
+        // Texture sets for unit types.
         private List<Dictionary<string, Texture2D>> _allOrcTypes = new List<Dictionary<string, Texture2D>>();
         private Dictionary<string, Texture2D> _allyTextures = new Dictionary<string, Texture2D>();
 
-        // Target-scan timer (we do perception checks at intervals)
+        // Timer used to pace target scanning.
         private float _targetingTimer = 0f;
 
-        // Lightweight counters for UI
+        // Lightweight counters for UI.
         public int EnemiesKilled { get; private set; }
         public int AlliesLost { get; private set; }
 
-        // Constructor: create level, player, camera, load spells and armies.
+        // Constructor initializes level, player, camera, spells, and armies.
         public ChaseAndFireEngine(Game game)
         {
             _gameOwnedBy = game;
@@ -57,10 +57,10 @@ namespace Pale_Roots_1
             _levelManager = new LevelManager(game);
             _levelManager.LoadLevel(0);
 
-            // Initialize the dedicated rendering API
+            // Initialize rendering API.
             Renderer = new RenderPipeline();
 
-            // Create player (textures are loaded from Content by Game1 and passed here)
+            // Create player and set name.
             _player = new Player(
                 game,
                 game.Content.Load<Texture2D>("wizard_strip3"),
@@ -69,7 +69,7 @@ namespace Pale_Roots_1
             );
             _player.Name = "Hero";
 
-            // Camera: center on map and set sane zoom to fit viewport
+            // Configure camera to center on the map.
             _camera = new Camera(Vector2.Zero, _mapSize);
             Viewport vp = game.GraphicsDevice.Viewport;
             float scaleX = (float)vp.Width / _mapSize.X;
@@ -77,22 +77,22 @@ namespace Pale_Roots_1
             _camera.Zoom = Math.Min(scaleX, scaleY);
             _camera.LookAt(new Vector2(_mapSize.X / 2, _mapSize.Y / 2), vp);
 
-            // Load spell effect atlases and create the SpellManager
+            // Load spell textures and create the spell manager.
             Texture2D txSmite = game.Content.Load<Texture2D>("Effects/Smite_spritesheet");
             Texture2D txNova = game.Content.Load<Texture2D>("Effects/HolyNova_spritesheet");
             Texture2D txFury = game.Content.Load<Texture2D>("Effects/HeavensFury_spritesheet");
             Texture2D txShield = game.Content.Load<Texture2D>("Effects/HolyShield_spritesheet");
-            Texture2D txElectric = game.Content.Load<Texture2D>("Effects/Sprite-sheet"); // placeholder name
+            Texture2D txElectric = game.Content.Load<Texture2D>("Effects/Sprite-sheet");
             Texture2D txJustice = game.Content.Load<Texture2D>("Effects/SwordOfJustice_spritesheet");
 
             _spellManager = new SpellManager(this, txSmite, txNova, txFury, txShield, txElectric, txJustice);
 
-            // Prepare armies and wire event handlers
+            // Prepare armies and subscribe to combat events.
             InitializeArmies();
             SetupCombatEvents();
         }
 
-        // Load enemy/ally texture sets and create initial units
+        // Load enemy and ally texture sets and create initial units.
         private void InitializeArmies()
         {
             for (int i = 1; i <= 3; i++)
@@ -106,12 +106,12 @@ namespace Pale_Roots_1
                 _allOrcTypes.Add(newOrcDict);
             }
 
-            // Ally shared atlas
+            // Load ally atlas textures.
             _allyTextures["Walk"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Walk");
             _allyTextures["Attack"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Slash");
             _allyTextures["Idle"] = _gameOwnedBy.Content.Load<Texture2D>("Ally/Character_Idle");
 
-            // Spawn a column of allies
+            // Spawn initial allies.
             for (int i = 0; i < 5; i++)
             {
                 Vector2 pos = _allySpawnOrigin + new Vector2(0, i * 100);
@@ -120,11 +120,11 @@ namespace Pale_Roots_1
                 _allies.Add(ally);
             }
 
-            // Spawn initial enemy formation
+            // Spawn initial enemy formation.
             CreateEnemyFormation(10);
         }
 
-        // Arrange enemies in a simple triangular formation and apply type stats.
+        // Arrange enemies in a triangular formation and apply type specific stats.
         private void CreateEnemyFormation(int count)
         {
             int currentRow = 0;
@@ -140,7 +140,7 @@ namespace Pale_Roots_1
                 float yPos = (_enemySpawnOrigin.Y - (rowHeight / 2f)) + (currentSlotInRow * spacingY);
                 int typeIndex = 0;
 
-                // Leader is tougher, others randomized
+                // set leader and randomize others.
                 if (i == 0)
                 {
                     typeIndex = 2;
@@ -181,22 +181,20 @@ namespace Pale_Roots_1
             }
         }
 
-        // Subscribe to CombatSystem events to react to kills and damage.
+        // Subscribe to combat events to handle kills and friendly losses.
         private void SetupCombatEvents()
         {
-            // We subscribe to the static CombatSystem event. 
-            // This means anytime *any* character dies anywhere in the game, this block of code automatically runs.
+            // React to the global combatant killed event.
             CombatSystem.OnCombatantKilled += (killer, victim) =>
             {
-                // If an enemy died, increase the player's score. 
-                // Then immediately spawn either 1 or 2 new enemies off-screen to replace them.
+                // If an enemy died, increment kills and spawn reinforcements.
                 if (victim.Team == CombatTeam.Enemy)
                 {
                     EnemiesKilled++;
-                    int spawnCount = (CombatSystem.RandomInt(0, 100) < 80) ? 1 : 2;
+                    int spawnCount = (CombatSystem.RandomInt(0, 100) < 85) ? 1 : 2;
                     SpawnReinforcements(CombatTeam.Enemy, spawnCount);
                 }
-                // If a friendly NPC died, track the loss and spawn 1 to 3 new soldiers to help the player.
+                // If an ally died, track the loss and spawn new allies.
                 else if (victim.Team == CombatTeam.Player && victim != _player)
                 {
                     AlliesLost++;
@@ -205,18 +203,17 @@ namespace Pale_Roots_1
             };
         }
 
-        // Per-frame update called by Game1.Update
+        // Per frame update called by Game1.
         public void Update(GameTime gameTime)
         {
             Viewport vp = _gameOwnedBy.GraphicsDevice.Viewport;
 
-            // Before the battle officially starts, the player can freely run around the map without enemies attacking.
+            // If battle has not started, allow free player movement.
             if (!_battleStarted)
             {
-                // We must still update the player so they can walk, passing in the empty enemy lists so collision math doesn't break.
                 _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
-                // Listen for a specific debug key to trigger the start of the massive battle.
+                // Debug key to start the battle.
                 if (Keyboard.GetState().IsKeyDown(Keys.D))
                 {
                     _battleStarted = true;
@@ -224,26 +221,26 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Once the battle begins, hand control over to the main physics loop.
+                // Run the main battle update logic.
                 UpdateBattle(gameTime, vp);
             }
         }
 
-        // Main battle loop: update camera, player, level, spells, allies and enemies.
+        // Main battle loop that updates camera, player, level, spells, allies, and enemies.
         private void UpdateBattle(GameTime gameTime, Viewport vp)
         {
-            // Smoothly move camera zoom toward 1.0
+            // Smoothly approach target zoom.
             _camera.Zoom = MathHelper.Lerp(_camera.Zoom, 1.0f, 0.05f);
 
-            // Update player first so others react to player's new state this same frame
+            // Update player first so others react this frame.
             _player.Update(gameTime, _levelManager.CurrentLevel, _enemies, _levelManager.MapObjects);
 
-            // Update level objects
+            // Update level and assign player reference where needed.
             _levelManager.Update(gameTime, _player);
 
             _player.DamageMultiplier = GlobalPlayerDamageMult;
 
-            // Handle periodic target scanning
+            // Handle periodic target scanning.
             _targetingTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             bool scanNow = _targetingTimer >= GameConstants.TargetScanInterval;
             if (scanNow) _targetingTimer = 0;
@@ -253,16 +250,17 @@ namespace Pale_Roots_1
             UpdateEnemies(gameTime, scanNow);
             CleanupDead();
 
+            // Auto spawn enemies if none remain and spawning is allowed.
             if (_enemies.Count == 0 && !SpawningBlocked)
             {
                 SpawnReinforcements(CombatTeam.Enemy, 5);
             }
 
-            // Keep camera centered on the player this frame
+            // Keep the camera centered on the player.
             _camera.follow(_player.CentrePos, vp);
         }
 
-        // Update allies: optionally find targets then update AI/animations
+        // Update allies and assign targets when needed.
         private void UpdateAllies(GameTime gameTime, bool scanForTargets)
         {
             foreach (var ally in _allies)
@@ -275,7 +273,7 @@ namespace Pale_Roots_1
                     if (target != null)
                     {
                         CombatSystem.AssignTarget(ally, target);
-                        // THE POLYMORPHIC STATE MACHINE FLEX
+                        // switch the ally into chase behavior.
                         ally.ChangeState(new ChaseState());
                     }
                 }
@@ -283,7 +281,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Update enemies: optionally assign target (player or allies) then update with map obstacles
+        // Update enemies and assign targets when appropriate.
         private void UpdateEnemies(GameTime gameTime, bool scanForTargets)
         {
             foreach (var enemy in _enemies)
@@ -299,7 +297,7 @@ namespace Pale_Roots_1
                     if (target != null)
                     {
                         CombatSystem.AssignTarget(enemy, target);
-                        // THE POLYMORPHIC STATE MACHINE FLEX
+                        // switch the enemy into chase behavior.
                         enemy.ChangeState(new ChaseState());
                     }
                 }
@@ -307,14 +305,14 @@ namespace Pale_Roots_1
             }
         }
 
-        // Simple validity check: needs a new target if none or current target is invalid
+        // Determine if a combatant needs a new target.
         private bool NeedsNewTarget(ICombatant combatant)
         {
             return combatant.CurrentTarget == null ||
                    !CombatSystem.IsValidTarget(combatant, combatant.CurrentTarget);
         }
 
-        // Greedy nearest-target selection that respects max attackers per target
+        // Select the nearest valid target that is not already saturated with attackers.
         private ICombatant FindBestTarget(ICombatant seeker, IEnumerable<ICombatant> candidates)
         {
             ICombatant best = null;
@@ -338,40 +336,37 @@ namespace Pale_Roots_1
             return best;
         }
 
-        // Remove dead entries from runtime lists
+        // Remove dead entries from lists.
         private void CleanupDead()
         {
             _allies.RemoveAll(a => a.LifecycleState == Ally.ALLYSTATE.DEAD);
             _enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
         }
 
-        // Spawn reinforcements around the map (uses shared RNG utilities)
+        // Spawn reinforcements around the player at a random offscreen position.
         private void SpawnReinforcements(CombatTeam team, int count)
         {
             if (!SpawningBlocked)
             {
                 for (int i = 0; i < count; i++)
                 {
-                    // Pick a random angle (0 to 360 degrees) and a distance far off-screen.
+                    // pick random angle and distance for offscreen spawn.
                     float angle = CombatSystem.RandomFloat(0, MathHelper.TwoPi);
                     float distance = CombatSystem.RandomFloat(900f, 1300f);
 
-                    // Use standard trigonometry to calculate exactly where that spawn point is relative to the player.
                     Vector2 spawnPos = _player.Position + new Vector2(
                         (float)Math.Cos(angle) * distance,
                         (float)Math.Sin(angle) * distance
                     );
 
-                    // Even though they spawn off-screen, we must ensure they don't accidentally spawn completely outside the map boundary.
+                    // Clamp spawn inside the map edges.
                     float safeMarginX = 300f;
                     float safeMarginY = 600f;
                     spawnPos.X = MathHelper.Clamp(spawnPos.X, safeMarginX, _mapSize.X - safeMarginX);
                     spawnPos.Y = MathHelper.Clamp(spawnPos.Y, safeMarginY, _mapSize.Y - safeMarginY);
 
-                    // If we are spawning a new Enemy...
                     if (team == CombatTeam.Enemy)
                     {
-                        // Roll a quick percentage chance to decide if it's a Grunt, Warrior, or massive Captain.
                         int roll = CombatSystem.RandomInt(0, 100);
                         int typeIndex = 0;
 
@@ -385,25 +380,22 @@ namespace Pale_Roots_1
                         if (typeIndex == 1) { newEnemy.Name = "Reinforcement Warrior"; newEnemy.AttackDamage = 20; }
                         if (typeIndex == 2) { newEnemy.Name = "Reinforcement Captain"; newEnemy.AttackDamage = 35; newEnemy.Scale = 3.5f; }
 
-                        // Immediately lock them onto the player so they come charging onto the screen aggressively.
+                        // Lock them onto the player and start chasing.
                         CombatSystem.AssignTarget(newEnemy, _player);
                         newEnemy.ChangeState(new ChaseState());
                         _enemies.Add(newEnemy);
                     }
-                    // If we are spawning a friendly Ally...
                     else if (team == CombatTeam.Player)
                     {
                         var newAlly = new Ally(_gameOwnedBy, _allyTextures, spawnPos, 4);
                         newAlly.Name = "Reinforcement Soldier";
 
-                        // See if there are any enemies currently alive. If there are, lock on and attack.
                         var bestTarget = FindBestTarget(newAlly, _enemies.Cast<ICombatant>());
                         if (bestTarget != null)
                         {
                             CombatSystem.AssignTarget(newAlly, bestTarget);
                             newAlly.ChangeState(new ChaseState());
                         }
-                        // If the map is totally clear, just patrol around the player.
                         else
                         {
                             newAlly.ChangeState(new WanderState());
@@ -414,10 +406,10 @@ namespace Pale_Roots_1
             }
         }
 
-        // Expose SpellManager for external UI or systems
+        // Expose the spell manager.
         public SpellManager GetSpellManager() => _spellManager;
 
-        // Draw: level first, then gather sprites, sort by bottom-Y and draw in that order.
+        // Draw level then sprites sorted by depth and finally spell effects.
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
             _levelManager.Draw(spriteBatch);
@@ -441,13 +433,13 @@ namespace Pale_Roots_1
                 if (obj.Visible) renderList.Add(obj);
             }
 
-            // Using our custom Rendering API to handle rendering/sorting!
+            // Use the render pipeline to draw depth sorted sprites.
             Renderer.DrawDepthSorted(spriteBatch, renderList);
 
             _spellManager.Draw(spriteBatch);
         }
 
-        // Small helpers for external queries
+        // Helper queries.
         public Player GetPlayer() => _player;
         public int AllyCount => _allies.Count(a => a.IsAlive);
         public int EnemyCount => _enemies.Count(e => e.IsAlive);

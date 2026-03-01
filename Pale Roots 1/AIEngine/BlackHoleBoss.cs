@@ -4,25 +4,25 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // Major boss. It inherits from the base Enemy class but adds unique 
-    // gravity manipulation mechanics to pull the player in or push them away.
+    // Boss enemy that manipulates gravity to pull or push the player.
     public class BlackHoleBoss : Enemy
     {
-        // Timers and thresholds to control how often the boss can use its gravity abilities.
-        // We don't want the boss spamming these moves every frame.
+        // Timer that controls how often gravity abilities can be used.
         private float _gravityCooldownTimer = 0f;
+        // Cooldown duration for gravity abilities in milliseconds.
         private const float GravityCooldownDuration = 6000f;
 
-        // Tracks how much damage the boss has taken recently. If it takes too much, 
-        // it triggers a defensive burst to push the attacker away.
+        // Damage accumulated since the last gravity ability.
         private int _damageTakenSinceLastGravity = 0;
+        // Damage threshold that triggers a repel burst.
         private const int RepelDamageThreshold = 200;
+        // Multiplier applied to gravity force calculations.
         public float GravityMultiplier { get; set; } = 1.0f;
 
         public BlackHoleBoss(Game game, Dictionary<string, Texture2D> textures, Vector2 pos)
     : base(game, textures, pos, 4)
         {
-            // Set up the massive stats for the boss encounter.
+            // Initialize boss stats and size.
             Name = "Space Tear Golem";
             MaxHealth = 2000;
             Health = MaxHealth;
@@ -30,91 +30,84 @@ namespace Pale_Roots_1
             AttackDamage = 40;
             AttackRange = 150f;
 
-            // Load all the specific boss animations. Notice the frame counts and timings 
-            // are unique to this massive sprite sheet.
+            // Register the boss animations with the animation manager.
             _animManager.AddAnimation("Attack", new Animation(textures["Attack"], 11, 0, 100f, false, 1, 0, false));
             _animManager.AddAnimation("Death", new Animation(textures["Death"], 13, 0, 150f, false, 1, 0, false));
             _animManager.AddAnimation("Idle", new Animation(textures["Idle"], 8, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Walk", new Animation(textures["Walk"], 10, 0, 150f, true, 1, 0, false));
             _animManager.AddAnimation("Hurt", new Animation(textures["Hurt"], 4, 0, 150f, false, 1, 0, false));
 
-            // The boss waits in the idle state until the player triggers the fight.
+            // Start the boss in the idle state.
             ChangeState(new BossIdleState());
 
         }
 
-        // We override the standard damage taken method to sneak in our custom defensive logic.
+        // Reduce health using the base logic and track damage to trigger defensive gravity.
         public override void TakeDamage(int amount, ICombatant attacker)
         {
-            // First, let the base Enemy class handle the actual health reduction and death checks.
+            // Let the base class apply damage and death handling.
             base.TakeDamage(amount, attacker);
 
-            // Add the incoming damage to our tracker.
+            // Accumulate the damage for gravity triggers.
             _damageTakenSinceLastGravity += amount;
 
-            // If the player is dealing too much damage and our ability is off cooldown, 
-            // trigger the defensive repel to get them off our back.
+            // Trigger a repel burst if damage exceeds the threshold and the ability is ready.
             if (_damageTakenSinceLastGravity >= RepelDamageThreshold && _gravityCooldownTimer <= 0)
             {
                 ExecuteGravityBurst(attacker, false);
             }
         }
 
-        // This is a custom update loop specifically called during the boss fight, usually 
-        // managed by the BossGameState or LevelManager so it has direct access to the player.
+        // Custom update called during the boss fight to manage gravity use and facing.
         public void UpdateBossLogic(GameTime gameTime, Player player)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-            // Tick down the timer so the boss can use its gravity moves again.
+            // Decrease the gravity cooldown timer each frame.
             if (_gravityCooldownTimer > 0)
             {
                 _gravityCooldownTimer -= dt;
             }
             else if (CurrentState is ChaseState)
             {
-                // If the boss is actively trying to get to the player but the player is running away 
-                // (outside of a 250 pixel range), use the offensive suck ability to pull them back in.
+                // If the player is far from the boss, use the sucking ability to pull them closer.
                 if (Vector2.Distance(this.Center, player.Center) > 320f)
                 {
                     ExecuteGravityBurst(player, true);
                 }
             }
 
-            // Figure out which side of the boss the player is on, and flip the sprite so 
-            // the boss is always looking at them.
+            // Flip the sprite to face the player's horizontal position.
             float xDifference = player.Center.X - this.Center.X;
             if (xDifference < 0) _flipEffect = SpriteEffects.FlipHorizontally;
             else _flipEffect = SpriteEffects.None;
 
-            // Run the standard Enemy update for animations and state machines.
+            // Run the standard enemy update for animations and state transitions.
             base.Update(gameTime);
         }
 
-        // This handles the actual physics manipulation of the target (usually the player).
+        // Apply a gravity force to the target to either pull or push it.
         private void ExecuteGravityBurst(ICombatant target, bool isSucking)
         {
             if (target is Player p)
             {
-                // Find the straight line between the boss and the player.
+                // Compute the normalized direction from the player to the boss.
                 Vector2 direction = this.Center - p.Center;
                 if (direction != Vector2.Zero) direction.Normalize();
 
-                // Calculate how hard we are pushing or pulling. 
-                // Positive force pulls them toward the center, negative force blasts them away.
+                // Determine the force magnitude and apply the gravity multiplier.
                 float forceAmount = (isSucking ? 30f : -45f) * GravityMultiplier;
 
-                // Send the calculated force to the Player class so it can update its own physics.
+                // Apply the calculated force to the player through its physics method.
                 p.ApplyExternalForce(direction * forceAmount);
 
-                // Reset our ability timers and damage trackers.
+                // Reset the gravity ability cooldown and damage tracker.
                 _gravityCooldownTimer = GravityCooldownDuration;
                 _damageTakenSinceLastGravity = 0;
             }
         }
 
-        // We override this because it's a massive boss. We don't want standard attacks 
-        // knocking it around the screen. We reduce all incoming knockback physics by 95%.
+        // Reduce incoming knockback for this large boss.
         public override void ApplyKnockback(Vector2 force)
         {
             base.ApplyKnockback(force * 0.05f);
@@ -122,16 +115,15 @@ namespace Pale_Roots_1
 
         public override void Die()
         {
-            // Give the boss a longer death countdown so its full 13-frame death animation 
-            // has time to play out before it disappears from the screen.
+            // Use a longer death countdown so the full death animation can finish.
             base.Die();
             _deathCountdown = 150;
         }
 
         protected override void DrawHealthBar(SpriteBatch spriteBatch)
         {
-            // Intentionally leave this blank to override the standard floating health bar.
-            // For this boss, the UIManager handles drawing a massive health bar at the top of the screen.
+            // Do not draw the standard floating health bar for this boss.
+            // The UIManager draws the boss health bar in the HUD instead.
         }
     }
 }

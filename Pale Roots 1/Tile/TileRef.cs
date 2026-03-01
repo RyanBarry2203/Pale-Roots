@@ -1,20 +1,19 @@
 ﻿namespace Pale_Roots_1
 {
-    // TileRef: small data holder that maps a tilemap value to a source cell on the tilesheet.
-    // Used by TileLayer and Tile to compute the source rectangle when drawing tiles.
+    // Maps a numeric tile value to a tile cell on the tilesheet.
+    // TileLayer and Tile use this to compute source rectangles when drawing.
     public class TileRef
     {
-        // Column index on the tilesheet (in tiles, not pixels).
+        // Column index on the tilesheet in tile units.
         public int _sheetPosX;
 
-        // Row index on the tilesheet (in tiles, not pixels).
+        // Row index on the tilesheet in tile units.
         public int _sheetPosY;
 
         // The integer value stored in the map that this TileRef represents.
-        // Level parsing code and editors use this to match tiles -> TileRef entries.
         public int _tileMapValue;
 
-        // Simple constructor: supply sheet X/Y (tile coords) and the original map value.
+        // Initialize the sheet coordinates and the map value.
         public TileRef(int x, int y, int val)
         {
             _sheetPosX = x;

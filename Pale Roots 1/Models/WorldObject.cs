@@ -4,37 +4,31 @@ using System;
 
 namespace Pale_Roots_1
 {
-    // WorldObject is a Sprite used for static and animated map objects (trees, rocks, ruins).
-    // Responsibilities:
-    // - Maintain collision footprint that tightly fits visible non-transparent pixels near the sprite's feet.
-    // - Provide a CollisionBox used by other actors for obstacle detection.
-    // - Render itself and optionally a debug collision box.
-    // Interactions:
-    // - CollisionBox is used by RotatingSprite.IsColliding and Player/Enemy movement logic to block movement.
-    // - Uses Helper.GetSourceRect to map asset keys to sheet locations when created by LevelManager.
+    // Represents a static or animated object placed in the world.
+    // Provides a tight collision box around the object's feet for blocking and pathing.
     public class WorldObject : Sprite
     {
         public bool IsSolid { get; set; }
         public string AssetName { get; set; }
         private static Texture2D _debugTexture;
 
-        // Percentages used when defaulting to simpler bounding box calculations.
+        // Used when falling back to a simple bounding box calculation.
         public float BoxWidthPercentage { get; set; } = 0.5f;
         public float BoxHeightPercentage { get; set; } = 0.2f;
 
         private int _pixelOffsetX;
         private int _pixelWidth;
 
-        // Construct a map object; frameCount allows animated variants.
+        // Create a map object; frameCount allows animated variants.
         public WorldObject(Game g, Texture2D texture, Vector2 pos, int frameCount, bool isSolid)
             : base(g, texture, pos, frameCount, 1.0)
         {
             IsSolid = isSolid;
-            mililsecondsBetweenFrames = 200; // slower default for environmental animations
-            Scale = 3.0f; // chosen scale to match tile grid; adjustable by level creation code
+            mililsecondsBetweenFrames = 200;
+            Scale = 3.0f;
         }
 
-        // Collision box focuses on the feet area rather than the whole sprite to allow better depth/passability.
+        // Collision box focused on the feet area to allow better passability.
         public Rectangle CollisionBox
         {
             get
@@ -53,8 +47,8 @@ namespace Pale_Roots_1
             }
         }
 
-        // Analyze the sprite's bottom area to determine a tight pixel footprint for collision.
-        // Stores pixel offsets so CollisionBox can be computed quickly later.
+        // Scan the sprite's bottom pixels to compute a tight horizontal footprint.
+        // Results are cached in _pixelOffsetX and _pixelWidth for later CollisionBox calculations.
         private void CalculatePixelTightBox()
         {
             Color[] rawData = new Color[spriteImage.Width * spriteImage.Height];
@@ -91,20 +85,21 @@ namespace Pale_Roots_1
             }
             else
             {
-                // fallback if bottom has no opaque pixels
+                // Fallback footprint when no opaque pixels are found near the bottom.
                 _pixelOffsetX = (int)(src.Width * 0.25f);
                 _pixelWidth = (int)(src.Width * 0.5f);
             }
         }
 
-        // Override to compute tight collision box whenever the source rectangle is set.
+        // When the source rectangle changes, recalculate the tight collision footprint.
         public new void SetSpritesheetLocation(Rectangle source)
         {
             base.SetSpriteSheetLocation(source);
             CalculatePixelTightBox();
         }
 
-        // Draw red rectangle lines for debug; creates a shared 1x1 texture as needed.
+        // Draw a red rectangle around the computed CollisionBox for debugging purposes.
+        // Lazily creates a 1x1 debug texture when first needed.
         public void DrawDebug(SpriteBatch spriteBatch)
         {
             if (_debugTexture == null)

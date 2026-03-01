@@ -5,20 +5,18 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // The foundational class for every physical object in the game.
-    // It handles the basic requirements of "existing": having a position, playing an animation,
-    // staying inside the map, and not walking through trees.
+    // Base class for visible game objects that handles position, animation, collision, and drawing.
     public class Sprite
     {
         // --- VISUALS ---
         protected Texture2D spriteImage;
         protected Game game;
-        protected Vector2 origin; // The "handle" of the sprite, mathematically centered for rotation.
+        protected Vector2 origin; // center point used for rotation and scaling
         protected float angleOfRotation;
         protected int spriteDepth = 1;
 
         // --- CIRCULAR ARENA PHYSICS ---
-        // Used primarily for the Boss Fight to keep the player locked in a circular zone.
+        // Enables circular bounds used by the boss arena logic.
         public bool UseCircularBounds { get; set; } = false;
         public Vector2 CircularBoundsCenter { get; set; }
         public float CircularBoundsRadius { get; set; }
@@ -32,7 +30,7 @@ namespace Pale_Roots_1
         public float AttackSpeed = 1000f;
 
         // --- TRANSFORM ---
-        public Vector2 position; // The logical center point of the object in the world.
+        public Vector2 position; // world position used as the object's logical center
         public double Scale { get; set; }
 
         // --- ANIMATION ---
@@ -42,7 +40,7 @@ namespace Pale_Roots_1
         protected float timer = 0f;
         public int spriteWidth = 0;
         public int spriteHeight = 0;
-        public Rectangle sourceRectangle; // The "window" into the sprite sheet showing the current frame.
+        public Rectangle sourceRectangle; // source rectangle for the current animation frame
 
         protected int _sheetStartX = 0;
         protected int _sheetStartY = 0;
@@ -59,7 +57,7 @@ namespace Pale_Roots_1
             this.spriteHeight = spriteImage.Height;
             this.spriteWidth = spriteImage.Width / framecount;
 
-            // Set the origin to the center of a single frame so rotation and scaling happen from the middle.
+            // origin is set to the center of a single frame for correct rotation and scaling
             this.origin = new Vector2(spriteWidth / 2f, spriteHeight / 2f);
             this.sourceRectangle = new Rectangle(0, 0, spriteWidth, spriteHeight);
         }
@@ -68,7 +66,7 @@ namespace Pale_Roots_1
 
         public virtual void Update(GameTime gametime)
         {
-            // --- ANIMATION ENGINE ---
+            // advance animation frames based on elapsed time
             timer += (float)gametime.ElapsedGameTime.TotalMilliseconds;
             if (timer > mililsecondsBetweenFrames)
             {
@@ -77,14 +75,14 @@ namespace Pale_Roots_1
                 timer = 0f;
             }
 
-            // Calculate the X-offset on the sprite sheet to show the next frame of animation.
+            // update the source rectangle to the current frame on the sprite sheet
             int frameOffsetX = currentFrame * spriteWidth;
             sourceRectangle = new Rectangle(_sheetStartX + frameOffsetX, _sheetStartY, spriteWidth, spriteHeight);
         }
 
         public void SetSpriteSheetLocation(Rectangle source)
         {
-            // Manually slice a specific part of the sheet. Used for static world props like rocks.
+            // set a specific area of the sprite sheet for static or animated sprites
             _sheetStartX = source.X;
             _sheetStartY = source.Y;
             this.spriteWidth = source.Width;
@@ -95,26 +93,25 @@ namespace Pale_Roots_1
 
         protected void ClampToMap()
         {
-            // --- RADIAL CLAMPING (BOSS ARENA) ---
+            // if circular bounds are enabled, keep the sprite inside the circle
             if (UseCircularBounds)
             {
                 float dist = Vector2.Distance(position, CircularBoundsCenter);
 
-                // Account for the sprite's width so the edge of the character doesn't poke out of the circle.
+                // account for sprite size so edges do not poke outside the circle
                 float spriteRadius = (spriteWidth * (float)Scale) / 3f;
                 float maxDist = CircularBoundsRadius - spriteRadius;
 
                 if (dist > maxDist)
                 {
-                    // If the sprite tries to leave the circle, find the angle of exit and force them back onto the rim.
                     Vector2 dir = position - CircularBoundsCenter;
                     if (dir != Vector2.Zero) dir.Normalize();
                     position = CircularBoundsCenter + (dir * maxDist);
                 }
             }
-            // --- RECTANGULAR CLAMPING (OVERWORLD) ---
             else
             {
+                // clamp position to rectangular world bounds using the default map size
                 float mapW = GameConstants.DefaultMapSize.X;
                 float mapH = GameConstants.DefaultMapSize.Y;
 
@@ -132,10 +129,7 @@ namespace Pale_Roots_1
         {
             if (objects == null) return false;
 
-            // --- "FEET" COLLISION LOGIC ---
-            // We don't check for collisions on the whole body. We create a small box at the 
-            // bottom 20% of the sprite. This allows the player to walk behind the tops of 
-            // trees while still being blocked by the physical trunks.
+            // build a small feet-area rectangle for collision checks so sprites can pass behind tall visuals
             float scale = (float)Scale;
             int w = (int)(spriteWidth * scale * 0.4f);
             int h = (int)(spriteHeight * scale * 0.2f);
@@ -145,7 +139,7 @@ namespace Pale_Roots_1
 
             Rectangle futureFeetBox = new Rectangle(x, y, w, h);
 
-            // Check if this "feet" box would intersect with any solid objects in the world.
+            // test intersection with solid world objects
             foreach (var obj in objects)
             {
                 if (obj.IsSolid && futureFeetBox.Intersects(obj.CollisionBox))
@@ -161,7 +155,7 @@ namespace Pale_Roots_1
         {
             if (Visible)
             {
-                // Draw the current animation frame to the screen.
+                // draw the sprite using the current source rectangle, origin, scale and rotation
                 spriteBatch.Draw(spriteImage, position, sourceRectangle,
                     Color.White, angleOfRotation, origin,
                     (float)Scale, SpriteEffects.None, spriteDepth);

@@ -11,39 +11,40 @@ using Microsoft.Devices.Sensors;
 
 namespace Pale_Roots_1
 {
-    // InputEngine: centralizes input polling for keyboard, gamepad, mouse and (optionally) touch/accelerometer.
-    // NOW FEATURING: Action-Based Input API for custom engine architecture.
+    // Central input polling for keyboard, gamepad, mouse, and touch.
+    // Exposes an action-based input API used by gameplay and UI.
     public class InputEngine : GameComponent
     {
-        // --- ENGINE FEATURE: ACTION MAPPING ---
-        // Maps a string name (e.g., "Jump") to a specific Key.
+        // Action mapping for named inputs.
+        // Maps action names to keyboard keys.
         private static Dictionary<string, Keys> _keyBindings = new Dictionary<string, Keys>();
 
-        // Maps a string name to a Mouse Button (0=Left, 1=Right, 2=Middle)
+        // Maps action names to mouse button indices (0=Left, 1=Right, 2=Middle).
         private static Dictionary<string, int> _mouseBindings = new Dictionary<string, int>();
 
-        // GamePad state tracking
+        // GamePad state history used for pressed/held detection.
         private static GamePadState previousPadState;
         private static GamePadState currentPadState;
 
-        // Keyboard state tracking
+        // Keyboard state history used for pressed/held detection.
         private static KeyboardState previousKeyState;
         private static KeyboardState currentKeyState;
 
-        // Mouse position and state (Windows only)
+        // Mouse positions and states used for click and cursor queries.
         private static Vector2 previousMousePos;
         private static Vector2 currentMousePos;
         private static MouseState previousMouseState;
         private static MouseState currentMouseState;
 
 #if ANDROID
-        // Mobile-only input fields
+        // Mobile-only input and accelerometer fields.
         private static Vector2 previousAccelerometerReading;
         private static Accelerometer _acceleromter;
         private static Vector2 currentAcceleromoterReading;
         private static Point touchPoint;
         private static GestureType currentGestureType;
 
+        // Update the cached accelerometer reading when the sensor fires.
         private void _acceleromter_CurrentValueChanged(object sender, SensorReadingEventArgs<AccelerometerReading> e)
         {
             previousAccelerometerReading = CurrentAcceleromoterReading;
@@ -74,6 +75,7 @@ namespace Pale_Roots_1
             _game.Components.Add(this);
         }
 
+        // Reset input history to the current hardware state.
         public static void ClearState()
         {
             previousMouseState = Mouse.GetState();
@@ -109,6 +111,7 @@ namespace Pale_Roots_1
 
         public List<string> KeysPressedInLastFrame = new List<string>();
 
+        // Detect which key was pressed this frame for simple text input usage.
         private void CheckForTextInput()
         {
             foreach (var key in Enum.GetValues(typeof(Keys)) as Keys[])
@@ -121,23 +124,22 @@ namespace Pale_Roots_1
             }
         }
 
-        // --- ACTION API METHODS (THE NEW ENGINE LOGIC) ---
 
-        // 1. Configuration: Call this in Game1.LoadContent to set up controls
+        // Register a keyboard key for a named action.
         public static void RegisterBinding(string actionName, Keys key)
         {
             if (_keyBindings.ContainsKey(actionName)) _keyBindings[actionName] = key;
             else _keyBindings.Add(actionName, key);
         }
 
+        // Register a mouse button index for a named action.
         public static void RegisterMouseBinding(string actionName, int mouseButtonIndex)
         {
             if (_mouseBindings.ContainsKey(actionName)) _mouseBindings[actionName] = mouseButtonIndex;
             else _mouseBindings.Add(actionName, mouseButtonIndex);
         }
 
-        // 2. Querying: Use these in Player/Scripts instead of checking Keys directly
-        // Returns true only on the frame the button is pressed down
+        // Query if a named action was pressed this frame.
         public static bool IsActionPressed(string actionName)
         {
             if (_keyBindings.ContainsKey(actionName))
@@ -153,7 +155,7 @@ namespace Pale_Roots_1
             return false;
         }
 
-        // Returns true as long as the button is held down
+        // Query if a named action is currently held down.
         public static bool IsActionHeld(string actionName)
         {
             if (_keyBindings.ContainsKey(actionName))
@@ -169,8 +171,8 @@ namespace Pale_Roots_1
             return false;
         }
 
-        // --- RAW HARDWARE HELPERS ---
 
+        // GamePad helpers for pressed/held checks.
         public static bool IsButtonPressed(Buttons buttonToCheck)
         {
             if (currentPadState.IsButtonUp(buttonToCheck) && previousPadState.IsButtonDown(buttonToCheck))
@@ -183,6 +185,7 @@ namespace Pale_Roots_1
             return currentPadState.IsButtonDown(buttonToCheck);
         }
 
+        // Keyboard helpers for held/pressed checks.
         public static bool IsKeyHeld(Keys buttonToCheck)
         {
             return currentKeyState.IsKeyDown(buttonToCheck);
@@ -243,6 +246,7 @@ namespace Pale_Roots_1
             set { currentAcceleromoterReading = value; }
         }
 
+        // Process touch gestures and update the stored touch point and gesture type.
         private void HandleTouchInput()
         {
             TouchCollection touches = TouchPanel.GetState();
@@ -278,6 +282,7 @@ namespace Pale_Roots_1
 #endif
 
 #if WINDOWS
+        // Mouse click and hold helpers for Windows builds.
         public static bool IsMouseLeftClick()
         {
             if (currentMouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released)
@@ -310,6 +315,7 @@ namespace Pale_Roots_1
                 return false;
         }
 
+        // Current mouse position in screen coordinates.
         public static Vector2 MousePosition
         {
             get { return currentMousePos; }

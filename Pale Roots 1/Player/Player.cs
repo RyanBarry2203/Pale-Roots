@@ -6,9 +6,9 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // The central controllable entity. 
-    // It implements ICombatant so it can participate in the global CombatSystem (taking damage, being targeted).
-    // It inherits from Sprite to utilize basic positional and drawing properties.
+    // Player controlled character.
+    // Implements combat interface so it participates in the CombatSystem.
+    // Uses Sprite for position and drawing.
     public class Player : Sprite, ICombatant
     {
         // --- ICOMBATANT IMPLEMENTATION ---
@@ -21,7 +21,7 @@ namespace Pale_Roots_1
         public bool IsActive => Visible;
         public ICombatant CurrentTarget { get; set; }
 
-        // Expose internal sprite properties to the world using the new keyword to clarify intent.
+        // Expose internal sprite properties to the world.
         public new Vector2 Position { get => position; set => position = value; }
         public Game Game => game;
         public Vector2 CentrePos => Center;
@@ -30,11 +30,11 @@ namespace Pale_Roots_1
         private float _speed;
         private Vector2 _velocity;
 
-        // Handles momentum from external sources like boss gravity or enemy hits.
+        // External momentum from forces or knockback.
         private Vector2 _externalVelocity = Vector2.Zero;
 
         // --- STATE MACHINE ---
-        // This enum controls exactly what the player is allowed to do at any given frame.
+        // Controls what the player can do each frame.
         public enum PlayerState { Idle, Run, Attack1, Attack2, Dash, Hurt, Dead }
         public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
 
@@ -54,7 +54,7 @@ namespace Pale_Roots_1
         public float DashTimer => _dashCooldownTimer;
         public float DashDuration => _dashCooldownDuration;
 
-        // Timing & Logic lists
+        // Timing & logic helpers
         private float _stateTimer = 0f;
         private float _cooldownTimer = 0f;
         private List<ICombatant> _enemiesHitThisAttack = new List<ICombatant>();
@@ -64,21 +64,21 @@ namespace Pale_Roots_1
         private AnimationManager _animManager;
         private SpriteEffects _flipEffect = SpriteEffects.None;
 
-        // Textures & Visuals
+        // Textures & visuals
         private Texture2D _txIdle, _txRun, _txAttack1, _txAttack2, _txHurt, _txDeath, _txDash;
         private static Texture2D _healthBarTexture;
 
         public Player(Game game, Texture2D texture, Vector2 startPosition, int frameCount)
             : base(game, texture, startPosition, frameCount, 1)
         {
-            // Initialize base stats from our global configuration file.
+            // Initialize stats from GameConstants.
             _speed = GameConstants.DefaultPlayerSpeed;
             MaxHealth = GameConstants.DefaultHealth;
             Health = MaxHealth;
             AttackDamage = GameConstants.DefaultMeleeDamage;
             Scale = 3f;
 
-            // Load a 1x1 white pixel for health bars if it hasn't been created yet.
+            // Create a shared 1x1 texture for health bars if needed.
             if (_healthBarTexture == null)
             {
                 _healthBarTexture = new Texture2D(game.GraphicsDevice, 1, 1);
@@ -87,7 +87,7 @@ namespace Pale_Roots_1
 
             _animManager = new AnimationManager();
 
-            // Load the various animation sheets.
+            // Load animation sheets.
             _txIdle = game.Content.Load<Texture2D>("Player/Idle");
             _txRun = game.Content.Load<Texture2D>("Player/Run");
             _txAttack1 = game.Content.Load<Texture2D>("Player/Attack 1");
@@ -114,7 +114,7 @@ namespace Pale_Roots_1
             float dt = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             // --- 1. EXTERNAL PHYSICS ---
-            // Process knockback or gravitational pulls before player-controlled movement.
+            // Apply external forces before player input movement.
             if (_externalVelocity != Vector2.Zero)
             {
                 Vector2 proposedPos = position + _externalVelocity;
@@ -124,27 +124,26 @@ namespace Pale_Roots_1
                 }
                 else
                 {
-                    _externalVelocity = Vector2.Zero; // Stop instantly if we hit a wall.
+                    _externalVelocity = Vector2.Zero; // stop on collision
                 }
 
                 _externalVelocity *= GameConstants.KnockbackFriction;
                 if (_externalVelocity.Length() < 0.1f) _externalVelocity = Vector2.Zero;
             }
 
-            // Update internal timers.
+            // Update timers
             if (_cooldownTimer > 0) _cooldownTimer -= dt;
             if (_dashCooldownTimer > 0) _dashCooldownTimer -= dt;
 
             // --- 2. MOUSE WORLD COORDINATES ---
-            // We calculate where the mouse is in the world by comparing its screen position 
-            // to the center of the screen (the camera lens) and adding that offset to the player's center.
+            // Convert mouse screen position to a world position relative to the player center.
             MouseState mouseState = Mouse.GetState();
             Vector2 screenCenter = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.GraphicsDevice.Viewport.Height / 2);
             Vector2 mouseOffset = new Vector2(mouseState.X, mouseState.Y) - screenCenter;
             _mouseWorldPosition = this.Center + mouseOffset;
 
             // --- 3. STATE DISPATCH ---
-            // Route logic based on our current FSM state.
+            // Run logic based on the current finite state machine state.
             switch (CurrentState)
             {
                 case PlayerState.Idle:
@@ -155,7 +154,7 @@ namespace Pale_Roots_1
 
                 case PlayerState.Attack1:
                 case PlayerState.Attack2:
-                    HandleInput(currentLayer, obstacles, false); // Allow movement but don't switch to Run state.
+                    HandleInput(currentLayer, obstacles, false); // allow movement but do not switch to Run
                     UpdateAttack(gameTime, enemies, (CurrentState == PlayerState.Attack1 ? 1 : 2));
                     break;
 
@@ -202,7 +201,7 @@ namespace Pale_Roots_1
             _dashCooldownTimer = _dashCooldownDuration;
             _isInvincible = true;
 
-            // Dash in the direction of movement, or default to horizontal facing.
+            // Dash in movement direction or default horizontal direction.
             if (_velocity != Vector2.Zero)
                 _dashDirection = Vector2.Normalize(_velocity);
             else
@@ -254,7 +253,7 @@ namespace Pale_Roots_1
                 _facingDirection = inputDirection;
                 _velocity = inputDirection * _speed;
 
-                // Don't change facing direction while swinging the sword.
+                // Do not change facing while attacking.
                 if (CurrentState != PlayerState.Attack1 && CurrentState != PlayerState.Attack2)
                 {
                     _currentDirectionIndex = GetDirectionFromVector(_facingDirection);
@@ -280,7 +279,7 @@ namespace Pale_Roots_1
 
         private int GetDirectionFromVector(Vector2 dir)
         {
-            // Maps the 2D vector to the indices of our sprite sheet rows (Down, Up, Left, Right).
+            // Map vector to sprite sheet row index for facing.
             if (Math.Abs(dir.X) > Math.Abs(dir.Y))
                 return (dir.X > 0) ? 3 : 2;
             else
@@ -289,8 +288,7 @@ namespace Pale_Roots_1
 
         private bool CanMoveTo(Vector2 newPos, TileLayer layer, List<WorldObject> obstacles)
         {
-            // Calculate a tiny hitbox around the player's feet.
-            // This allows the player to walk "behind" trees and rocks before being blocked by the base.
+            // Build a small hitbox near the player's feet for collision testing.
             float scale = (float)Scale;
             int playerW = (int)(spriteWidth * scale * 0.4f);
             int playerH = (int)(spriteHeight * scale * 0.2f);
@@ -299,12 +297,12 @@ namespace Pale_Roots_1
 
             Rectangle futurePlayerBox = new Rectangle(playerX, playerY, playerW, playerH);
 
-            // Bounds check against map edges.
+            // Check bounds against the map size.
             float mapWidth = layer.Tiles.GetLength(1) * 64;
             float mapHeight = layer.Tiles.GetLength(0) * 64;
             if (newPos.X < 0 || newPos.Y < 0 || newPos.X > mapWidth || newPos.Y > mapHeight) return false;
 
-            // Check against solid WorldObjects (trees, rocks, ruins).
+            // Check collisions with world objects and return the negated result.
             return !IsColliding(newPos, obstacles);
         }
 
@@ -312,12 +310,12 @@ namespace Pale_Roots_1
 
         private void StartAttack(List<Enemy> enemies, int attackNum)
         {
-            // Lock facing direction toward the mouse click.
+            // Face the mouse and lock facing for the attack.
             Vector2 dirToMouse = _mouseWorldPosition - this.Center;
             dirToMouse.Normalize();
             _currentDirectionIndex = GetDirectionFromVector(dirToMouse);
 
-            // Flip the sprite if attacking left.
+            // Flip sprite for left attacks.
             _flipEffect = (_currentDirectionIndex == 2) ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
             string animName = (attackNum == 1) ? "Attack1" : "Attack2";
@@ -345,7 +343,7 @@ namespace Pale_Roots_1
 
         private void PerformSwordHit(List<Enemy> enemies, float damageMult, float knockbackMult)
         {
-            // Create a hitbox in front of the player's chest.
+            // Create a rectangular hitbox in front of the player based on facing.
             Vector2 chestPosition = new Vector2(position.X, position.Y - 50);
             Vector2[] directions = { new Vector2(0, 1), new Vector2(0, -1), new Vector2(-1, 0), new Vector2(1, 0) };
             Vector2 attackDir = directions[_currentDirectionIndex];
@@ -360,7 +358,7 @@ namespace Pale_Roots_1
             {
                 if (!enemy.IsAlive || _enemiesHitThisAttack.Contains(enemy)) continue;
 
-                // Simple enemy hurtbox centered on their body.
+                // Approximate enemy hurtbox.
                 Rectangle enemyRect = new Rectangle((int)enemy.Position.X - 30, (int)enemy.Position.Y - 80, 60, 80);
 
                 if (swordHitbox.Intersects(enemyRect))
@@ -392,14 +390,14 @@ namespace Pale_Roots_1
             }
         }
 
-        public void PerformAttack() { } // Handled by StartAttack/UpdateAttack
+        public void PerformAttack() { } // Attack handled by StartAttack and UpdateAttack
 
         private void UpdateAnimation(GameTime gameTime)
         {
             string animKey = CurrentState.ToString();
             if (CurrentState == PlayerState.Dead) animKey = "Death";
 
-            // Only flip sprites during standard movement; attacks are manually flipped based on mouse aim.
+            // Flip for movement states only.
             if (CurrentState == PlayerState.Run || CurrentState == PlayerState.Idle || CurrentState == PlayerState.Dash)
             {
                 if (_velocity.X < -0.1f) _flipEffect = SpriteEffects.FlipHorizontally;
@@ -421,7 +419,7 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
-            // Apply a visual offset so the sprite's feet align with the logical physics position.
+            // Draw the sprite offset so the feet align with the world position.
             Vector2 drawPos = position + new Vector2(0, 175);
             _animManager.Draw(spriteBatch, drawPos, (float)Scale, _flipEffect, _currentDirectionIndex);
         }

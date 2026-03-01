@@ -3,15 +3,17 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // This is the universal blueprint for every single screen or mode in the game.
-    // By forcing GameplayState, MenuState, BossBattleState, etc., to all follow this exact contract,
-    // our StateManager can load, update, and draw whatever the current state is without needing to know what it actually does.
+    // Interface for screens and modes used by the StateManager.
+    // Implementations load resources, update logic each frame, and draw to the screen.
     public interface IGameState
     {
+        // Load any textures, sounds, or data needed by this state.
         void LoadContent();
 
+        // Update the state's logic using the provided game time.
         void Update(GameTime gameTime);
 
+        // Render the state using the provided sprite batch and graphics device.
         void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice);
     }
 }

@@ -5,8 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // This is the core blueprint for all standard enemies in the game.
-    // It inherits from RotatingSprite for rendering and implements INpcActor so our AI state machine can drive it.
+    // Base class for standard enemies. Provides rendering and AI integration.
     public class Enemy : RotatingSprite, INpcActor
     {
         // Tracks the broader lifecycle of the enemy so we know when to play death animations or remove them from the list.

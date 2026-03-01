@@ -6,11 +6,13 @@ using System.Linq;
 
 namespace Pale_Roots_1
 {
+    // Manages available upgrade cards and applies chosen upgrades to the player or spell manager.
     public class UpgradeManager
     {
 
         public enum UpgradeType { HeavyAttack, Dash, Spell, BossTrigger }
 
+        // Holds data and the action for a single upgrade card.
         public class UpgradeOption
         {
             public string Name;
@@ -50,7 +52,7 @@ namespace Pale_Roots_1
 
         private void InitializeUpgrades()
         {
-            // 1. Heavy Attack
+            // heavy attack unlock card.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Heavy Attack",
@@ -61,7 +63,7 @@ namespace Pale_Roots_1
                 ApplyAction = () => _player.IsHeavyAttackUnlocked = true
             });
 
-            // 2. Dash
+            // dash unlock card.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Dash",
@@ -72,7 +74,7 @@ namespace Pale_Roots_1
                 ApplyAction = () => _player.IsDashUnlocked = true
             });
 
-            // THE CURSED CARD
+            // special boss trigger card that launches the boss transition sequence.
             _allUpgrades.Add(new UpgradeOption
             {
                 Name = "Strange Omen",
@@ -111,7 +113,7 @@ namespace Pale_Roots_1
                 }
             });
 
-            // 3. DYNAMIC SPELL GENERATION (The Engine Flex!)
+            // dynamically create a card for each spell managed by the spell manager.
             var spells = _spellManager.AllSpells;
             for (int i = 0; i < spells.Count; i++)
             {
@@ -132,6 +134,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Return a random list of available upgrades capped to the requested count.
         public List<UpgradeOption> GetRandomOptions(int count)
         {
             var available = _allUpgrades.Where(u => IsUpgradeAvailable(u)).ToList();
@@ -148,6 +151,7 @@ namespace Pale_Roots_1
             return available.Take(count).ToList();
         }
 
+        // Check whether the upgrade can still be offered to the player.
         private bool IsUpgradeAvailable(UpgradeOption u)
         {
             if (u.Type == UpgradeType.HeavyAttack) return !_player.IsHeavyAttackUnlocked;
@@ -159,6 +163,7 @@ namespace Pale_Roots_1
             return true;
         }
 
+        // Wrap long description text to fit within a given width using the provided font.
         private string ParseText(string text, SpriteFont font, int width)
         {
             string line = string.Empty;
@@ -176,6 +181,8 @@ namespace Pale_Roots_1
             return returnString + line;
         }
         public List<UpgradeOption> GetAllUpgrades() => _allUpgrades;
+
+        // Draw a single upgrade card including icon, title, and wrapped description.
         public void DrawCard(SpriteBatch sb, Rectangle rect, UpgradeOption option, bool isHovered, SpriteFont font)
         {
             Color baseHue = option.CardHue == Color.Black ? Color.Black : new Color(option.CardHue.R / 4, option.CardHue.G / 4, option.CardHue.B / 4, 220);

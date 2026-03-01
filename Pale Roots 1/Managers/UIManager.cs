@@ -10,7 +10,7 @@ namespace Pale_Roots_1
         private Texture2D _uiPixel;
         private SpriteFont _uiFont;
 
-        // UI Colors (Medieval Sci-Fantasy Theme)
+        // UI Colors (medieval sci-fantasy palette)
         private Color _hudColor = new Color(10, 10, 15, 200);
         private Color _healthColor = new Color(180, 20, 20);
         private Color _staminaColor = new Color(50, 205, 50);
@@ -25,6 +25,7 @@ namespace Pale_Roots_1
             _uiFont = uiFont;
         }
 
+        // Draw the main HUD with health, stamina, progress, and ability icons.
         public void DrawHUD(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, ChaseAndFireEngine gameEngine, Texture2D[] spellIcons, Texture2D dashIcon, Texture2D heavyAttackIcon, int winConditionKills, float levelProgress)
         {
             Player p = gameEngine.GetPlayer();
@@ -37,7 +38,7 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, filledWidth, xpBarHeight), Color.DeepSkyBlue);
             spriteBatch.Draw(_uiPixel, new Rectangle(0, xpBarHeight, screenW, 2), Color.DarkBlue * 0.8f);
 
-            // --- EXISTING HUD ---
+            // draw health and stamina block
             int padding = 20;
             int startY = padding + xpBarHeight;
             int barHeight = 25;
@@ -49,6 +50,7 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, barWidth, barHeight), Color.Black * 0.5f);
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, startY + 2, (int)(barWidth * hpPercent), barHeight), _healthColor);
 
+            // draw dash/stamina meter
             float dashRatio = 0f;
             if (p.DashDuration > 0) dashRatio = 1.0f - (p.DashTimer / p.DashDuration);
             else dashRatio = 1.0f;
@@ -61,6 +63,7 @@ namespace Pale_Roots_1
             Color currentStaminaColor = (dashRatio >= 0.99f) ? _staminaColor : Color.Orange;
             spriteBatch.Draw(_uiPixel, new Rectangle(padding + 2, stamY, (int)(barWidth * dashRatio), stamH), currentStaminaColor);
 
+            // draw progress toward final win condition if applicable
             if (winConditionKills < 999)
             {
                 int barW = 600;
@@ -74,15 +77,15 @@ namespace Pale_Roots_1
                 float progress = (float)gameEngine.EnemiesKilled / winConditionKills;
                 if (progress > 1f) progress = 1f;
 
-
                 spriteBatch.Draw(_uiPixel, new Rectangle(barX, barY, (int)(barW * progress), barH), Color.Purple);
 
-                // Add the menacing text right under the bar.
+                // draw label under the progress bar
                 string warText = "WAR DOMINANCE";
                 Vector2 textSize = _uiFont.MeasureString(warText);
                 spriteBatch.DrawString(_uiFont, warText, new Vector2(screenW / 2 - textSize.X / 2, barY + barH + 5), Color.White);
             }
 
+            // draw ability icons centered at the bottom
             int iconSize = 64;
             int spacing = 20;
             int startingY = graphicsDevice.Viewport.Height - iconSize - 45;
@@ -161,7 +164,8 @@ namespace Pale_Roots_1
                     }
                 }
             }
-            //DARK SOULS STYLE BOSS HEALTH BAR
+
+            // draw boss health bar when in boss arena
             if (gameEngine.IsBossArena)
             {
                 Enemy boss = gameEngine._enemies.Find(e => e is BlackHoleBoss);
@@ -170,7 +174,6 @@ namespace Pale_Roots_1
                     int bossBarW = 800;
                     int bossBarH = 25;
                     int bossBarX = (screenW / 2) - (bossBarW / 2);
-                    // Draw it right above the ability icons
                     int bossBarY = startingY - 60;
 
                     spriteBatch.Draw(_uiPixel, new Rectangle(bossBarX - 4, bossBarY - 4, bossBarW + 8, bossBarH + 8), Color.Black * 0.8f);
@@ -186,6 +189,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Draw the main menu and pause menu UI.
         public void DrawMenu(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, Rectangle playBtnRect, Rectangle tutorialBtnRect, Rectangle quitBtnRect, bool hasStarted)
         {
             int screenW = graphicsDevice.Viewport.Width;
@@ -194,6 +198,7 @@ namespace Pale_Roots_1
             spriteBatch.Draw(_uiPixel, new Rectangle(0, 0, screenW, screenH), Color.Black * 0.6f);
             Point mousePoint = new Point(Mouse.GetState().X, Mouse.GetState().Y);
 
+            // helper to render a styled button
             void DrawFancyButton(Rectangle rect, string text, bool isHovered)
             {
                 Color fillColor = isHovered ? _btnHover : _btnNormal;
@@ -236,6 +241,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Draw the level up selection overlay.
         public void DrawLevelUpScreen(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, List<UpgradeManager.UpgradeOption> currentUpgradeOptions, UpgradeManager upgradeManager)
         {
             spriteBatch.Draw(_uiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.7f);
@@ -265,6 +271,7 @@ namespace Pale_Roots_1
             }
         }
 
+        // Draw the end game UI with two buttons.
         public void DrawEndScreen(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, bool victory)
         {
             spriteBatch.Draw(_uiPixel, graphicsDevice.Viewport.Bounds, Color.Black * 0.85f);
@@ -287,6 +294,7 @@ namespace Pale_Roots_1
             Rectangle btn2Rect = new Rectangle((int)center.X - 100, (int)center.Y + 70, 200, 50);
             Point mousePos = Mouse.GetState().Position;
 
+            // helper to draw a styled button
             void DrawBtn(Rectangle r, string t)
             {
                 bool hover = r.Contains(mousePos);

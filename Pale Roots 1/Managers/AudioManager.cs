@@ -5,22 +5,23 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Controls background music playback and crossfading between tracks.
     public class AudioManager
     {
-        // Configuration
+        // Configuration values for fade speed and maximum volume.
         private float _fadeSpeed = 0.5f;
         private const float MaxVolume = 1.0f;
 
-        // State
+        // Current and target volumes used for smooth fades.
         private float _currentVolume = 0f;
         private float _targetVolume = 0f;
 
-        // Tracks
+        // Currently playing song and the one queued to start next.
         private Song _currentSong;
         private Song _pendingSong;
         private bool _isSwitchingTrack = false;
 
-        // Playlists
+        // Public properties for assigning music assets.
         public Song MenuSong { get; set; }
         public Song IntroSong { get; set; }
         public Song DeathSong { get; set; }
@@ -30,20 +31,22 @@ namespace Pale_Roots_1
 
         public AudioManager()
         {
-            // Initialize volume to silent so we fade in
+            // Start muted so music can fade in.
             MediaPlayer.Volume = 0f;
         }
 
+        // Add a song to the combat playlist.
         public void AddCombatSong(Song song)
         {
             _combatSongs.Add(song);
         }
 
+        // Update per frame to advance fades and handle track switching.
         public void Update(GameTime gameTime)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // --- 1. Fading Logic ---
+            // Adjust current volume toward the target to implement fading.
             if (_currentVolume < _targetVolume)
             {
                 _currentVolume += _fadeSpeed * dt;
@@ -57,29 +60,27 @@ namespace Pale_Roots_1
 
             MediaPlayer.Volume = _currentVolume;
 
-            // --- 2. State Management (The Fix for the Delay) ---
-            // Only allow new music checks once the hardware confirms it is actually playing.
+            // Only clear the switching flag once the media player reports it is playing.
             if (MediaPlayer.State == MediaState.Playing)
             {
                 _isSwitchingTrack = false;
             }
 
-            // --- 3. Cross-Fade Execution ---
+            // Determine if the hardware finished the song or if we are effectively silent.
             bool songFinished = (MediaPlayer.State == MediaState.Stopped);
             bool fadeComplete = (_currentVolume <= 0.05f);
 
-            // Only run this logic if we aren't already busy switching tracks
+            // If not already switching and a song is pending and we are silent or the previous song finished, start it.
             if (!_isSwitchingTrack && _pendingSong != null && (fadeComplete || songFinished))
             {
-                // If we are cross-fading, we use PlayImmediate too!
                 PlayImmediate(_pendingSong);
             }
         }
 
-        // The main interface for Game1 to ask for music
+        // Request the appropriate music for the given game state.
         public void HandleMusicState(GameState state)
         {
-            // If we are currently fading out (Pending exists), wait.
+            // If a track is already pending, do not override it.
             if (_pendingSong != null) return;
 
             switch (state)
@@ -106,14 +107,13 @@ namespace Pale_Roots_1
             }
         }
 
+        // Choose or maintain combat music based on current player context.
         private void HandleCombatMusic()
         {
-            // Safety check: Don't try to pick a new random combat song if we are already transitioning.
+            // Do not pick a new combat track while a transition is pending.
             if (_pendingSong != null || _isSwitchingTrack) return;
 
-            // Figure out if we need to pick a new track. 
-            // We need a new track if the current song isn't in our combat list (e.g., coming from a menu),
-            // OR if the hardware tells us the current track naturally finished playing.
+            // Decide if we need a new track when coming from a non-combat theme or when playback stopped.
             bool isWrongTheme = (_currentSong != null && !_combatSongs.Contains(_currentSong));
             bool isSilence = (MediaPlayer.State == MediaState.Stopped);
 
@@ -122,13 +122,13 @@ namespace Pale_Roots_1
                 Song next = GetRandomCombatTrack();
                 if (next != null)
                 {
-                    // Note: We pass 'false' for loop here, meaning when the song ends naturally, 
-                    // the isSilence check above will trigger and we will pick a new random song for variety!
+                    // Do not loop so the manager can pick a different track when it ends.
                     RequestTrack(next, false);
                 }
             }
         }
 
+        // Queue a song and begin fading out the current song.
         private void RequestTrack(Song song, bool loop)
         {
 
@@ -142,32 +142,34 @@ namespace Pale_Roots_1
 
             MediaPlayer.IsRepeating = loop;
             _pendingSong = song;
-            _targetVolume = 0.0f; // Fade out current
+            _targetVolume = 0.0f; // fade out current track
         }
 
+        // Immediately start playback of the provided song and reset fade state.
         private void PlayImmediate(Song song)
         {
             try
             {
-                // 1. Tell the hardware to play
+                // Tell the media player to start the requested song.
                 MediaPlayer.Play(song);
                 MediaPlayer.IsRepeating = false;
 
-                // 2. Update internal tracking
+                // Update internal tracking of which song is active.
                 _currentSong = song;
-                _pendingSong = null; // Clear any pending fades
+                _pendingSong = null; // clear pending request
 
-                // 3. Snap volume to MAX immediately
+                // Snap volume to maximum so the new song is audible immediately.
                 _targetVolume = MaxVolume;
                 _currentVolume = MaxVolume;
                 MediaPlayer.Volume = _currentVolume;
 
-                // 4. CRITICAL: Tell the engine "I am busy loading, don't bother me"
+                // Mark that we are busy switching tracks until the hardware reports playback.
                 _isSwitchingTrack = true;
             }
             catch { }
         }
 
+        // Pick a random combat track, avoiding the current track when possible.
         private Song GetRandomCombatTrack()
         {
             if (_combatSongs.Count == 0) return null;
@@ -183,13 +185,14 @@ namespace Pale_Roots_1
             return candidate;
         }
 
+        // Stop playback and reset internal state.
         public void Stop()
         {
             MediaPlayer.Stop();
             _currentSong = null;
             _pendingSong = null;
-            _currentVolume = MaxVolume; // Changed from 0.5f
-            _targetVolume = MaxVolume;  // Changed from 0.5f
+            _currentVolume = MaxVolume;
+            _targetVolume = MaxVolume;
         }
     }
 }

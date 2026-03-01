@@ -11,21 +11,21 @@ namespace Pale_Roots_1
         private GraphicsDeviceManager _graphics;
         public SpriteBatch SpriteBatch { get; private set; }
 
-        //// --- BOSS BATTLE STATE PRESERVATION ---
+        // optional saved gameplay state for boss transitions
         //public GameplayState SavedMainGameState { get; set; }
 
-        // --- ENGINE MANAGERS (Custom APIs) ---
+        // engine manager instances used by the game
         public GameStateManager StateManager { get; private set; }
         public AudioManager AudioManager { get; private set; }
         public UIManager UIManager { get; private set; }
         public CutsceneManager CutsceneManager { get; private set; }
 
-        // --- GAMEPLAY SYSTEMS ---
+        // gameplay systems like the battle engine and upgrade manager
         public ChaseAndFireEngine GameEngine { get; set; }
         public UpgradeManager UpgradeManager { get; set; }
         public List<UpgradeManager.UpgradeOption> CurrentUpgradeOptions { get; set; }
 
-        // --- GLOBAL ASSETS ---
+        // shared assets used across screens and HUD
         public Texture2D UiPixel { get; private set; }
         public SpriteFont UiFont { get; private set; }
         public Texture2D MenuBackground { get; private set; }
@@ -34,7 +34,7 @@ namespace Pale_Roots_1
         public Texture2D HeavyAttackIcon { get; private set; }
         public Texture2D BossIcon { get; private set; }
 
-        // --- GLOBAL STATE ---
+        // global game progress and thresholds for leveling
         public bool HasStarted { get; set; } = false;
         public int PreviousLevelThreshold { get; set; } = 0;
         public int NextLevelThreshold { get; set; } = 3;
@@ -65,13 +65,13 @@ namespace Pale_Roots_1
         {
             SpriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // Initialize UI Assets
+            // create the shared 1x1 pixel and try to load the UI font and menu background
             UiPixel = new Texture2D(GraphicsDevice, 1, 1);
             UiPixel.SetData(new[] { Color.White });
             try { UiFont = Content.Load<SpriteFont>("cutsceneFont"); } catch { }
             try { MenuBackground = Content.Load<Texture2D>("menu_background"); } catch { }
 
-            // Load Audio
+            // load music tracks used by the audio manager
             AudioManager.MenuSong = Content.Load<Song>("PaleRootsMenu");
             AudioManager.IntroSong = Content.Load<Song>("Whimsy");
             AudioManager.DeathSong = Content.Load<Song>("Sad");
@@ -83,7 +83,7 @@ namespace Pale_Roots_1
             AudioManager.AddCombatSong(Content.Load<Song>("ihavenoidea"));
             AudioManager.AddCombatSong(Content.Load<Song>("uhm"));
 
-            // Load Spell Icons
+            // load icons for spells and abilities
             SpellIcons = new Texture2D[6];
             SpellIcons[0] = Content.Load<Texture2D>("Effects/SmiteIcon");
             SpellIcons[1] = Content.Load<Texture2D>("Effects/HolyNovaIcon");
@@ -95,16 +95,14 @@ namespace Pale_Roots_1
             HeavyAttackIcon = Content.Load<Texture2D>("Effects/HeavyIcon");
             BossIcon = Content.Load<Texture2D>("Effects/BossIcon");
 
-
-            // Initialize UI Manager
+            // create the UI manager with the shared assets
             UIManager = new UIManager(UiPixel, UiFont);
 
-            // Initialize Cutscene Manager & Load Data
+            // create the cutscene manager and register cutscene data
             CutsceneManager = new CutsceneManager(this);
             CutsceneLibrary.LoadAllCutscenes(CutsceneManager, this);
 
-            // --- INPUT CONFIGURATION (Engine Feature) ---
-            // This defines the "Control Scheme". In a full engine, this could be loaded from a JSON file.
+            // register keyboard and mouse bindings for the action-based input API
             InputEngine.RegisterBinding("MoveUp", Keys.W);
             InputEngine.RegisterBinding("MoveDown", Keys.S);
             InputEngine.RegisterBinding("MoveLeft", Keys.A);
@@ -114,7 +112,7 @@ namespace Pale_Roots_1
             InputEngine.RegisterBinding("Confirm", Keys.Space);
             InputEngine.RegisterBinding("Exit", Keys.Escape);
 
-            // Spells
+            // spell casting bindings
             InputEngine.RegisterBinding("CastSpell1", Keys.D1);
             InputEngine.RegisterBinding("CastSpell2", Keys.D2);
             InputEngine.RegisterBinding("CastSpell3", Keys.D3);
@@ -122,19 +120,20 @@ namespace Pale_Roots_1
             InputEngine.RegisterBinding("CastSpell5", Keys.D5);
             InputEngine.RegisterBinding("CastSpell6", Keys.D6);
 
-            // Mouse Actions
-            InputEngine.RegisterMouseBinding("LightAttack", 0); // Left Click
-            InputEngine.RegisterMouseBinding("HeavyAttack", 1); // Right Click
+            // mouse bindings for light and heavy attacks
+            InputEngine.RegisterMouseBinding("LightAttack", 0); // left click
+            InputEngine.RegisterMouseBinding("HeavyAttack", 1); // right click
 
-            // Initialize the Gameplay Engine
+            // create or reset the gameplay engine and its managers
             SoftResetGame();
 
-            // START THE ENGINE IN THE MENU STATE
+            // start the game in the main menu state
             StateManager.ChangeState(new MenuState(this));
         }
 
         public void SoftResetGame()
         {
+            // recreate the battle engine and the upgrade manager and reset thresholds
             GameEngine = new ChaseAndFireEngine(this);
             UpgradeManager = new UpgradeManager(
                 GameEngine.GetPlayer(),

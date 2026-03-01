@@ -4,9 +4,7 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // ==========================================
-    // SPELL 1: SMITE
-    // ==========================================
+    // Heals the player and shows a heal animation.
     public class SmiteSpell : Spell
     {
         public SmiteSpell(Game game, Texture2D sheet) : base(game)
@@ -23,7 +21,7 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
-
+            // Play the heal animation and restore player health up to max.
             _animManager.Play("Heal");
 
             Player p = engine.GetPlayer();
@@ -33,6 +31,7 @@ namespace Pale_Roots_1
 
         protected override void OnUpdateActive(GameTime gameTime)
         {
+            // Keep the animation positioned near the player while active.
             if (_engineRef != null)
             {
                 _position = _engineRef.GetPlayer().Position;
@@ -41,9 +40,7 @@ namespace Pale_Roots_1
         }
     }
 
-    // ==========================================
-    // SPELL 2: HOLY NOVA
-    // ==========================================
+    // Deals area damage around the spell position to enemies within radius.
     public class HolyNovaSpell : Spell
     {
         private float _radius = 300f;
@@ -51,7 +48,7 @@ namespace Pale_Roots_1
         public HolyNovaSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Nova";
-            Description = "Instakill AOE on your cursor"; // NEW: Data-Driven UI
+            Description = "Instakill AOE on your cursor";
             CooldownDuration = 10000f;
             ActiveDuration = 1000f;
             Scale = 5.0f; 
@@ -63,12 +60,10 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
-
+            // Play explosion animation and damage enemies in the configured radius.
             _animManager.Play("Explode");
-            // Restored the generic <Enemy> type!
             List<Enemy> toKill = new List<Enemy>();
 
-            // 1. Find enemies in range
             foreach (var enemy in engine._enemies)
             {
                 if (Vector2.Distance(enemy.Position, _position) < _radius)
@@ -87,21 +82,18 @@ namespace Pale_Roots_1
         }
     }
 
-    // ==========================================
-    // SPELL 3: HEAVENS FURY
-    // ==========================================
+    // Spawn strike markers and reduce enemy health or alter boss behavior while active.
     public class HeavensFurySpell : Spell
     {
-        // Restored the generic <Vector2> type!
         private List<Vector2> _strikeLocations = new List<Vector2>();
 
         public HeavensFurySpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Heaven's Fury";
-            Description = "Half Enemy Healthbars"; // NEW: Data-Driven UI
+            Description = "Half Enemy Healthbars";
             CooldownDuration = 30000f;
             ActiveDuration = 15000f;
-            Scale = 3.0f; // Keep big
+            Scale = 3.0f;
             ThemeColor = Color.DeepSkyBlue;
 
             _animManager.AddAnimation("Cast", new Animation(sheet, 12, 0, 100f, true, 1, 128));
@@ -110,7 +102,7 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
-
+            // Choose random strike points and apply the health or gravity changes immediately.
             _animManager.Play("Cast");
 
             _strikeLocations.Clear();
@@ -142,6 +134,7 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
+            // Draw the strike animations at each chosen location while the spell is active.
             if (IsActive)
             {
                 foreach (Vector2 loc in _strikeLocations)
@@ -153,6 +146,7 @@ namespace Pale_Roots_1
 
         protected override void EndEffect()
         {
+            // Revert global enemy multipliers and restore boss gravity when the effect ends.
             base.EndEffect();
             if (_engineRef != null)
             {
@@ -169,15 +163,13 @@ namespace Pale_Roots_1
         }
     }
 
-    // ==========================================
-    // SPELL 4: HOLY SHIELD (FIXED SIZE)
-    // ==========================================
+    // Double the health of allies and the player while active and revert it on end.
     public class HolyShieldSpell : Spell
     {
         public HolyShieldSpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Holy Shield";
-            Description = "Double Healthbar"; // NEW: Data-Driven UI
+            Description = "Double Healthbar";
             CooldownDuration = 20000f;
             ActiveDuration = 15000f;
             Scale = 1.5f;
@@ -189,13 +181,13 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            // Play shield animation and double health values for player and allies.
             _animManager.Play("Shield");
 
             foreach (var ally in engine._allies)
             {
                 if (ally.IsAlive) ally.Health *= 2;
             }
-
 
             Player p = engine.GetPlayer();
             p.MaxHealth *= 2;
@@ -204,26 +196,25 @@ namespace Pale_Roots_1
 
         protected override void OnUpdateActive(GameTime gameTime)
         {
+            // Keep the shield animation positioned near the player while active.
             if (_engineRef != null)
             {
                 _position = _engineRef.GetPlayer().Position;
                 _position.Y -= 30;
             }
         }
-        // ENGINE POLISH: Clean up the buff when the spell duration ends!
+
         protected override void EndEffect()
         {
+            // Revert player and ally health changes and ensure health is clamped to valid values.
             base.EndEffect();
             if (_engineRef != null)
             {
-                // 1. Revert Player Health
                 Player p = _engineRef.GetPlayer();
                 p.MaxHealth /= 2;
 
-                // Cap current health so they don't have 200/100 HP
                 if (p.Health > p.MaxHealth) p.Health = p.MaxHealth;
 
-                // 2. Revert Ally Health (ensure it doesn't drop below 1 and kill them)
                 foreach (var ally in _engineRef._allies)
                 {
                     if (ally.IsAlive)
@@ -236,18 +227,15 @@ namespace Pale_Roots_1
         }
     }
 
-    // ==========================================
-    // SPELL 5: ELECTRICITY
-    // ==========================================
+    // Stun all enemies and block spawning while the spell is active.
     public class ElectricitySpell : Spell
     {
-        // Restored the generic <Vector2> type!
         private List<Vector2> _strikeLocations = new List<Vector2>();
 
         public ElectricitySpell(Game game, Texture2D sheet) : base(game)
         {
             Name = "Electricity";
-            Description = "Stun Enemies and stop spawning"; // NEW: Data-Driven UI
+            Description = "Stun Enemies and stop spawning";
             CooldownDuration = 40000f;
             ActiveDuration = 15000f;
             Scale = 3.0f;
@@ -259,7 +247,7 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
-
+            // Pick strike positions, block spawning, and set enemies to stunned.
             _animManager.Play("Storm");
 
             _strikeLocations.Clear();
@@ -278,6 +266,7 @@ namespace Pale_Roots_1
 
         protected override void OnUpdateActive(GameTime gameTime)
         {
+            // Maintain the stunned state on all enemies while the spell is active.
             if (_engineRef != null)
             {
                 foreach (var enemy in _engineRef._enemies) enemy.IsStunned = true;
@@ -286,6 +275,7 @@ namespace Pale_Roots_1
 
         public override void Draw(SpriteBatch spriteBatch)
         {
+            // Draw storm animations at each strike location while active.
             if (IsActive)
             {
                 foreach (Vector2 loc in _strikeLocations)
@@ -297,6 +287,7 @@ namespace Pale_Roots_1
 
         protected override void EndEffect()
         {
+            // Restore spawning and clear the stunned flag on enemies when the effect ends.
             base.EndEffect();
             if (_engineRef != null)
             {
@@ -306,9 +297,7 @@ namespace Pale_Roots_1
         }
     }
 
-    // ==========================================
-    // SPELL 6: SWORD OF JUSTICE (FIXED DOUBLE IMAGE)
-    // ==========================================
+    // Double the player's damage multiplier for the duration and show a persistent animation.
     public class SwordOfJusticeSpell : Spell
     {
         public SwordOfJusticeSpell(Game game, Texture2D sheet) : base(game)
@@ -326,12 +315,14 @@ namespace Pale_Roots_1
 
         protected override void OnCast(ChaseAndFireEngine engine)
         {
+            // Play the justice animation and apply the damage multiplier.
             _animManager.Play("Justice");
             engine.GlobalPlayerDamageMult = 2.0f;
         }
 
         protected override void OnUpdateActive(GameTime gameTime)
         {
+            // Keep the animation positioned above the player while the spell is active.
             if (_engineRef != null)
             {
                 _position = _engineRef.GetPlayer().Position;
@@ -341,6 +332,7 @@ namespace Pale_Roots_1
 
         protected override void EndEffect()
         {
+            // Reset the player's damage multiplier when the spell ends.
             base.EndEffect();
             if (_engineRef != null) _engineRef.GlobalPlayerDamageMult = 1.0f;
         }

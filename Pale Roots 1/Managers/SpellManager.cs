@@ -5,6 +5,7 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Manages all player spells and which spells the player has unlocked.
     public class SpellManager
     {
         private ChaseAndFireEngine _engine;
@@ -13,6 +14,7 @@ namespace Pale_Roots_1
         private bool[] _unlockedSpells;
         public List<Spell> AllSpells => _spells;
 
+        // Create spell instances and prepare the unlocked flags.
         public SpellManager(ChaseAndFireEngine engine,
                             Texture2D smiteTx,
                             Texture2D novaTx,
@@ -34,6 +36,7 @@ namespace Pale_Roots_1
             _unlockedSpells = new bool[_spells.Count];
         }
 
+        // Update each spell and handle player input for casting.
         public void Update(GameTime gameTime)
         {
             foreach (var spell in _spells)
@@ -43,6 +46,7 @@ namespace Pale_Roots_1
             HandleInput();
         }
 
+        // Read mouse and action inputs, convert to world coordinates, and trigger casts.
         private void HandleInput()
         {
             // We still need mouse position for aiming, which is specific data, not just a button press.
@@ -51,7 +55,7 @@ namespace Pale_Roots_1
             Matrix inverseTransform = Matrix.Invert(_engine._camera.CurrentCameraTranslation);
             Vector2 mousePos = Vector2.Transform(mouseScreenPos, inverseTransform);
 
-            // REFACTORED: Using Action API
+            // Map action inputs to spell indices and cast at the world position.
             if (InputEngine.IsActionPressed("CastSpell1")) CastSpell(0, mousePos);
             if (InputEngine.IsActionPressed("CastSpell2")) CastSpell(1, mousePos);
             if (InputEngine.IsActionPressed("CastSpell3")) CastSpell(2, mousePos);
@@ -60,6 +64,7 @@ namespace Pale_Roots_1
             if (InputEngine.IsActionPressed("CastSpell6")) CastSpell(5, mousePos);
         }
 
+        // Attempt to cast the spell at the given index toward the target position.
         private void CastSpell(int index, Vector2 target)
         {
             if (index >= 0 && index < _spells.Count)
@@ -70,6 +75,8 @@ namespace Pale_Roots_1
                 }
             }
         }
+
+        // Unlock a specific spell for use.
         public void UnlockSpell(int index)
         {
             if (index >= 0 && index < _unlockedSpells.Length)
@@ -77,6 +84,8 @@ namespace Pale_Roots_1
                 _unlockedSpells[index] = true;
             }
         }
+
+        // Lock every spell so none can be cast.
         public void LockAllSpells()
         {
             for (int i = 0; i < _unlockedSpells.Length; i++)
@@ -85,11 +94,14 @@ namespace Pale_Roots_1
             }
         }
 
+        // Return whether a spell is unlocked.
         public bool IsSpellUnlocked(int index)
         {
             if (index >= 0 && index < _unlockedSpells.Length) return _unlockedSpells[index];
             return false;
         }
+
+        // Get a reference to a spell by index or null if out of range.
         public Spell GetSpell(int index)
         {
             if (index >= 0 && index < _spells.Count)
@@ -99,6 +111,7 @@ namespace Pale_Roots_1
             return null;
         }
 
+        // Draw each spell's visuals and icons as provided by the Spell implementations.
         public void Draw(SpriteBatch spriteBatch)
         {
             foreach (var spell in _spells)

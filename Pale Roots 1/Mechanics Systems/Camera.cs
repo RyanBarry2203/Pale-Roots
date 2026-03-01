@@ -3,24 +3,22 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    // Simple camera that centers on a point, clamps to map bounds and produces a transform matrix
-    // Consumers (LevelManager / Game1 / drawing code) should use CurrentCameraTranslation as the SpriteBatch transform.
+    // Camera that centers on a world point, clamps inside the level, and produces a SpriteBatch transform.
     public class Camera
     {
-        // World-space position the camera is centered on (in world coordinates).
+        // World-space center position of the camera.
         public Vector2 Position { get; private set; }
 
-        // Zoom factor (1.0 = 100%). Affects how much of the map is visible.
+        // Zoom level where 1.0 = 100%.
         public float Zoom { get; set; } = 1.0f;
 
-        // Matrix to pass into SpriteBatch.Begin(transformMatrix: CurrentCameraTranslation)
-        // Updated whenever Position or Zoom changes via LookAt/follow.
+        // Matrix to pass into SpriteBatch.Begin(transformMatrix: CurrentCameraTranslation).
         public Matrix CurrentCameraTranslation { get; private set; }
 
-        // Map size in world units; used to clamp camera so we don't show outside the level.
+        // Full map size in world units used to clamp the camera.
         private Vector2 _mapSize;
 
-        // startPos: initial camera center. mapSize: full world extents (width, height).
+        // Initialize camera center and map extents.
         public Camera(Vector2 startPos, Vector2 mapSize)
         {
             Position = startPos;
@@ -28,21 +26,19 @@ namespace Pale_Roots_1
             Zoom = 1.0f;
         }
 
-        // Move camera immediately to targetPos and update the transform.
-        // viewport is required so we can compute how much world the screen shows at current Zoom.
+        // Immediately move the camera to targetPos and update the transform for drawing.
         public void LookAt(Vector2 targetPos, Viewport viewport)
         {
             Position = targetPos;
 
-            // Keep camera inside the map edges based on current viewport and Zoom.
+            // Clamp to map bounds based on current zoom and viewport.
             ClampPosition(viewport);
 
-            // Build the matrix used for rendering transforms right away.
+            // Recompute the transform matrix.
             UpdateMatrix(viewport);
         }
 
-        // Smooth-follow or immediate follow API (same here as LookAt).
-        // Call each frame with the player's world position and Viewport before drawing.
+        // Follow API; call each frame with the target world position and viewport.
         public void follow(Vector2 targetPos, Viewport viewport)
         {
             Position = targetPos;
@@ -50,8 +46,7 @@ namespace Pale_Roots_1
             UpdateMatrix(viewport);
         }
 
-        // Ensure the camera center stays inside the level bounds.
-        // Uses visible world size = viewport / Zoom so clamping adjusts when Zoom changes.
+        // Keep the camera center inside the level using the visible world size derived from zoom.
         private void ClampPosition(Viewport viewport)
         {
             float visibleWidth = viewport.Width / Zoom;
@@ -63,7 +58,7 @@ namespace Pale_Roots_1
             float newX = Position.X;
             float newY = Position.Y;
 
-            // If the visible area is larger than the map, center on the map instead of clamping edges.
+            // If the viewport shows more than the map, center on the map instead of clamping edges.
             if (visibleWidth > _mapSize.X)
             {
                 newX = _mapSize.X / 2f;
@@ -86,9 +81,7 @@ namespace Pale_Roots_1
         }
 
         // Recompute the transform matrix used for rendering:
-        // 1) translate world so the camera center is at origin,
-        // 2) scale (zoom), then
-        // 3) translate so origin maps to the screen center.
+        // translate world so camera center is origin, scale by Zoom, then translate to screen center.
         private void UpdateMatrix(Viewport viewport)
         {
             Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);

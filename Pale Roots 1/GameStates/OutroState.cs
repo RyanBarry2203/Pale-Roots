@@ -4,8 +4,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // This state handles the final cinematic sequence that plays right after the player defeats the boss.
-    // It works almost exactly like our IntroState, acting as a lightweight wrapper that lets the CutsceneManager do the heavy lifting.
+    // Plays the final cinematic after the boss is defeated using the CutsceneManager.
     public class OutroState : IGameState
     {
         private Game1 _game;
@@ -17,10 +16,10 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
-            // Tell the audio manager to fade into our specific ending music track.
+            // Switch the music to the outro track.
             _game.AudioManager.HandleMusicState(GameState.Outro);
 
-            // Queue up the "Outro" animation sequence so it's ready to draw on the first frame.
+            // Start the "Outro" cutscene sequence.
             _game.CutsceneManager.Play("Outro");
         }
 
@@ -28,11 +27,10 @@ namespace Pale_Roots_1
         {
             _game.CutsceneManager.Update(gameTime);
 
-            // Listen for the player pressing Spacebar to skip the cinematic, 
-            // or simply check if the cutscene has reached its final frame natively.
+            // Skip the cinematic on Space or when the cutscene finishes.
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
             {
-                // Once the cinematic is done, swap this state out and roll the credits.
+                // After the cinematic ends, show the credits screen.
                 _game.StateManager.ChangeState(new CreditsState(_game));
             }
         }
@@ -41,8 +39,7 @@ namespace Pale_Roots_1
         {
             spriteBatch.Begin();
 
-            // Hand the drawing logic over to the cutscene manager, passing in the current screen dimensions 
-            // so it knows exactly how to scale the images to fit the viewport.
+            // Tell the CutsceneManager to draw the current frame using the viewport size.
             _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
 
             spriteBatch.End();

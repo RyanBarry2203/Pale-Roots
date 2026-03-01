@@ -4,8 +4,8 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // This state handles the opening cinematic right before the actual gameplay begins.
-    // It relies on the CutsceneManager to do the heavy lifting for the visuals and timing.
+    // Plays the opening cinematic before gameplay begins.
+    // Uses CutsceneManager to run and draw the cutscene.
     public class IntroState : IGameState
     {
         private Game1 _game;
@@ -17,10 +17,10 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
-            // Tell the audio manager to start playing the specific intro music track.
+            // Start the intro music track.
             _game.AudioManager.HandleMusicState(GameState.Intro);
 
-            // Queue up the "Intro" animation sequence in our cutscene manager.
+            // Start the "Intro" cutscene in the CutsceneManager.
             _game.CutsceneManager.Play("Intro");
         }
 
@@ -28,11 +28,10 @@ namespace Pale_Roots_1
         {
             _game.CutsceneManager.Update(gameTime);
 
-            // Check if the player wants to skip the cinematic by hitting the Spacebar, 
-            // or if the cutscene simply finished playing on its own.
+            // Skip to gameplay if the player presses Space or the cutscene finished.
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _game.CutsceneManager.IsFinished)
             {
-                // Flag the game as officially started and transition straight into the main action.
+                // Mark the game started and change to the GameplayState.
                 _game.HasStarted = true;
                 _game.StateManager.ChangeState(new GameplayState(_game));
             }
@@ -42,7 +41,7 @@ namespace Pale_Roots_1
         {
             spriteBatch.Begin();
 
-            // Pass the screen dimensions down to the cutscene manager so it can scale and draw the cinematic properly.
+            // Draw the cutscene scaled to the current viewport size.
             _game.CutsceneManager.Draw(spriteBatch, graphicsDevice.Viewport.Width, graphicsDevice.Viewport.Height);
 
             spriteBatch.End();

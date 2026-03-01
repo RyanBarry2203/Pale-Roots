@@ -5,23 +5,22 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // This state acts as an entirely separate level just for the boss fight.
-    // By keeping it isolated from GameplayState, we can strictly control the environment, camera, and rules.
+    // This state runs the boss fight level and controls the arena and rules.
     public class BossBattleState : IGameState
     {
         private Game1 _game;
 
-        // spin up a totally fresh instance of our core engine just for this fight.
+        // Engine instance dedicated to the boss arena.
         private ChaseAndFireEngine _bossEngine;
         private BlackHoleBoss _boss;
 
-        // Tracking the flow of the battle so we know when to trigger the ending sequence.
+        // Track battle end and result.
         private bool _fightOver = false;
         private float _endTimer = 0f;
         private const float END_DELAY = 2.5f;
         private bool _playerWon = false;
 
-        // A delegate we can call once the fight is totally wrapped up, returning us to the main Game.
+        // Callback invoked when the battle finishes.
         private Action<bool> _onBattleEnd;
 
         public BossBattleState(Game1 game, Action<bool> onBattleEnd)
@@ -32,16 +31,16 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
-            // Initialize the arena engine and clear out any leftover junk so we start with a clean slate.
+            // Create the arena engine and clear existing entities.
             _bossEngine = new ChaseAndFireEngine(_game);
             _bossEngine.IsBossArena = true;
             _bossEngine._enemies.Clear();
             _bossEngine._allies.Clear();
 
-            // Ask the LevelManager to prodecurally generate our new level.
+            // Generate the boss arena layout.
             _bossEngine._levelManager.GenerateBossArena();
 
-            // Load all the sprite sheets required for the boss into a temporary dictionary.
+            // Load boss sprite sheets into a temporary dictionary.
             var bossTextures = new Dictionary<string, Texture2D>();
             bossTextures["Idle"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_idle");
             bossTextures["Walk"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_walk");
@@ -49,33 +48,33 @@ namespace Pale_Roots_1
             bossTextures["Hurt"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_hurt");
             bossTextures["Death"] = _game.Content.Load<Texture2D>("Boss_Sheets/Golem_1_die");
 
-            // Calculate the absolute center of the generated tilemap using our 64x64 tile size.
+            // Compute the center position for the arena.
             Vector2 mapCenter = new Vector2(1920, 1088 + 150);
 
-            // Spawn the boss directly in the middle of the room.
+            // Spawn the boss at the center of the room.
             _boss = new BlackHoleBoss(_game, bossTextures, mapCenter);
 
-            // Lock the boss inside the mathematical circle so it doesn't get stuck on jagged tree hitboxes.
+            // Constrain the boss to a circular area to avoid geometry issues.
             _boss.UseCircularBounds = true;
             _boss.CircularBoundsCenter = mapCenter;
             _boss.CircularBoundsRadius = 1400f;
 
             _bossEngine._enemies.Add(_boss);
 
-            // Spawn the player offset to the left so they don't immediately collide with the boss on frame 1.
+            // Place the player to the left of the boss to avoid immediate collision.
             Player bossArenaPlayer = _bossEngine.GetPlayer();
             bossArenaPlayer.Position = mapCenter - new Vector2(400, 0);
 
-            // Lock the player inside the exact same mathematical circle to prevent corner cheese from playtesting.
+            // Constrain the player to the arena circle to prevent corner exploits.
             bossArenaPlayer.UseCircularBounds = true;
             bossArenaPlayer.CircularBoundsCenter = mapCenter;
             bossArenaPlayer.CircularBoundsRadius = 950f;
 
-            // Instantly snap the camera to the center so the player doesn't see the camera panning over the black void during setup.
+            // Snap the camera to the arena center for a clean start.
             _bossEngine._camera.LookAt(mapCenter, _game.GraphicsDevice.Viewport);
             SpellManager bossArenaSpells = _bossEngine.GetSpellManager();
 
-            // We temporarily unlock the player's full arsenal.
+            // Unlock the player's abilities for the boss fight.
             bossArenaPlayer.IsDashUnlocked = true;
             bossArenaPlayer.IsHeavyAttackUnlocked = true;
             for (int i = 0; i < 6; i++)
@@ -86,21 +85,21 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime)
         {
-            // Talk to the AudioManager to make sure the intense combat music is looping.
+            // Ensure combat music plays during the fight.
             _game.AudioManager.HandleMusicState(GameState.Gameplay);
 
-            // Listen for the pause input to stack the MenuState on top of the boss fight.
+            // Allow the player to pause and open the menu.
             if (InputEngine.IsKeyPressed(Microsoft.Xna.Framework.Input.Keys.Escape))
             {
                 _game.StateManager.PushState(new MenuState(_game));
                 return;
             }
 
-            // Step the core physics and collision engine forward, then explicitly run the custom boss logic.
+            // Advance the engine and run boss specific logic.
             _bossEngine.Update(gameTime);
             _boss.UpdateBossLogic(gameTime, _bossEngine.GetPlayer());
 
-            // Check our win/loss conditions every frame.
+            // Check for win or loss conditions each frame.
             if (!_fightOver)
             {
                 if (!_boss.IsAlive)
@@ -116,8 +115,7 @@ namespace Pale_Roots_1
             }
             else
             {
-                // Once someone dies, run a short delay timer so the death animations can play out 
-                // before we violently yank the player out of the arena.
+                // Wait briefly after a death so animations can finish, then end the fight.
                 _endTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
                 if (_endTimer >= END_DELAY)
                 {
@@ -128,21 +126,19 @@ namespace Pale_Roots_1
 
         private void FinishFight(bool playerWon)
         {
-            // Hand control over to the transition state, passing along whether we won or lost 
-            // so it knows what text/effects to display.
+            // Transition to the boss transition state and pass the result.
             _fightOver = true;
             _game.StateManager.ChangeState(new BossTransitionState(_game, _bossEngine, false, playerWon, _onBattleEnd));
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
-            // Pass the camera's translation matrix to the sprite batch so the game world renders in the right spot.
+            // Draw the world using the arena camera matrix.
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _bossEngine._camera.CurrentCameraTranslation);
             _bossEngine.Draw(gameTime, spriteBatch);
             spriteBatch.End();
 
-            // Draw the HUD directly to the screen (no camera matrix). 
-            // We pass in 999 for the score and 0 for the timer since standard level tracking doesn't matter in the boss arena.
+            // Draw the HUD without camera transformation and use fixed placeholders for score and timer.
             spriteBatch.Begin();
             _game.UIManager.DrawHUD(spriteBatch, graphicsDevice, _bossEngine, _game.SpellIcons, _game.DashIcon, _game.HeavyAttackIcon, 999, 0f);
             spriteBatch.End();

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Manages a set of animations and draws the currently playing animation frame.
     public class AnimationManager
     {
         private Dictionary<string, Animation> _anims = new Dictionary<string, Animation>();
@@ -15,16 +16,21 @@ namespace Pale_Roots_1
 
         public float LayerDepth { get; set; }
 
+        // Register an animation under a string key for later playback.
         public void AddAnimation(string key, Animation animation)
         {
             _anims[key] = animation;
         }
+
+        // Reset the current playback state so no animation is selected.
         public void Reset()
         {
             _currentKey = null;
             CurrentFrame = 0;
             _timer = 0;
         }
+
+        // Start playing the named animation if it is not already active.
         public void Play(string key)
         {
             if (_currentKey == key) return;
@@ -37,6 +43,9 @@ namespace Pale_Roots_1
                 _timer = 0;
             }
         }
+
+        // Advance the frame timer and update the current frame based on elapsed time.
+        // Uses the animation's FrameSpeed and looping flag to determine behavior.
         public void Update(GameTime gameTime)
         {
             if (_currentAnimation == null) return;
@@ -61,6 +70,9 @@ namespace Pale_Roots_1
                 }
             }
         }
+
+        // Draw the current animation frame at the given position and scale.
+        // If the animation is a grid, use the direction row instead of sprite flipping.
         public void Draw(SpriteBatch spriteBatch, Vector2 position, float scale, SpriteEffects effect, int direction = 0)
         {
             if (_currentAnimation == null) return;
@@ -69,13 +81,12 @@ namespace Pale_Roots_1
             int frameHeight = _currentAnimation.FrameHeight;
             int currentRow = _currentAnimation.SheetRow;
 
-            // POLYMORPHIC LOGIC:
-            // If it's a Grid (Enemy/Ally), we ignore the 'effect' flip and change the Y row instead.
-            // Assuming standard sheets: 0:Down, 1:Left, 2:Right, 3:Up (Adjust based on your asset)
+            // If the animation uses a grid layout we select the row by direction
+            // and avoid applying sprite effects so the sheet controls facing.
             if (_currentAnimation.IsGrid)
             {
                 currentRow = direction;
-                effect = SpriteEffects.None; // Grid handles direction, so don't flip
+                effect = SpriteEffects.None;
             }
 
             Rectangle source = new Rectangle(
@@ -85,7 +96,7 @@ namespace Pale_Roots_1
                 frameHeight
             );
 
-            // Origin at Bottom Center (Feet)
+            // Use the sprite feet as the origin so the sprite is positioned by its base.
             Vector2 origin = new Vector2(frameWidth / 2f, frameHeight);
 
             spriteBatch.Draw(

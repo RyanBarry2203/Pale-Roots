@@ -4,14 +4,16 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
+    // Loads and registers the project's predefined cutscenes into the CutsceneManager.
     public static class CutsceneLibrary
     {
         public static void LoadAllCutscenes(CutsceneManager manager, Game game)
         {
-            // --- LOAD INTRO ---
+            // Load intro slide textures from the content pipeline.
             Texture2D[] introSlides = new Texture2D[9];
             for (int i = 1; i < 9; i++) introSlides[i] = game.Content.Load<Texture2D>("cutscene_image_" + i);
 
+            // Build the intro cutscene by creating slides with text, durations, zoom and pan settings.
             Cutscene intro = new Cutscene();
             float dur = 7000f;
 
@@ -21,15 +23,17 @@ namespace Pale_Roots_1
             intro.AddSlide(new CutsceneSlide(introSlides[4], "Insulted, Atun withdrew any power he was yeilding to the world he once held so precious.", dur, 1.05f, 1.05f, new Vector2(0, 30), new Vector2(0, -30)));
             intro.AddSlide(new CutsceneSlide(introSlides[5], "The Roots of his power went Pale, and the love his people had for him turned to blaising rage as\n they were forsaken further.", dur, 1.0f, 1.08f, Vector2.Zero, Vector2.Zero));
             intro.AddSlide(new CutsceneSlide(introSlides[6], "In news of a weakened civilisation, Predatory colonys smelled blood in the waters of the Galaxy.", dur, 1.05f, 1.05f, new Vector2(30, 0), new Vector2(-30, 0)));
-            intro.AddSlide(new CutsceneSlide(introSlides[7], "Led by Nivellin, a war Hero with inexplicable power. He had came to take back the land that was once his to Rule.", dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
+            intro.AddSlide(new CutsceneSlide(introSlides[7], "Led by Nivellin, a war Hero with inexplicable power. He had come to take back the land that was once his to Rule.", dur, 1.0f, 1.15f, Vector2.Zero, Vector2.Zero));
             intro.AddSlide(new CutsceneSlide(introSlides[8], "War was set in Motion, as was the Justice for Humanity", dur, 1.1f, 1.0f, Vector2.Zero, Vector2.Zero));
 
+            // Register the intro sequence with the manager for use by IntroState.
             manager.AddCutscene("Intro", intro);
 
-            // --- LOAD OUTRO ---
+            // Load outro slide textures from the content pipeline.
             Texture2D[] outroSlides = new Texture2D[8];
             for (int i = 1; i < 8; i++) outroSlides[i] = game.Content.Load<Texture2D>("outro_image_" + i);
 
+            // Build the outro cutscene with slides and timing.
             Cutscene outro = new Cutscene();
             float outroDur = 7000f;
 
@@ -41,6 +45,7 @@ namespace Pale_Roots_1
             outro.AddSlide(new CutsceneSlide(outroSlides[6], "Nivellin had to wonder, what was this all for. He had won a dying planet in his feat of reclaiming his Throne.\n And he was about to challenge the wrath of the most powerful being in exsistance, his father.", outroDur + 4000f, 1.05f, 1.15f, Vector2.Zero, Vector2.Zero));
             outro.AddSlide(new CutsceneSlide(outroSlides[7], "Nivellin knew but one thing to be true. This was his home, and to defend it would be his responsibility. ", outroDur + 3000, 1.1f, 1.1f, new Vector2(-30, -30), new Vector2(30, 30)));
 
+            // Register the outro sequence with the manager for use by OutroState.
             manager.AddCutscene("Outro", outro);
         }
     }

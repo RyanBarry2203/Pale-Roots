@@ -3,47 +3,44 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // Handles the logic for when an NPC is blindly charging forward.
+    // NPC charges straight in the direction of its team.
     public class ChargeState : IAIState
     {
         public void Enter(INpcActor npc) { }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Check the NPC's team to figure out which direction they should run. 
-            // Player allies move right (+1), enemies move left (-1).
+            // Choose direction based on npc team.
             float dir = npc.Team == CombatTeam.Player ? 1f : -1f;
 
-            // Pick a point way off in the distance in the correct direction.
+            // Set a distant target along the x axis.
             Vector2 target = new Vector2(npc.Position.X + (1000 * dir), npc.Position.Y);
 
-            // Tell the NPC to move towards that distant point while avoiding obstacles.
+            // Move toward the distant target while avoiding obstacles.
             npc.MoveToward(target, npc.Velocity, obstacles);
         }
 
         public void Exit(INpcActor npc) { }
     }
 
-    // Handles the logic for when an NPC is actively pursuing a target.
+    // Pursue a valid target until it is lost or within attack range.
     public class ChaseState : IAIState
     {
         public void Enter(INpcActor npc) { }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // First, make sure we actually have a valid target. 
-            // If the target disappeared or died, drop out of the chase and go back to wandering.
+            // If there is no valid target, switch to wandering.
             if (npc.CurrentTarget == null || !npc.CurrentTarget.IsAlive)
             {
                 npc.ChangeState(new WanderState());
                 return;
             }
 
-            // Keep moving toward the center of the target.
+            // Move toward the target center avoiding obstacles.
             npc.MoveToward(npc.CurrentTarget.Center, npc.Velocity, obstacles);
 
-            // Ask the CombatSystem to check the distance between us and the target.
-            // If we close the gap and get within engagement range, switch to the CombatState.
+            // If within attack range according to CombatSystem, switch to combat.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange)
             {
                 npc.ChangeState(new CombatState());
@@ -53,32 +50,30 @@ namespace Pale_Roots_1
         public void Exit(INpcActor npc) { }
     }
 
-    // Handles the logic for when an NPC is actively fighting their target.
+    // Fight the current target and manage attack timing and facing.
     public class CombatState : IAIState
     {
         public void Enter(INpcActor npc) { }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Safety check: if our target dies or vanishes mid-fight, go back to wandering.
+            // If the target is gone or dead, return to wandering.
             if (npc.CurrentTarget == null || !npc.CurrentTarget.IsAlive)
             {
                 npc.ChangeState(new WanderState());
                 return;
             }
 
-            // Make sure the NPC's sprite is always looking directly at the target.
+            // Face the target immediately.
             npc.SnapToFace(npc.CurrentTarget.Center);
 
-            // Check with the CombatSystem to see if we are close enough to swing.
-            // If we are, and our attack cooldown has reset, hit them.
+            // If in range and the attack cooldown has reset, perform the attack.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) < npc.AttackRange && npc.AttackCooldown <= 0)
             {
                 npc.PerformAttack();
             }
 
-            // If the target manages to run away and gets outside our combat break range, 
-            // stop fighting and go back to chasing them down.
+            // If the target moves far enough away, switch back to chasing.
             if (CombatSystem.GetDistance(npc, npc.CurrentTarget) > npc.AttackRange + 30f)
             {
                 npc.ChangeState(new ChaseState());
@@ -88,46 +83,43 @@ namespace Pale_Roots_1
         public void Exit(INpcActor npc) { }
     }
 
-    // Handles the logic for when an NPC is idle and patrolling around their spawn point.
+    // Patrol near the spawn point by choosing random nearby targets.
     public class WanderState : IAIState
     {
         public void Enter(INpcActor npc) { }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // If we haven't picked a spot to wander to yet, or if we just arrived at our current spot (within 5 pixels).
+            // If no wander target is set or the npc is close to it, pick a new one.
             if (npc.WanderTarget == Vector2.Zero || Vector2.Distance(npc.Position, npc.WanderTarget) < 5f)
             {
-                // Use the CombatSystem's random number generator and the radius defined in GameConstants 
-                // to pick a new random point near where the NPC originally spawned.
+                // Use CombatSystem random to compute a new wander target within the configured radius.
                 npc.WanderTarget = npc.StartPosition + new Vector2(
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1),
                     CombatSystem.RandomInt(-GameConstants.WanderRadius, GameConstants.WanderRadius + 1)
                 );
             }
 
-            // Slowly walk toward the newly chosen spot at half speed.
+            // Move slowly toward the wander target at half speed.
             npc.MoveToward(npc.WanderTarget, npc.Velocity * 0.5f, obstacles);
         }
 
         public void Exit(INpcActor npc) { }
     }
 
-    // Handles the logic for when an NPC takes damage and gets momentarily stunned.
+    // Apply a short stun and play the hurt animation when damaged.
     public class HurtState : IAIState
     {
         public void Enter(INpcActor npc)
         {
-            // The moment we enter this state, force a long attack cooldown to act as a stun mechanic.
-            // Also trigger the hurt animation so the player gets visual feedback.
+            // Set attack cooldown as a stun and play hurt animation.
             npc.AttackCooldown = 500f;
             npc.PlayAnimation("Hurt");
         }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Wait for the stun (attack cooldown) to count down to zero.
-            // Once they recover, immediately switch back to chasing whatever hit them.
+            // When the cooldown expires, return to the chase state.
             if (npc.AttackCooldown <= 0) npc.ChangeState(new ChaseState());
         }
 

@@ -5,10 +5,13 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Pale_Roots_1
 {
-    public static class  Helper
+    // Provides mapping from asset names to source rectangles on a shared sprite sheet.
+    public static class Helper
     {
+        // Shared sprite sheet texture used by source rectangles.
         public static Texture2D SpriteSheet { get; set; }
 
+        // Map of asset keys to their source rectangle on the sprite sheet.
         public static Dictionary<string, Rectangle> SourceRects = new Dictionary<string, Rectangle>()
         {
             { "Big_Rock", new Rectangle(16, 192, 64, 64)},
@@ -45,10 +48,9 @@ namespace Pale_Roots_1
             { "Hand_In_Floor_Medium", new Rectangle(271, 531, 48, 55) },
             { "Hand_In_Floor_Small", new Rectangle(320, 531, 31, 55) },
             { "Hand_In_Floor_Tiny", new Rectangle(352, 542, 33, 48) },
-
-
         };
 
+        // Return the source rectangle for the given asset key or a default rectangle if missing.
         public static Rectangle GetSourceRect(string key)
         {
             if (SourceRects.ContainsKey(key))
@@ -56,7 +58,6 @@ namespace Pale_Roots_1
                 return SourceRects[key];
             }
             return new Rectangle(0, 0, 32, 32);
-
         }
     }
 }

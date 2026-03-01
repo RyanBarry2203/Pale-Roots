@@ -3,8 +3,8 @@ using Microsoft.Xna.Framework;
 
 namespace Pale_Roots_1
 {
-    // Shared numeric constants used across the project (speeds, ranges, timeouts, map size).
-    // Consumers: Player, Enemy, Projectile, Camera, AI and other systems read these values.
+    // Shared numeric constants used by gameplay systems like Player, Enemy, Camera, and AI.
+    // Other classes read these values for speeds, ranges, timers, and map dimensions.
     public static class GameConstants
     {
         public const float SwordSwingDuration = 250f;
@@ -45,7 +45,7 @@ namespace Pale_Roots_1
         public const int WinConditionKills = 120;
     }
 
-    // Team tags used by CombatSystem and AI to decide friend/foe behavior.
+    // Team labels used by CombatSystem and AI to determine friend or foe relationships.
     public enum CombatTeam
     {
         Player,
@@ -53,8 +53,8 @@ namespace Pale_Roots_1
         Neutral
     }
 
-    // Minimal interface any combat-capable actor must implement so systems can interact with it.
-    // Implementers: Player, Enemy, Ally, Projectile-shaping actors, etc.
+    // Minimal interface implemented by Player, Enemy, Ally and other combat-capable objects.
+    // CombatSystem and AI use this to apply damage, assign targets, and query status.
     public interface ICombatant
     {
         string Name { get; }
@@ -73,24 +73,23 @@ namespace Pale_Roots_1
         void Die();
     }
 
-    // Centralized combat helper and bookkeeping.
-    // - Resolves damage (with small variance), fires events, and keeps attacker counts consistent.
-    // - Provides RNG helpers so the whole game uses one Random instance.
+    // Central combat helper used to deal damage, manage targets, and emit combat events.
+    // Systems subscribe to events and use the RNG helpers to produce consistent randomness.
     public static class CombatSystem
     {
-        // Events: UI, audio, spawning logic, or analytics subscribe to these.
+        // Events for damage, kills, and target assignment used across the project.
         public static event Action<ICombatant, ICombatant, int> OnDamageDealt;
         public static event Action<ICombatant, ICombatant> OnCombatantKilled;
         public static event Action<ICombatant, ICombatant> OnTargetAcquired;
 
-        // Single RNG used project-wide to avoid seed duplication issues.
+        // Single Random instance used everywhere to avoid duplicate seeding issues.
         private static readonly Random _random = new Random();
 
         public static int RandomInt(int min, int max) => _random.Next(min, max);
         public static float RandomFloat() => (float)_random.NextDouble();
         public static float RandomFloat(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
-        // Apply damage to target, notify listeners and handle death bookkeeping.
+        // Apply damage from attacker to target, invoke events, and handle death.
         public static int DealDamage(ICombatant attacker, ICombatant target, int baseDamage, float multiplier = 1.0f)
         {
             if (target == null || !target.IsAlive) return 0;
@@ -98,7 +97,7 @@ namespace Pale_Roots_1
 
             int finalBase = (int)(baseDamage * multiplier);
 
-            // Small randomness so hits vary slightly.
+            // Small variance so damage is not identical every hit.
             float variance = RandomFloat(0.9f, 1.1f);
             int finalDamage = Math.Max(1, (int)(baseDamage * variance));
 
@@ -114,7 +113,7 @@ namespace Pale_Roots_1
             return finalDamage;
         }
 
-        // Clear attacker bookkeeping and emit kill event.
+        // Cleanup attacker bookkeeping and notify listeners about the kill.
         private static void HandleKill(ICombatant killer, ICombatant victim)
         {
             if (victim.CurrentTarget != null)
@@ -127,8 +126,8 @@ namespace Pale_Roots_1
             OnCombatantKilled?.Invoke(killer, victim);
         }
 
-        // Assign a new target for a combatant and maintain AttackerCount on the target.
-        // Emits OnTargetAcquired so UI/AI can react.
+        // Set a new target for a combatant and maintain the AttackerCount on the target.
+        // Other systems listen to OnTargetAcquired to react to targeting changes.
         public static void AssignTarget(ICombatant combatant, ICombatant newTarget)
         {
             if (combatant == null) return;
@@ -147,7 +146,7 @@ namespace Pale_Roots_1
             }
         }
 
-        // Remove whatever target a combatant currently has and update counts.
+        // Clear the current target and update attacker counts.
         public static void ClearTarget(ICombatant combatant)
         {
             if (combatant?.CurrentTarget != null)
@@ -157,14 +156,14 @@ namespace Pale_Roots_1
             }
         }
 
-        // True if teams differ and neither is Neutral.
+        // Returns true when the two combatants are on opposing teams.
         public static bool AreEnemies(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return false;
             return a.Team != b.Team && a.Team != CombatTeam.Neutral && b.Team != CombatTeam.Neutral;
         }
 
-        // Checks that the target is alive, active and an enemy.
+        // Validate that a target is alive, active, and an enemy.
         public static bool IsValidTarget(ICombatant attacker, ICombatant target)
         {
             if (target == null) return false;
@@ -174,7 +173,7 @@ namespace Pale_Roots_1
             return true;
         }
 
-        // Distance-based attack range check using entity centers.
+        // Check if attacker is within range to attack the target using their centers.
         public static bool CanAttack(ICombatant attacker, ICombatant target, float range = -1)
         {
             if (!IsValidTarget(attacker, target)) return false;
@@ -185,14 +184,14 @@ namespace Pale_Roots_1
             return distance <= range;
         }
 
-        // Utility used by targeting logic to choose nearest candidates.
+        // Utility to compute distance between two combatants used by AI and targeting code.
         public static float GetDistance(ICombatant a, ICombatant b)
         {
             if (a == null || b == null) return float.MaxValue;
             return Vector2.Distance(a.Center, b.Center);
         }
 
-        // Helper to remove external event handlers (useful during teardown/tests).
+        // Remove any subscribed event handlers, useful during teardown or tests.
         public static void ClearAllEvents()
         {
             OnDamageDealt = null;

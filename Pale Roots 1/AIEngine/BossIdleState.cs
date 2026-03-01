@@ -3,18 +3,17 @@ using System.Collections.Generic;
 
 namespace Pale_Roots_1
 {
-    // This acts as the initial waiting phase for the boss before the fight officially kicks off.
-    // It just sits there in the center of the room, tracking the player until another script forces it into a ChaseState.
+    // Boss waits in place and faces the player when a target is assigned.
     public class BossIdleState : IAIState
     {
         public void Enter(INpcActor npc)
         {
+            // No setup is required when entering idle.
         }
 
         public void Update(INpcActor npc, GameTime gameTime, List<WorldObject> obstacles)
         {
-            // Even though the boss isn't attacking or chasing yet, we want it to look menacing by tracking the player.
-            // If the combat system has assigned a target (the player), we force the boss's sprite to continually turn and face them.
+            // Face the current target if one is assigned.
             if (npc.CurrentTarget != null)
             {
                 npc.SnapToFace(npc.CurrentTarget.Position);
@@ -22,6 +21,9 @@ namespace Pale_Roots_1
 
         }
 
-        public void Exit(INpcActor npc) { }
+        public void Exit(INpcActor npc) 
+        {
+            // No cleanup is required when exiting idle.
+        }
     }
 }

@@ -4,8 +4,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Pale_Roots_1
 {
-    // This state handles the end-game scrolling credits sequence.
-    // It implements IGameState so our StateManager can easily swap to it once the player beats the game.
+    // Displays the scrolling end-game credits and returns the player to the menu.
     public class CreditsState : IGameState
     {
         private Game1 _game;
@@ -13,7 +12,7 @@ namespace Pale_Roots_1
         // Tracks the vertical position of the entire block of text as it moves up the screen.
         private float _creditsScrollY;
 
-        // hardcoded string of credits.
+        // Hardcoded credits text.
         private string _creditsText =
             "PALE ROOTS\n\n" +
             "A Game by Ryan Barry\n\n" +
@@ -33,58 +32,52 @@ namespace Pale_Roots_1
 
         public void LoadContent()
         {
-            // Start the text exactly at the bottom edge of the window so it scrolls up into view.
+            // Position the credits text at the bottom of the viewport to start scrolling upward.
             _creditsScrollY = _game.GraphicsDevice.Viewport.Height;
 
-            // Tell the AudioManager to switch off the combat music and play the relaxing credits theme.
+            // Ask the audio manager to switch to the credits music.
             _game.AudioManager.HandleMusicState(GameState.Credits);
         }
 
         public void Update(GameTime gameTime)
         {
-            // Move the text upwards at a steady rate of 60 pixels per second, 
-            // using delta time so the speed is consistent regardless of framerate.
+            // Move the credits up at a fixed speed using the elapsed time.
             _creditsScrollY -= 60f * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // If the player presses Spacebar to skip, OR if the text has scrolled completely off the top of the screen...
+            // If the player skips or the credits finish, reset the game and return to the menu.
             if (Keyboard.GetState().IsKeyDown(Keys.Space) || _creditsScrollY < -1500f)
             {
-                // wipe the active gameplay session clean so the player doesn't load back into a finished arena.
                 _game.HasStarted = false;
                 _game.SoftResetGame();
-
-                // Finally, push them back out to the main menu.
                 _game.StateManager.ChangeState(new MenuState(_game));
             }
         }
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {
+            // Prepare the sprite batch and clear the screen to black.
             spriteBatch.Begin();
             graphicsDevice.Clear(Color.Black);
 
-            // Break our giant text block into an array of individual lines.
+            // Split the credits into lines for per-line measurement and drawing.
             string[] lines = _creditsText.Split('\n');
 
-            // We use this local variable to track where to draw each specific line, 
-            // starting from the master scroll position.
+            // Start drawing at the master scroll Y and advance by the font line spacing.
             float currentY = _creditsScrollY;
             float lineHeight = _game.UiFont.LineSpacing;
 
-            // Loop through every single line in the array.
+            // Draw each non-empty line centered horizontally.
             foreach (string line in lines)
             {
-                // Only bother doing the math and drawing if the line actually has text in it.
                 if (!string.IsNullOrWhiteSpace(line))
                 {
-                    // Measure how wide the text is so we can calculate the exact center of the screen on the X axis.
                     Vector2 lineSize = _game.UiFont.MeasureString(line);
                     Vector2 linePos = new Vector2((graphicsDevice.Viewport.Width / 2) - (lineSize.X / 2), currentY);
 
                     spriteBatch.DrawString(_game.UiFont, line, linePos, Color.White);
                 }
 
-                // Nudge the Y position down by one line height before we loop and draw the next line.
+                // Move down to the next line position.
                 currentY += lineHeight;
             }
 

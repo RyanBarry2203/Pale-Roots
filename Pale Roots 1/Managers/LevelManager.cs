@@ -9,11 +9,11 @@ namespace Pale_Roots_1
     {
         private Game _game;
 
-        // --- ENTITY LISTS ---
+        // lists of entities managed by this level manager.
         public List<Enemy> enemies = new List<Enemy>();
         public List<WorldObject> MapObjects = new List<WorldObject>();
 
-        // --- GRAPHICS ---
+        // textures and the current tile layer for rendering the level.
         public TileLayer CurrentLevel { get; private set; }
         private Texture2D _groundSheet;
         private Texture2D _animatedObjectSheet;
@@ -40,7 +40,7 @@ namespace Pale_Roots_1
             int height = 34;
             int[,] map = new int[height, width];
 
-            // 1. CREATE FLOOR
+            // fill the tile grid with the default floor tile id.
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -49,7 +49,7 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 2. FETCH PALETTE FROM DATA LIBRARY (API CALL)
+            // load the palette for this level from the data library.
             List<TileRef> palette = LevelDataLibrary.GetLevelPalette(levelIndex);
 
             CurrentLevel = new TileLayer(map, palette, 64, 32);
@@ -81,7 +81,7 @@ namespace Pale_Roots_1
                             pos.X += CombatSystem.RandomInt(-24, 24);
                             pos.Y += CombatSystem.RandomInt(-24, 24);
 
-                            // Fetching dynamically from the Data Library
+                            // pick a random nature asset from the data library and place it.
                             string randomNature = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                             CreateStaticObject(randomNature, pos, _staticObjectSheet, false);
                         }
@@ -94,6 +94,7 @@ namespace Pale_Roots_1
 
         private bool IsSpaceOccupied(Vector2 pos, float minGap)
         {
+            // check existing map objects to ensure a minimum spacing around a candidate position.
             foreach (var obj in MapObjects)
             {
                 float objectRadius = (obj.spriteWidth * (float)obj.Scale) / 2.5f;
@@ -109,6 +110,7 @@ namespace Pale_Roots_1
 
         private void PlaceLandMarks()
         {
+            // place specific large objects used as visual landmarks and anchors for procedural placement.
             Vector2 centerPos = new Vector2(30 * 64, 17 * 64);
             CreateAnimatedObject("Tree_Dead_Large", centerPos, _animatedObjectSheet, 4);
 
@@ -131,41 +133,36 @@ namespace Pale_Roots_1
             int maxItems = 60;
             int itemsPlaced = 0;
 
-            // Keep trying to place random debris until we hit our quota or our safety counter maxes out.
+            // repeatedly attempt to place decorative debris until quota or attempt limit is reached.
             while (itemsPlaced < maxItems && attempts < 1000)
             {
                 attempts++;
 
-                // Pick a totally random tile somewhere within the main play area.
+                // choose a random tile inside the play area.
                 int tx = CombatSystem.RandomInt(6, 54);
                 int ty = CombatSystem.RandomInt(6, 28);
                 Vector2 pos = new Vector2(tx * 64, ty * 64);
 
-                // Nudge it off the grid lines for a natural look.
+                // offset the position slightly for a natural look.
                 pos += new Vector2(CombatSystem.RandomInt(-20, 20), CombatSystem.RandomInt(-20, 20));
 
                 float distToCenter = Vector2.Distance(pos, centerPos);
 
-                // If this random spot is already covered by a tree or ruin, skip this attempt.
+                // skip placement if the spot is already occupied.
                 if (IsSpaceOccupied(pos, 80f)) continue;
 
                 string assetToSpawn = "";
                 bool isSolid = false;
 
-
-                // We divide the map into invisible zones to decide what kind of debris should spawn there.
-
-                // If it's near the dead center tree, spawn bones.
+                // decide which asset to spawn based on zone rules and position.
                 if (distToCenter < 350 && distToCenter > 100)
                 {
                     assetToSpawn = LevelDataLibrary.BoneObjects[CombatSystem.RandomInt(0, LevelDataLibrary.BoneObjects.Length)];
                 }
-                // If it's on the far left side of the map, spawn graves.
                 else if (tx < 22)
                 {
                     assetToSpawn = LevelDataLibrary.GraveObjects[CombatSystem.RandomInt(0, LevelDataLibrary.GraveObjects.Length)];
                 }
-                // If it's on the far right side of the map, heavily favor ruins.
                 else if (tx > 38)
                 {
                     if (CombatSystem.RandomInt(0, 100) > 70)
@@ -174,7 +171,6 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
 
                 }
-                // Anywhere else, make it a 50/50 split between bones and nature.
                 else
                 {
                     if (CombatSystem.RandomInt(0, 100) > 50)
@@ -183,10 +179,9 @@ namespace Pale_Roots_1
                         assetToSpawn = LevelDataLibrary.NatureObjects[CombatSystem.RandomInt(0, LevelDataLibrary.NatureObjects.Length)];
                 }
 
-                // If we successfully picked an asset to spawn.
+                // place the selected asset if it does not violate spacing rules.
                 if (assetToSpawn != "")
                 {
-                    // Do one final check to make sure we aren't spawning two identical skulls or trees right next to each other.
                     if (IsTooCloseToIdentical(assetToSpawn, pos, 500f)) continue;
 
                     CreateStaticObject(assetToSpawn, pos, _staticObjectSheet, isSolid);
@@ -197,6 +192,7 @@ namespace Pale_Roots_1
 
         private bool IsTooCloseToIdentical(string assetName, Vector2 pos, float minDistance)
         {
+            // ensure we don't put two identical objects too near each other.
             foreach (var obj in MapObjects)
             {
                 if (obj.AssetName == assetName)
@@ -209,6 +205,7 @@ namespace Pale_Roots_1
 
         private void CreateStaticObject(string assetName, Vector2 position, Texture2D sheet, bool isSolid)
         {
+            // construct a static world object from the sprite sheet and add it to the map.
             Rectangle data = Helper.GetSourceRect(assetName);
             var obj = new WorldObject(_game, sheet, position, 1, isSolid);
             obj.AssetName = assetName;
@@ -218,6 +215,7 @@ namespace Pale_Roots_1
 
         private void CreateAnimatedObject(string assetName, Vector2 position, Texture2D sheet, int frames)
         {
+            // construct an animated world object and add it to the map.
             Rectangle data = Helper.GetSourceRect(assetName);
             var obj = new WorldObject(_game, sheet, position, frames, false);
             obj.SetSpriteSheetLocation(data);
@@ -226,13 +224,11 @@ namespace Pale_Roots_1
 
         public void GenerateBossArena()
         {
-            // 1. Use the same dimensions as the main game so it looks "Big"
+            // create a base floor and populate the outer ring with trees to form arena walls.
             int width = 60;
             int height = 34;
             int[,] map = new int[height, width];
 
-            // 2. Fill the floor with standard grass (ID 0)
-            // This ensures no black void; the floor extends to the screen edges.
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -241,20 +237,16 @@ namespace Pale_Roots_1
                 }
             }
 
-            // 3. Create the TileLayer
-            // We reuse the palette from Level 0 so the grass looks identical to the main game
+            // reuse the palette so the arena matches the main level visually.
             List<TileRef> palette = LevelDataLibrary.GetLevelPalette(0);
             CurrentLevel = new TileLayer(map, palette, 64, 32);
 
-            // 4. Clear old objects
+            // clear existing objects and populate the outer area with nature assets to constrain movement.
             MapObjects.Clear();
 
-            // 5. Create the "Dense Tree Line" (The Arena Walls)
-            // We will place trees in a circle or box to lock the player in.
             Vector2 center = new Vector2(width * 64 / 2, height * 64 / 2);
-            float arenaRadius = 900f; // The fighting space radius
+            float arenaRadius = 900f; // the radius of the playable area
 
-            // Loop through the whole map area
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -262,8 +254,6 @@ namespace Pale_Roots_1
                     Vector2 tilePos = new Vector2(x * 64, y * 64);
                     float dist = Vector2.Distance(tilePos, center);
 
-                    // If we are OUTSIDE the arena radius, place a tree.
-                    // We add some noise so it doesn't look like a perfect artificial circle.
                     if (dist > arenaRadius)
                     {
                         if (CombatSystem.RandomInt(0, 10) < 8)
@@ -282,6 +272,7 @@ namespace Pale_Roots_1
 
         public void Update(GameTime gameTime, Player player)
         {
+            // update all enemies and assign the player as their combat partner.
             foreach (Enemy enemy in enemies)
             {
                 enemy.CurrentCombatPartner = player;
@@ -289,6 +280,7 @@ namespace Pale_Roots_1
             }
             enemies.RemoveAll(e => e.LifecycleState == Enemy.ENEMYSTATE.DEAD);
 
+            // update all placed world objects.
             foreach (var obj in MapObjects)
             {
                 obj.Update(gameTime);
@@ -297,6 +289,7 @@ namespace Pale_Roots_1
 
         public void Draw(SpriteBatch spriteBatch)
         {
+            // draw the current tile layer if available.
             if (CurrentLevel != null)
             {
                 CurrentLevel.Draw(spriteBatch);
